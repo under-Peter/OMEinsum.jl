@@ -9,7 +9,6 @@ makedocs(;
     repo="https://github.com/under-Peter/OMEinsum.jl/blob/{commit}{path}#L{line}",
     sitename="OMEinsum.jl",
     authors="Andreas Peter",
-    assets=[],
 )
 
 deploydocs(;
