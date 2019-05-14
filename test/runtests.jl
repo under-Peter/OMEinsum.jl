@@ -30,4 +30,9 @@ using Test
         aaa[j,k,l] += a[i,j] * a[i,k] * a[i,l]
     end
     @test aaa ≈ einsum(((1,2),(1,3),(1,4)), (a,a,a))
+
+    let p = (2,3,1,4)
+        @test einsum(((1,2,3,4),), (t,),p) ≈ permutedims(t,p)
+    end
+
 end
