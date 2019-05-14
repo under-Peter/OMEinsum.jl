@@ -57,7 +57,7 @@ function permuteandreshape(uniqueallins, t, c)
     p = map(i -> findfirst(==(i),x), c)
     rs = map(uniqueallins) do i
             j = findfirst(==(i), c)
-            isnothing(j) && return 1
+            j === nothing && return 1
             return size(t,j)
         end
     return reshape(permutedims(t,p),rs...)
