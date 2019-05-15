@@ -7,10 +7,33 @@ export pairwise_contract, einsum
 indexpos(iAs, i) = findfirst(==(i), iAs)
 
 @doc raw"
-   greet()
-say hello to the world!
+    pairwise_contract(iAs, A, iBs, B, iOuts)
+returns the contraction of the tensors `A` and `B`,
+specified by the indices `iAs` and `iBs` for the respective tensors.
+Indices that appear in `iAs` and `iBs` but not the output are contracted,
+indices that appear in either of the inputs and the output are left
+and indices that appear in both inputs and the output are assumed
+to be labels for e.g. batch-multiplication.
+
+Under the hood, the tensors are reshaped and permuted to get a
+batched multiplication. Traces are not supported.
+
+# example
+```jldoctest; setup = :(using OMEinsum)
+julia> using Einsum
+
+julia> a = rand(3,3,3,3,3);
+
+julia> b = rand(3,3,3,3,3);
+
+julia> res = pairwise_contract((1,2,3,4,5), a, (1,6,4,5,7), b, (1,2,6,3,7));
+
+julia> ref = @einsum c[i,j,l,k,m] := a[i,j,k,o,p] * b[i,l,o,p,m];
+
+julia> ref ≈ res
+true
+```
 "
-greet() = print("Hello World!")
 function pairwise_contract(iAs, A, iBs, B, iOuts)
     iABs = iAs ∩ iBs
     pres   = iABs ∩ iOuts
