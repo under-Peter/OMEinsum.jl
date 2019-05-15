@@ -1,2 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Einsum = "b7d42ee7-0b51-5a75-98ca-779d3107e4c0"
