@@ -3,8 +3,6 @@ using Zygote: @adjoint
 
 export bpcheck
 
-einsum!(contractions, tensors, outinds, outtensor) = copyto!(outtensor, einsum(contractions, tensors, outinds))
-
 function eingrad_i(ixs, xs, iy, cdy, i::Int)
     Ni = length(ixs)
     einsum!(map(k->k==i ? iy : ixs[k], 1:Ni), map(k->k==i ? cdy : xs[k], 1:Ni), ixs[i], zero(xs[i])) |> conj

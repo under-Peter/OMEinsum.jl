@@ -32,7 +32,7 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions, tensors, outinds)
+function einsum(contractions::Tuple, tensors, outinds)
     T = mapreduce(eltype, promote_type, tensors)
     l = length(tensors)
     allins = reduce(vcat, collect.(contractions))
@@ -59,3 +59,6 @@ function permuteandreshape(uniqueallins, t, c)
         end
     return reshape(permutedims(t,p),rs...)
 end
+
+# the inplace version
+einsum!(contractions::Tuple, tensors, outinds, outtensor) = copyto!(outtensor, einsum(contractions, tensors, outinds))
