@@ -5,7 +5,7 @@
 using TupleTools
 using SimpleTraits, LinearAlgebra
 
-export EinCode, is_pairwise, IsPairWise
+export EinCode, is_pairwise, IsPairWise, einmagic!
 
 struct EinCode{C} end
 
@@ -31,20 +31,21 @@ end
 @traitimpl IsPairWise{CODE} <- is_pairwise(CODE)
 
 """The most general case as fall back"""
-function einsum!(::Type{TP}, ::EinCode{C}, xs, y) where {TP, C}
+einmagic!(ixs::Tuple, xs::Tuple, iys::Tuple, y::AbstractArray) = einmagic!(EinCode(ixs, iys), xs, y)
+function einmagic!(::Type{TP}, ::EinCode{C}, xs, y) where {TP, C}
     @show TP, C
     einsum!(C[1:end-1], xs, C[end], y)
     return "general"
 end
 
 """Dispatch to trace."""
-function einsum!(::EinCode{((1,1), ())}, xs, y)
+function einmagic!(::EinCode{((1,1), ())}, xs, y)
     println("doing contraction using tr!")
-    y[] = tr(xs)
+    y[] = tr(xs[1])
     return "tr"
 end
 
-@traitfn function einsum!(::EinCode{X}, xs, y) where {X; IsPairWise{X}}
+@traitfn function einmagic!(::EinCode{X}, xs, y) where {X; IsPairWise{X}}
     println("doing contraction using @tensor!")
     return "@tensor"
 end
