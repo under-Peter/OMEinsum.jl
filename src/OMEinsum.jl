@@ -47,9 +47,10 @@ function einsum(contractions, tensors, outinds)
 
     t = sum(broadcast(*, ntensors...), dims=ds)
     tf = dropdims(t, dims = tuple(ds...))
+    isempty(outinds) && return tf
     x = [i for i in uniqueallins if i in outinds]
     p = map(i -> findfirst(==(i),x), outinds)
-    tff = permutedims(tf,p)
+    return permutedims(tf,p)
 end
 
 function permuteandreshape(uniqueallins, t, c)
