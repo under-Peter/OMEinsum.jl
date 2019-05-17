@@ -42,7 +42,7 @@ function einsum(contractions, tensors, outinds)
     uniqueallins = unique(allins)
     ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
 
-    ds = unique([i for i in allins if count(==(i), allins) > 1])
+    ds = unique([i for i in setdiff(allins, outinds)])
     ds = map(i -> findfirst(==(i), uniqueallins), ds)
 
     t = sum(broadcast(*, ntensors...), dims=ds)
