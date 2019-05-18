@@ -1,7 +1,7 @@
 function einsum(cs, ts)
     allins  = reduce(vcat, collect.(cs))
     outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
-    einsum(cs, ts, outinds)
+    einsum(cs, ts, tuple(outinds...))
 end
 
 @doc raw"
@@ -32,7 +32,9 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions, tensors, outinds)
+function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
+                tensors::NTuple{N, Array{<:Any,M} where M},
+                outinds::NTuple{<:Any,Int}) where N
     T = mapreduce(eltype, promote_type, tensors)
     sizes = reduce(TupleTools.vcat,size.(tensors))
     indices = reduce(TupleTools.vcat, contractions)
@@ -43,8 +45,10 @@ function einsum(contractions, tensors, outinds)
 end
 
 
-function einsum!(contractions, tensors, outinds, out)
-    l = length(tensors)
+function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
+                tensors::NTuple{N, Array{<:Any,M} where M},
+                outinds::NTuple{L,Int},
+                out::Array{<:Any,L}) where {N,L}
     allins = reduce(vcat, collect.(contractions))
     uniqueallins = unique(allins)
     ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
