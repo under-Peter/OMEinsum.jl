@@ -42,6 +42,7 @@ function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
     out = Array{T}(undef,outdims...)
 
     einsum!(contractions, tensors, outinds, out)
+    return out
 end
 
 
@@ -58,10 +59,14 @@ function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
 
     t = sum(broadcast(*, ntensors...), dims=ds)
     tf = dropdims(t, dims = tuple(ds...))
-    isempty(outinds) && return tf
-    x = [i for i in uniqueallins if i in outinds]
-    p = map(i -> findfirst(==(i),x), outinds)
-    return permutedims!(out, tf, p)
+    if isempty(outinds)
+        copyto!(out, tf)
+    else
+        x = [i for i in uniqueallins if i in outinds]
+        p = map(i -> findfirst(==(i),x), outinds)
+        permutedims!(out, tf, p)
+    end
+    return out
 end
 
 function permuteandreshape(uniqueallins, t, c)
