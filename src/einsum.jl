@@ -34,6 +34,16 @@ true
 "
 function einsum(contractions, tensors, outinds)
     T = mapreduce(eltype, promote_type, tensors)
+    sizes = reduce(TupleTools.vcat,size.(tensors))
+    indices = reduce(TupleTools.vcat, contractions)
+    outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
+    out = Array{T}(undef,outdims...)
+
+    einsum!(contractions, tensors, outinds, out)
+end
+
+
+function einsum!(contractions, tensors, outinds, out)
     l = length(tensors)
     allins = reduce(vcat, collect.(contractions))
     uniqueallins = unique(allins)
@@ -47,7 +57,7 @@ function einsum(contractions, tensors, outinds)
     isempty(outinds) && return tf
     x = [i for i in uniqueallins if i in outinds]
     p = map(i -> findfirst(==(i),x), outinds)
-    return permutedims(tf,p)
+    return permutedims!(out, tf, p)
 end
 
 function permuteandreshape(uniqueallins, t, c)
