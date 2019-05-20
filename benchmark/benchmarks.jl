@@ -23,7 +23,7 @@ end
 # Matrix batch-multiplication
 SUITE["batchmul"] = BenchmarkGroup()
 suite = SUITE["batchmul"]
-function foo(m)
+function batchmul(m)
     reduce((x,y) -> cat(x,y, dims=3), [m[:,:,i] * m[:,:,i] for i in axes(m,3)])
 end
 
@@ -34,7 +34,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "medium" => rand(T,10^2,10^2,3),
             "large"  => rand(T, 10^3,10^3,3)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m)
+        suite[string(T)][k] = @benchmarkable batchmul($m)
     end
 end
 
@@ -70,7 +70,7 @@ end
 #partial trace
 SUITE["ptrace"] = BenchmarkGroup()
 suite = SUITE["ptrace"]
-function foo(x)
+function ptrace(x)
     sum(x[i,i,:] for i in axes(x,1))
 end
 for T in (Float32, Float64, ComplexF32, ComplexF64)
@@ -81,14 +81,14 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(50,3)...)
             "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m)
+        suite[string(T)][k] = @benchmarkable ptrace($m)
     end
 end
 
 #diagonal
 SUITE["diag"] = BenchmarkGroup()
 suite = SUITE["diag"]
-function foo(m)
+function mydiag(m)
     reduce((x,y) -> cat(x,y, dims=2), m[:,i,i] for i in axes(m,2))
 end
 for T in (Float32, Float64, ComplexF32, ComplexF64)
@@ -100,7 +100,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large" => rand(T,fill(30,3)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m)
+        suite[string(T)][k] = @benchmarkable mydiag($m)
     end
 end
 
@@ -123,7 +123,7 @@ end
 # tensor contraction
 SUITE["tcontract"] = BenchmarkGroup()
 suite = SUITE["tcontract"]
-function foo(x,y)
+function tcontract(x,y)
     xy = zeros(eltype(x),size(x,1), size(y,2))
     for (i,j,k,l) in Iterators.product(axes(x,1), axes(y,2), axes(x,2), axes(y,3))
         xy[i,j] += x[i,k,l] * y[k,j,l]
@@ -140,19 +140,19 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             ]
 
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m,$m)
+        suite[string(T)][k] = @benchmarkable tcontract($m,$m)
     end
 end
 
 # star contraction
 SUITE["star"] = BenchmarkGroup()
 suite = SUITE["star"]
-function foo(x,y,z)
+function starcontract(x,y,z)
     xyz = zeros(eltype(x),size(x,2), size(y,2), size(z,2))
     for (i,j,k,l) in Iterators.product(axes(x,1), axes(x,2), axes(y,2), axes(z,2))
         xyz[j,k,l] += x[i,j] * y[i,k] * z[i,l]
     end
-    return xy
+    return xyz
 end
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
@@ -163,19 +163,19 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(100,2)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m,$m)
+        suite[string(T)][k] = @benchmarkable starcontract($m,$m,$m)
     end
 end
 
 #star and contract
 SUITE["star&contract"] = BenchmarkGroup()
 suite = SUITE["star&contract"]
-function foo(x,y,z)
-    xyz = zeros(size(x,2))
+function starandcontract(x,y,z)
+    xyz = zeros(eltype(x),size(x,2))
     for (i,j,k,l) in Iterators.product(axes(x,1), axes(x,2), axes(y,2), axes(z,2))
         xyz[j] += x[i,j] * y[i,l] * z[i,l]
     end
-    return xy
+    return xyz
 end
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
@@ -186,7 +186,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(100,2)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m,$m)
+        suite[string(T)][k] = @benchmarkable starandcontract($m,$m,$m)
     end
 end
 
@@ -225,7 +225,7 @@ end
 # Outer
 SUITE["outer"] = BenchmarkGroup()
 suite = SUITE["outer"]
-function foo(x,y)
+function myouter(x,y)
     xp = reshape(x, size(x)...,1,1)
     yp = reshape(y, 1,1,size(y)...)
     xp .* yp
@@ -239,6 +239,6 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(100,2)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable foo($m, $m)
+        suite[string(T)][k] = @benchmarkable myouter($m, $m)
     end
 end
