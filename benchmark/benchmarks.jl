@@ -89,7 +89,7 @@ end
 SUITE["diag"] = BenchmarkGroup()
 suite = SUITE["diag"]
 function foo(m)
-    permutedims(reduce((x,y) -> cat(x,y, dims=3), m[:,i,i,:] for i in axes(m,2)), (1,3,2))
+    reduce((x,y) -> cat(x,y, dims=2), m[:,i,i] for i in axes(m,2))
 end
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
@@ -120,7 +120,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     end
 end
 
-#permutation
+# tensor contraction
 SUITE["tcontract"] = BenchmarkGroup()
 suite = SUITE["tcontract"]
 function foo(x,y)
@@ -144,7 +144,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     end
 end
 
-#permutation
+# star contraction
 SUITE["star"] = BenchmarkGroup()
 suite = SUITE["star"]
 function foo(x,y,z)
