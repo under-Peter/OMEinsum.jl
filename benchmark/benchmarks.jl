@@ -24,7 +24,7 @@ end
 SUITE["batchmul"] = BenchmarkGroup()
 suite = SUITE["batchmul"]
 function foo(m)
-    cat( m[:,:,i] * m[:,:,i] for i in axes(m,3), dims=3)
+    reduce((x,y) -> cat(x,y, dims=3), [m[:,:,i] * m[:,:,i] for i in axes(m,3)])
 end
 
 for T in (Float32, Float64, ComplexF32, ComplexF64)
