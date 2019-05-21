@@ -98,6 +98,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "small"  => rand(T,fill(10,3)...)
             "medium" => rand(T,fill(20,3)...)
             "large" => rand(T,fill(30,3)...)
+            "huge" => rand(T,fill(100,3)...)
             ]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable mydiag($m)
