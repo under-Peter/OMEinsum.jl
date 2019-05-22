@@ -169,8 +169,8 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
 end
 
 #star and contract
-SUITE["star&contract"] = BenchmarkGroup()
-suite = SUITE["star&contract"]
+SUITE["starandcontract"] = BenchmarkGroup()
+suite = SUITE["starandcontract"]
 function starandcontract(x,y,z)
     xyz = zeros(eltype(x),size(x,2))
     for (i,j,k,l) in Iterators.product(axes(x,1), axes(x,2), axes(y,2), axes(z,2))
