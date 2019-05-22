@@ -1,9 +1,9 @@
 module OMEinsum
+export einsum
 
-@doc raw"
-   greet()
-say hello to the world!
-"
-greet() = print("Hello World!")
+using TupleTools
+
+
+include("einsum.jl")
 
 end # module
