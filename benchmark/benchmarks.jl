@@ -1,6 +1,6 @@
 using BenchmarkTools
 using Random
-using LinearAlgebra
+using OMEinsum
 
 Random.seed!(0)
 
