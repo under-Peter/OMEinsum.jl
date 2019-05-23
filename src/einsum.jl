@@ -54,7 +54,7 @@ getdiagonals(tensors, contractions, outinds) =
 
 function getdiagonal(t, c, outinds)
     idup = findfirst(i -> count(==(i), c) > 1, c)
-    isnothing(idup) && return (t,c)
+    idup === nothing && return (t,c)
 
     dup = c[idup]
     dinds = findall(==(dup), c)
