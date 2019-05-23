@@ -35,6 +35,7 @@ true
 function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{<:Any,Int}) where N
+
     tensors, contractions = getdiagonals(tensors, contractions, outinds)
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
@@ -73,6 +74,7 @@ function getdiagonal(t, c, outinds)
 
     return getdiagonal(nt, nc, outinds)
 end
+
 
 function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
