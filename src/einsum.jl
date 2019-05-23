@@ -35,14 +35,17 @@ true
 function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{<:Any,Int}) where N
+    out = outputtensor(tensors, contractions, outinds)
+    einsum!(contractions, tensors, outinds, out)
+    return out
+end
+
+function outputtensor(tensors, contractions, outinds)
     T = mapreduce(eltype, promote_type, tensors)
     sizes = reduce(TupleTools.vcat,size.(tensors))
     indices = reduce(TupleTools.vcat, contractions)
     outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    out = Array{T}(undef,outdims...)
-
-    einsum!(contractions, tensors, outinds, out)
-    return out
+    return Array{T}(undef,outdims...)
 end
 
 
