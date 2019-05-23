@@ -35,6 +35,7 @@ true
 function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{<:Any,Int}) where N
+    tensors, contractions = getdiagonals(tensors, contractions, outinds)
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
     return out
@@ -48,6 +49,30 @@ function outputtensor(tensors, contractions, outinds)
     return Array{T}(undef,outdims...)
 end
 
+getdiagonals(tensors, contractions, outinds) =
+    (x -> (first.(x), last.(x)))(map((t,c) -> getdiagonal(t,c,outinds), tensors, contractions))
+
+function getdiagonal(t, c, outinds)
+    idup = findfirst(i -> count(==(i), c) > 1, c)
+    isnothing(idup) && return (t,c)
+
+    dup = c[idup]
+    dinds = findall(==(dup), c)
+    oinds = findall(x -> x != dup, c)
+    l = length(dinds)
+    perm = vcat(oinds, dinds)
+
+    s = [size(t, i) for i in oinds]
+    s = vcat(s, prod(x -> size(t,x), dinds))
+
+    nt = reshape(permutedims(t,perm),s...)
+    ds = size(t, idup)
+    stride = sum(x -> ds^x, 0:(l-1))
+    nt = nt[fill(:,length(oinds))..., 1:stride:size(nt)[end]]
+    nc = ((x->c[x]).(oinds)..., dup)
+
+    return getdiagonal(nt, nc, outinds)
+end
 
 function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
