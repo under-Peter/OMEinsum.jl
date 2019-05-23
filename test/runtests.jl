@@ -26,6 +26,7 @@ using Test
 
     # diag
     @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ permutedims(
+
                     reduce((x,y) -> cat(x,y, dims=3), aa[:,i,i,:] for i in 1:4),(1,3,2))
 
     # permutation
