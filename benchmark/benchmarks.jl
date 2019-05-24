@@ -2,6 +2,7 @@ using BenchmarkTools
 using Random
 using OMEinsum
 
+
 Random.seed!(0)
 
 const SUITE = BenchmarkGroup()
@@ -18,12 +19,14 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             ]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable einsum(((1,2),(2,3)), ($m,$m),(1,3))
+
     end
 end
 
 # Matrix batch-multiplication
 SUITE["batchmul"] = BenchmarkGroup()
 suite = SUITE["batchmul"]
+
 
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
@@ -34,6 +37,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             ]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable einsum(((1,2,3),(2,4,3)), ($m,$m), (1,4,3))
+
     end
 end
 
@@ -49,6 +53,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable einsum(((1,2,3),(1,2,3)), ($m, $m))
+
     end
 end
 
@@ -78,12 +83,14 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable einsum(((1,1,2),),($m,),(2,))
+
     end
 end
 
 #diagonal
 SUITE["diag"] = BenchmarkGroup()
 suite = SUITE["diag"]
+
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -117,6 +124,7 @@ end
 # tensor contraction
 SUITE["tcontract"] = BenchmarkGroup()
 suite = SUITE["tcontract"]
+
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -134,6 +142,7 @@ end
 # star contraction
 SUITE["star"] = BenchmarkGroup()
 suite = SUITE["star"]
+
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -150,6 +159,7 @@ end
 #star and contract
 SUITE["starandcontract"] = BenchmarkGroup()
 suite = SUITE["starandcontract"]
+
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -198,6 +208,7 @@ end
 # Outer
 SUITE["outer"] = BenchmarkGroup()
 suite = SUITE["outer"]
+
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
