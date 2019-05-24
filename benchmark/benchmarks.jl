@@ -1,6 +1,6 @@
 using BenchmarkTools
 using Random
-using LinearAlgebra
+using Einsum
 
 Random.seed!(0)
 
@@ -9,6 +9,8 @@ const SUITE = BenchmarkGroup()
 # Matrix multiplication
 SUITE["matmul"] = BenchmarkGroup()
 suite = SUITE["matmul"]
+
+matmul(m1,m2) = @einsum out[i,j] := m1[i,l] * m2[l,j]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args = ["tiny"   => rand(T,2,2),
@@ -16,17 +18,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "medium" => rand(T,10^2,10^2),
             "large"  => rand(T, 10^3,10^3)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable $m * $m
+        suite[string(T)][k] = @benchmarkable matmul($m,$m)
     end
 end
 
 # Matrix batch-multiplication
 SUITE["batchmul"] = BenchmarkGroup()
 suite = SUITE["batchmul"]
-function batchmul(m)
-    reduce((x,y) -> cat(x,y, dims=3), [m[:,:,i] * m[:,:,i] for i in axes(m,3)])
-end
 
+batchmul(m) = @einsum out[i,j,k] := m[i,l,k] * m[l,j,k]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args = ["tiny"   => rand(T,2,2,3),
@@ -41,6 +41,8 @@ end
 #inner - reduction to scalar
 SUITE["dot"] = BenchmarkGroup()
 suite = SUITE["dot"]
+
+mydot(m,m2) = @einsum out := m[i,j,k] * m2[i,j,]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args = ["tiny"   => rand(T,fill(2,3)...)
@@ -49,13 +51,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(50,3)...)
             "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable dot($m, $m)
+        suite[string(T)][k] = @benchmarkable mydot($m, $m)
     end
 end
 
 #trace
 SUITE["trace"] = BenchmarkGroup()
 suite = SUITE["trace"]
+
+mytr(m) = @einsum out := m[i,i]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args = ["tiny"   => rand(T,fill(2,2)...)
@@ -63,16 +67,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "medium" => rand(T,fill(10^2,2)...)
             "large"  => rand(T,fill(10^3,2)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable tr($m)
+        suite[string(T)][k] = @benchmarkable mytr($m)
     end
 end
 
 #partial trace
 SUITE["ptrace"] = BenchmarkGroup()
 suite = SUITE["ptrace"]
-function ptrace(x)
-    sum(x[i,i,:] for i in axes(x,1))
-end
+
+ptrace(m) = @einsum out[i] := m[j,j,i]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args = ["tiny"   => rand(T,fill(2,3)...)
@@ -88,9 +91,8 @@ end
 #diagonal
 SUITE["diag"] = BenchmarkGroup()
 suite = SUITE["diag"]
-function mydiag(m)
-    reduce((x,y) -> cat(x,y, dims=2), m[:,i,i] for i in axes(m,2))
-end
+
+mydiag(m) = @einsum out[i,j] := m[i,j,j]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -108,6 +110,8 @@ end
 #permutation
 SUITE["perm"] = BenchmarkGroup()
 suite = SUITE["perm"]
+
+myperm(m) = @einsum out[l,j,k,i] := m[i,j,k,l]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -117,20 +121,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(30,4)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable permutedims($m, (4,2,3,1))
+        suite[string(T)][k] = @benchmarkable myperm($m)
     end
 end
 
 # tensor contraction
 SUITE["tcontract"] = BenchmarkGroup()
 suite = SUITE["tcontract"]
-function tcontract(x,y)
-    xy = zeros(eltype(x),size(x,1), size(y,2))
-    for (i,j,k,l) in Iterators.product(axes(x,1), axes(y,2), axes(x,2), axes(y,3))
-        xy[i,j] += x[i,k,l] * y[k,j,l]
-    end
-    return xy
-end
+
+tcontract(m1,m2) = @einsum out[i,j] := m1[i,k,l] * m2[k,j,l]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -148,13 +147,8 @@ end
 # star contraction
 SUITE["star"] = BenchmarkGroup()
 suite = SUITE["star"]
-function starcontract(x,y,z)
-    xyz = zeros(eltype(x),size(x,2), size(y,2), size(z,2))
-    for (i,j,k,l) in Iterators.product(axes(x,1), axes(x,2), axes(y,2), axes(z,2))
-        xyz[j,k,l] += x[i,j] * y[i,k] * z[i,l]
-    end
-    return xyz
-end
+
+starcontract(m1,m2,m3) = @einsum out[j,k,l] := m1[i,j] * m2[i,k] * m3[i,l]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -171,13 +165,9 @@ end
 #star and contract
 SUITE["starandcontract"] = BenchmarkGroup()
 suite = SUITE["starandcontract"]
-function starandcontract(x,y,z)
-    xyz = zeros(eltype(x),size(x,2))
-    for (i,j,k,l) in Iterators.product(axes(x,1), axes(x,2), axes(y,2), axes(z,2))
-        xyz[j] += x[i,j] * y[i,l] * z[i,l]
-    end
-    return xyz
-end
+
+
+starandcontract(m1,m2,m3) = @einsum out[j] := m1[i,j] * m2[i,l] * m3[i,l]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -194,6 +184,8 @@ end
 # index-sum
 SUITE["indexsum"] = BenchmarkGroup()
 suite = SUITE["indexsum"]
+
+mysum(m) = @einsum out[i,k] := m[i,j,k]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -203,13 +195,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(100,3)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable sum($m, dims=2)
+        suite[string(T)][k] = @benchmarkable mysum($m)
     end
 end
 
 # Hadamard
 SUITE["hadamard"] = BenchmarkGroup()
 suite = SUITE["hadamard"]
+
+myhadamard(m1,m2) = @einsum out[i,j,k] := m1[i,j,k] * m2[i,j,k]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
@@ -219,18 +213,15 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "large"  => rand(T,fill(100,3)...)
             ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable $m .* $m
+        suite[string(T)][k] = @benchmarkable myhadamard($m,$m)
     end
 end
 
 # Outer
 SUITE["outer"] = BenchmarkGroup()
 suite = SUITE["outer"]
-function myouter(x,y)
-    xp = reshape(x, size(x)...,1,1)
-    yp = reshape(y, 1,1,size(y)...)
-    xp .* yp
-end
+
+myouter(m1,m2) = @einsum out[i,j,k,l] := m1[i,j] * m2[k,l]
 for T in (Float32, Float64, ComplexF32, ComplexF64)
     suite[string(T)] = BenchmarkGroup()
     args =  [
