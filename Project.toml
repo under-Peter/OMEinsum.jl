@@ -6,7 +6,6 @@ version = "0.1.0"
 [deps]
 PkgBenchmark = "32113eaa-f34f-5b0d-bd6c-c81e245fc73d"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
-PkgBenchmark = "32113eaa-f34f-5b0d-bd6c-c81e245fc73d"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
