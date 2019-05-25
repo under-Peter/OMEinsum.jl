@@ -35,8 +35,6 @@ true
 function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{<:Any,Int}) where N
-
-    tensors, contractions = getdiagonals(tensors, contractions, outinds)
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
     return out
@@ -44,10 +42,10 @@ end
 
 function outputtensor(tensors, contractions, outinds)
     T = mapreduce(eltype, promote_type, tensors)
-    sizes = reduce(TupleTools.vcat,size.(tensors))
+    sizes   = reduce(TupleTools.vcat, size.(tensors))
     indices = reduce(TupleTools.vcat, contractions)
     outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    return Array{T}(undef,outdims...)
+    return zeros(T,outdims...)
 end
 
 getdiagonals(tensors, contractions, outinds) =
@@ -80,6 +78,8 @@ function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{L,Int},
                 out::Array{<:Any,L}) where {N,L}
+    tensors, contractions = getdiagonals(tensors, contractions, outinds)
+
     allins = reduce(vcat, collect.(contractions))
     uniqueallins = unique(allins)
     ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
@@ -89,13 +89,17 @@ function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
 
     t = sum(broadcast(*, ntensors...), dims=ds)
     tf = dropdims(t, dims = tuple(ds...))
+
+    outindspre = tuple(unique(outinds)...)
+    outpre = outputtensor(tensors, contractions, outindspre)
     if isempty(outinds)
-        copyto!(out, tf)
+        copyto!(outpre, tf)
     else
         x = [i for i in uniqueallins if i in outinds]
         p = map(i -> findfirst(==(i),x), outinds)
-        permutedims!(out, tf, p)
+        permutedims!(outpre, tf, p)
     end
+    expandall!(out, outinds, outpre, outindspre)
     return out
 end
 
@@ -108,4 +112,52 @@ function permuteandreshape(uniqueallins, t, c)
             return size(t,j)
         end
     return reshape(permutedims(t,p),rs...)
+end
+
+function deltastride(ns)
+    stride, dt = 0, 1
+    for n in ns
+        stride += dt
+        dt *= n
+    end
+    return stride
+end
+
+function densedelta(::Type{T}, ns::Vararg{Int,N}) where {T,N}
+    id = zeros(T,ns...)
+    o = one(T)
+    stride = deltastride(ns)
+    for i in 1:stride:length(id)
+        id[i] = o
+    end
+    return id
+end
+
+function expandall!(b, indsb, a, indsa)
+    einds = [i for i in unique(indsb) if count(==(i), indsb) > count(==(i), indsa)]
+    sizes = [size(b,findfirst(==(eind),indsb)) for eind in einds]
+    ns = [count(==(eind), indsb) for eind in einds]
+    deltas = [densedelta(eltype(b), fill(s,n)...) for (s,n) in zip(sizes,ns)]
+    indsainb = map(i -> findfirst(==(i), indsa), indsb)
+    perm = unique!([i for i in indsainb if i != nothing])
+
+    ap = isempty(perm) ? a : permutedims(a,perm)
+    sa = []
+    for (j,i) in enumerate(indsainb)
+        if i == nothing
+            push!(sa, 1)
+        elseif !(i in indsainb[1:(j-1)])
+            push!(sa, size(a,i))
+        end
+    end
+    rap = reshape(ap, sa...)
+    nids = []
+    for i in 1:length(einds)
+        sb = fill(1, ndims(b))
+        inds = findall(==(einds[i]), indsb)
+        sb[inds] .= sizes[i]
+        push!(nids,reshape(deltas[i], sb...))
+    end
+    broadcast!(*, b, rap, nids...)
+    return b
 end
