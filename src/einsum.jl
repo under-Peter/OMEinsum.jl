@@ -48,10 +48,16 @@ function outputtensor(tensors, contractions, outinds)
     return zeros(T,outdims...)
 end
 
-getdiagonals(tensors, contractions, outinds) =
-    (x -> (first.(x), last.(x)))(map((t,c) -> getdiagonal(t,c,outinds), tensors, contractions))
+function diagonals(ts, cs, outinds)
+    tcs = map(ts, cs) do t,c
+        diagonal(t,c,outinds)
+    end
+    nts = getindex.(tcs,1)
+    ncs = getindex.(tcs,2)
+    return nts, ncs
+end
 
-function getdiagonal(t, c, outinds)
+function diagonal(t, c, outinds)
     idup = findfirst(i -> count(==(i), c) > 1, c)
     idup === nothing && return (t,c)
 
@@ -61,8 +67,8 @@ function getdiagonal(t, c, outinds)
     l = length(dinds)
     perm = vcat(oinds, dinds)
 
-    s = [size(t, i) for i in oinds]
-    s = vcat(s, prod(x -> size(t,x), dinds))
+    s = vcat([size(t,i) for i in oinds],
+             prod(x -> size(t,x), dinds))
 
     nt = reshape(permutedims(t,perm),s...)
     ds = size(t, idup)
@@ -70,36 +76,25 @@ function getdiagonal(t, c, outinds)
     nt = nt[fill(:,length(oinds))..., 1:stride:size(nt)[end]]
     nc = ((x->c[x]).(oinds)..., dup)
 
-    return getdiagonal(nt, nc, outinds)
+    return diagonal(nt, nc, outinds)
 end
 
 
-function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
-                tensors::NTuple{N, Array{<:Any,M} where M},
-                outinds::NTuple{L,Int},
+function einsum!(cons::NTuple{N, NTuple{M, Int} where M},
+                tens::NTuple{N, Array{<:Any,M} where M},
+                oinds::NTuple{L,Int},
                 out::Array{<:Any,L}) where {N,L}
-    tensors, contractions = getdiagonals(tensors, contractions, outinds)
 
-    allins = reduce(vcat, collect.(contractions))
-    uniqueallins = unique(allins)
-    ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
+    # reduce duplicate indices within tensors to diagonals
+    tens, cons = diagonals(tens, cons, oinds)
 
-    ds = unique([i for i in setdiff(allins, outinds)])
-    ds = map(i -> findfirst(==(i), uniqueallins), ds)
+    # combine and contract
+    oindspre = tuple(unique(oinds)...) ∩ vcat(collect.(cons)...)
+    outpre = outputtensor(tens, cons, oindspre)
+    contractcombine!(outpre, oindspre, oinds, cons, tens)
 
-    t = sum(broadcast(*, ntensors...), dims=ds)
-    tf = dropdims(t, dims = tuple(ds...))
-
-    outindspre = tuple(unique(outinds)...)
-    outpre = outputtensor(tensors, contractions, outindspre)
-    if isempty(outinds)
-        copyto!(outpre, tf)
-    else
-        x = [i for i in uniqueallins if i in outinds]
-        p = map(i -> findfirst(==(i),x), outinds)
-        permutedims!(outpre, tf, p)
-    end
-    expandall!(out, outinds, outpre, outindspre)
+    # expand duplicate indices in output
+    expandall!(out, oinds, outpre, oindspre)
     return out
 end
 
@@ -111,7 +106,45 @@ function permuteandreshape(uniqueallins, t, c)
             j === nothing && return 1
             return size(t,j)
         end
-    return reshape(permutedims(t,p),rs...)
+    if isempty(rs)
+        return t
+    elseif isempty(p)
+        return reshape(t,rs...)
+    else
+        return reshape(permutedims(t,p),rs...)
+    end
+end
+
+function contractcombine!(outpre, outindspre, outinds, contractions, tensors)
+    allins = reduce(vcat, collect.(contractions))
+    uniqueallins = unique(allins)
+    ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
+
+    ds = unique([i for i in setdiff(allins, outindspre)])
+    ds = map(i -> findfirst(==(i), uniqueallins), ds)
+
+    if isempty(ds)
+        tf = broadcast(*, ntensors...)
+        if isempty(outindspre ∩ allins)
+            copyto!(outpre, tf)
+        else
+            p = map(i -> findfirst(==(i),uniqueallins), outindspre)
+            copyto!(outpre, permutedims(tf,p))
+        end
+        return outpre
+    end
+
+    t = sum(broadcast(*, ntensors...), dims=ds)
+    tf = dropdims(t, dims = tuple(ds...))
+
+    if isempty(outinds)
+        copyto!(outpre, tf)
+    else
+        x = [i for i in uniqueallins if i in outinds]
+        p = map(i -> findfirst(==(i),x), outinds)
+        permutedims!(outpre, tf, p)
+    end
+    return outpre
 end
 
 function deltastride(ns)
