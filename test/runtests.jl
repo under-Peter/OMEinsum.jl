@@ -1,5 +1,6 @@
 using OMEinsum
 using Test
+using LinearAlgebra
 
 @testset "einsum" begin
     include("einsum.jl")

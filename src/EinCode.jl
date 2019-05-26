@@ -33,19 +33,18 @@ end
 """The most general case as fall back"""
 einmagic!(ixs::Tuple, xs::Tuple, iys::Tuple, y::AbstractArray) = einmagic!(EinCode(ixs, iys), xs, y)
 function einmagic!(::Type{TP}, ::EinCode{C}, xs, y) where {TP, C}
-    @show TP, C
+    println("TYPE: $TP, CODE: $C -> general")
     einsum!(C[1:end-1], xs, C[end], y)
-    return "general"
 end
 
 """Dispatch to trace."""
 function einmagic!(::EinCode{((1,1), ())}, xs, y)
     println("doing contraction using tr!")
     y[] = tr(xs[1])
-    return "tr"
+    y
 end
 
-@traitfn function einmagic!(::EinCode{X}, xs, y) where {X; IsPairWise{X}}
-    println("doing contraction using @tensor!")
-    return "@tensor"
+@traitfn function einmagic!(::EinCode{C}, xs, y) where {C; IsPairWise{C}}
+    println("CODE $C (IsPairWise) -> @tensor!")
+    einsum!(C[1:end-1], xs, C[end], y)
 end

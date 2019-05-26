@@ -3,8 +3,16 @@ uuid = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PkgBenchmark = "32113eaa-f34f-5b0d-bd6c-c81e245fc73d"
+SimpleTraits = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
+TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
 [extras]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "LinearAlgebra"]

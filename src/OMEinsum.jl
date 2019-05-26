@@ -1,8 +1,9 @@
 module OMEinsum
-export einsum, einsum!
+using TupleTools
+export einsum, expandall!
 
 include("einsum.jl")
-include("autodiff.jl")
 include("EinCode.jl")
+include("autodiff.jl")
 
 end # module
