@@ -33,7 +33,7 @@ true
 ```
 "
 function einsum(contractions::NTuple{N, NTuple{M, T} where M},
-                tensors::NTuple{N, Array{<:Any,M} where M},
+                tensors::NTuple{N, AbstractArray{<:Any,M} where M},
                 outinds::NTuple{<:Any,T}) where {N,T}
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
@@ -81,9 +81,9 @@ end
 
 
 function einsum!(cons::NTuple{N, NTuple{M,T} where M},
-                tens::NTuple{N, Array{<:Any,M} where M},
+                tens::NTuple{N, AbstractArray{<:Any,M} where M},
                 oinds::NTuple{L,T},
-                out::Array{<:Any,L}) where {N,L,T}
+                out::AbstractArray{<:Any,L}) where {N,L,T}
 
     # reduce duplicate indices within tensors to diagonals
     tens, cons = diagonals(tens, cons, oinds)
