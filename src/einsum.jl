@@ -48,16 +48,16 @@ function outputtensor(tensors, contractions, outinds)
     return zeros(T,outdims...)
 end
 
-function diagonals(ts, cs, outinds)
+function diagonals(ts, cs)
     tcs = map(ts, cs) do t,c
-        diagonal(t,c,outinds)
+        diagonal(t,c)
     end
     nts = getindex.(tcs,1)
     ncs = getindex.(tcs,2)
     return nts, ncs
 end
 
-function diagonal(t, c, outinds)
+function diagonal(t::AbstractArray{<:Any,N}, c::NTuple{N}) where N
     idup = findfirst(i -> count(==(i), c) > 1, c)
     idup === nothing && return (t,c)
 
@@ -76,7 +76,7 @@ function diagonal(t, c, outinds)
     nt = nt[fill(:,length(oinds))..., 1:stride:size(nt)[end]]
     nc = ((x->c[x]).(oinds)..., dup)
 
-    return diagonal(nt, nc, outinds)
+    return diagonal(nt, nc)
 end
 
 
@@ -86,7 +86,7 @@ function einsum!(cons::NTuple{N, NTuple{M,T} where M},
                 out::AbstractArray{<:Any,L}) where {N,L,T}
 
     # reduce duplicate indices within tensors to diagonals
-    tens, cons = diagonals(tens, cons, oinds)
+    tens, cons = diagonals(tens, cons)
 
     # combine and contract
     oindspre = tuple(unique(oinds)...) ∩ vcat(collect.(cons)...)
