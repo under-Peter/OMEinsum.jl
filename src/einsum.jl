@@ -48,6 +48,19 @@ function outputtensor(tensors, contractions, outinds)
     return zeros(T,outdims...)
 end
 
+@doc raw"
+    diagonals(tensors, contractions)
+
+for each tensor in `tensors`, check whether there are
+any duplicates in `contractions`.
+If there are duplicates, take the diagonal w.r.t to the duplicates
+and return these diagonals and the new contractions.
+# Example
+```jldoctest; setup = :(using OMEinsum)
+julia> OMEinsum.diagonals(([1 2; 3 4],), ((1,1),))
+(([1, 4],), ((1,),))
+```
+"
 function diagonals(ts, cs)
     tcs = map(ts, cs) do t,c
         diagonal(t,c)
@@ -57,6 +70,22 @@ function diagonals(ts, cs)
     return nts, ncs
 end
 
+@doc raw"
+    diagonal(tensor::AbstractArray{<:Any,N}, inds::NTuple{N})
+
+if there are any duplicate labels in `inds`, take those elements
+of `tensor` for which the indices for the duplicate labels are
+the same, i.e. if `ind = (1,2,2)`, make a new tensor
+from the slices `tensor[i,j,j]`.
+If multiple duplicate labels are in `inds` recursively calls itself
+until none are left.
+
+# Example
+```jldoctest; setup = :(using OMEinsum)
+julia> OMEinsum.diagonal([1 2; 3 4], (1,1))
+([1, 4], (1,))
+```
+"
 function diagonal(t::AbstractArray{<:Any,N}, c::NTuple{N}) where N
     idup = findfirst(i -> count(==(i), c) > 1, c)
     idup === nothing && return (t,c)
@@ -98,6 +127,32 @@ function einsum!(cons::NTuple{N, NTuple{M,T} where M},
     return out
 end
 
+@doc raw"
+    permuteandreshape(uniqueallins, tensor, inds)
+permute `tensor` such that its indices in `inds` are in the same
+order as in `uniqueallins`.
+Then reshape the permuted `tensor` such that the indices of
+the resulting tensors for indices in `inds` is conserved
+while singleton-dimensions are inserted for indices in
+`uniqueallins` that are not in `inds`.
+
+# Example
+Here, the array `[1 2;3 4]` is permuted according to the indices in `uniqueallins`,
+where label `1` comes before label `4` and then reshape it to have a shape that
+could be indexed with four labels.
+
+```jldoctest; setup = :(using OMEinsum)
+julia> OMEinsum.permuteandreshape((1,2,3,4), [1 2; 3 4], (4,1))
+2×1×1×2 Array{Int64,4}:
+[:, :, 1, 1] =
+ 1
+ 2
+
+[:, :, 1, 2] =
+ 3
+ 4
+```
+"
 function permuteandreshape(uniqueallins, t, c)
     x = [i for i in uniqueallins if i in c]
     p = map(i -> findfirst(==(i),x), c)
@@ -115,6 +170,11 @@ function permuteandreshape(uniqueallins, t, c)
     end
 end
 
+@doc raw"
+    contractcombine!(out, outindspre, outinds, contractions, tensors)
+take the tensorproduct of all tensors in `tensors` according to the
+specification in `contractions` and save the result in `out`.
+"
 function contractcombine!(outpre, outindspre, outinds, contractions, tensors)
     allins = reduce(vcat, collect.(contractions))
     uniqueallins = unique(allins)
@@ -166,6 +226,25 @@ function densedelta(::Type{T}, ns::Vararg{Int,N}) where {T,N}
     return id
 end
 
+@doc raw"
+    expandall!(b::AbstractArray{T,N}, indsb::NTuple{<:Any,N},
+               a::AbstractArray{T,M}, indsa::NTuple{<:Any,M})
+expands `a` into `b` by finding all index-labels in `indsa` in `indsb`
+and in case an label appears more in `indsb` than in `indsa`,
+the corresponding index is expanded.
+This enables operations such as
+```jldoctest; setup = :(using OMEinsum)
+julia> OMEinsum.expandall!(zeros(2,2), (1,1), reshape([2]), ())
+2×2 Array{Float64,2}:
+ 2.0  0.0
+ 0.0  2.0
+```
+where the zero-dimensional array `reshape([2])` is expanded onto
+the diagonal of `zeros(2,2)` as in the backward action of taking
+the diagonal.
+Expansions are done by contracting a dirac-delta function with
+the indices to expand.
+"
 function expandall!(b, indsb, a, indsa)
     einds = [i for i in unique(indsb) if count(==(i), indsb) > count(==(i), indsa)]
     sizes = [size(b,findfirst(==(eind),indsb)) for eind in einds]
