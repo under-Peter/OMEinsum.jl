@@ -96,8 +96,7 @@ function diagonal(t::AbstractArray{<:Any,N}, c::NTuple{N}) where N
     l = length(dinds)
     perm = vcat(oinds, dinds)
 
-    s = vcat([size(t,i) for i in oinds],
-             prod(x -> size(t,x), dinds))
+    s = vcat([size(t,i) for i in oinds], prod(x -> size(t,x), dinds))
 
     nt = reshape(permutedims(t,perm),s...)
     ds = size(t, idup)
@@ -191,18 +190,16 @@ function contractcombine!(outpre, outindspre, outinds, contractions, tensors)
             p = map(i -> findfirst(==(i),uniqueallins), outindspre)
             copyto!(outpre, permutedims(tf,p))
         end
-        return outpre
-    end
-
-    t = sum(broadcast(*, ntensors...), dims=ds)
-    tf = dropdims(t, dims = tuple(ds...))
-
-    if isempty(outinds)
-        copyto!(outpre, tf)
     else
-        x = [i for i in uniqueallins if i in outinds]
-        p = map(i -> findfirst(==(i),x), outinds)
-        permutedims!(outpre, tf, p)
+        t = sum(broadcast(*, ntensors...), dims=ds)
+        tf = dropdims(t, dims = tuple(ds...))
+        if isempty(outinds)
+            copyto!(outpre, tf)
+        else
+            x = [i for i in uniqueallins if i in outinds]
+            p = map(i -> findfirst(==(i),x), outinds)
+            permutedims!(outpre, tf, p)
+        end
     end
     return outpre
 end
@@ -221,7 +218,7 @@ function densedelta(::Type{T}, ns::Vararg{Int,N}) where {T,N}
     o = one(T)
     stride = deltastride(ns)
     for i in 1:stride:length(id)
-        id[i] = o
+        @inbounds id[i] = o
     end
     return id
 end
@@ -246,9 +243,10 @@ Expansions are done by contracting a dirac-delta function with
 the indices to expand.
 "
 function expandall!(b, indsb, a, indsa)
-    einds = [i for i in unique(indsb) if count(==(i), indsb) > count(==(i), indsa)]
-    sizes = [size(b,findfirst(==(eind),indsb)) for eind in einds]
-    ns = [count(==(eind), indsb) for eind in einds]
+    inds2expand = [i for i in unique(indsb) if count(==(i), indsb) > count(==(i), indsa)]
+    sizes = [size(b,findfirst(==(i),indsb)) for i in inds2expand]
+    ns = [count(==(i), indsb) for i in inds2expand]
+    #construct dirac deltas - one for each index that needs expansion
     deltas = [densedelta(eltype(b), fill(s,n)...) for (s,n) in zip(sizes,ns)]
     indsainb = map(i -> findfirst(==(i), indsa), indsb)
     perm = unique!([i for i in indsainb if i != nothing])
@@ -264,9 +262,9 @@ function expandall!(b, indsb, a, indsa)
     end
     rap = reshape(ap, sa...)
     nids = []
-    for i in 1:length(einds)
+    for i in 1:length(inds2expand)
         sb = fill(1, ndims(b))
-        inds = findall(==(einds[i]), indsb)
+        inds = findall(==(inds2expand[i]), indsb)
         sb[inds] .= sizes[i]
         push!(nids,reshape(deltas[i], sb...))
     end
