@@ -223,6 +223,10 @@ function densedelta(::Type{T}, ns::Vararg{Int,N}) where {T,N}
     return id
 end
 
+using LazyArrays
+_lazydelta(::Type{T}, c::CartesianIndex{N}) where {T,N} = ifelse(all(==(c.I[1]), c.I), one(T), zero(T))
+lazydelta(::Type{T}, ns...) where T = @~ _lazydelta.(T,CartesianIndices(ns))
+
 @doc raw"
     expandall!(b::AbstractArray{T,N}, indsb::NTuple{<:Any,N},
                a::AbstractArray{T,M}, indsa::NTuple{<:Any,M})
@@ -247,7 +251,7 @@ function expandall!(b, indsb, a, indsa)
     sizes = [size(b,findfirst(==(i),indsb)) for i in inds2expand]
     ns = [count(==(i), indsb) for i in inds2expand]
     #construct dirac deltas - one for each index that needs expansion
-    deltas = [densedelta(eltype(b), fill(s,n)...) for (s,n) in zip(sizes,ns)]
+    deltas = [lazydelta(eltype(b), fill(s,n)...) for (s,n) in zip(sizes,ns)]
     indsainb = map(i -> findfirst(==(i), indsa), indsb)
     perm = unique!([i for i in indsainb if i != nothing])
 
