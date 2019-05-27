@@ -32,9 +32,9 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
+function einsum(contractions::NTuple{N, NTuple{M, T} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
-                outinds::NTuple{<:Any,Int}) where N
+                outinds::NTuple{<:Any,T}) where {N,T}
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
     return out
@@ -80,10 +80,10 @@ function diagonal(t, c, outinds)
 end
 
 
-function einsum!(cons::NTuple{N, NTuple{M, Int} where M},
+function einsum!(cons::NTuple{N, NTuple{M,T} where M},
                 tens::NTuple{N, Array{<:Any,M} where M},
-                oinds::NTuple{L,Int},
-                out::Array{<:Any,L}) where {N,L}
+                oinds::NTuple{L,T},
+                out::Array{<:Any,L}) where {N,L,T}
 
     # reduce duplicate indices within tensors to diagonals
     tens, cons = diagonals(tens, cons, oinds)
