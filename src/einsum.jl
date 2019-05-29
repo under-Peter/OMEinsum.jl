@@ -65,8 +65,8 @@ function diagonals(ts, cs)
     tcs = map(ts, cs) do t,c
         diagonal(t,c)
     end
-    nts = getindex.(tcs,1)
-    ncs = getindex.(tcs,2)
+    nts = first.(tcs)
+    ncs = last.(tcs)
     return nts, ncs
 end
 
@@ -87,24 +87,30 @@ julia> OMEinsum.diagonal([1 2; 3 4], (1,1))
 ```
 "
 function diagonal(t::AbstractArray{<:Any,N}, c::NTuple{N}) where N
-    idup = findfirst(i -> count(==(i), c) > 1, c)
-    idup === nothing && return (t,c)
+    dups = [i for i in unique(c) if count(==(i),c) > 1]
+    isempty(dups) && return (t,c)
+    ndups = [i for i in c if !(i in dups)]
+    #size & indices of duplicates
+    idups = map(dups) do dup
+        inds = tuple(findall(==(dup), c)...)
+        s = size(t,first(inds))
+        all(i -> size(t,i) == s, inds) || error()
+        (s, inds)
+    end
+    #indices of non-duplicates
+    indups = map(ndups) do ndup
+        findfirst(==(ndup), c)
+    end
+    p = vcat(indups, (collect∘last).(idups)...)
+    tp = permutedims(t, p)
+    (tp[fill(:, length(indups))..., map(i -> diaginds(i[1], i[2]), idups)...],
+    tuple(ndups..., dups...))
+end
 
-    dup = c[idup]
-    dinds = findall(==(dup), c)
-    oinds = findall(x -> x != dup, c)
-    l = length(dinds)
-    perm = vcat(oinds, dinds)
-
-    s = vcat([size(t,i) for i in oinds], prod(x -> size(t,x), dinds))
-
-    nt = reshape(permutedims(t,perm),s...)
-    ds = size(t, idup)
-    stride = sum(x -> ds^x, 0:(l-1))
-    nt = nt[fill(:,length(oinds))..., 1:stride:size(nt)[end]]
-    nc = ((x->c[x]).(oinds)..., dup)
-
-    return diagonal(nt, nc)
+function diaginds(sdup::Int, dinds)
+    map(CartesianIndices((sdup,))) do i
+        CartesianIndex(map(x -> i, dinds))
+    end
 end
 
 
