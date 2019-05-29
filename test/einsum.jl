@@ -9,7 +9,7 @@
     @test einsum(((1,2),(2,)), (a,v)) ≈ a * v
 
     # contract to 0-dim array
-    @test einsum(((1,2),(1,2)), (a,a), ()) ≈ [sum(a .* a)]
+    @test einsum(((1,2),(1,2)), (a,a), ())[] ≈ sum(a .* a)
 
     # trace
     @test einsum(((1,1),), (a,))[] ≈ sum(a[i,i] for i in 1:2)
