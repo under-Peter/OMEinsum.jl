@@ -38,10 +38,10 @@ function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
                 tensors::NTuple{N, Array{<:Any,M} where M},
                 outinds::NTuple{<:Any,Int}) where N
     T = mapreduce(eltype, promote_type, tensors)
-    sizes = reduce(TupleTools.vcat,size.(tensors))
-    indices = reduce(TupleTools.vcat, contractions)
+    sizes = TupleTools.vcat(size.(tensors)...)
+    indices = TupleTools.vcat(contractions...)
     outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    out = Array{T}(undef,outdims...)
+    out = zeros(T,outdims...)
 
     einsum!(contractions, tensors, outinds, out)
     return out
@@ -52,9 +52,8 @@ function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
                 xs::NTuple{N, Array{<:Any,M} where M},
                 iy::NTuple{L,Int},
                 y::Array{T,L}) where {N,L,T}
-    foreach(i -> y[i] = zero(T), eachindex(y))
     all_indices = TupleTools.vcat(ixs..., iy)
-    all_sizes = TupleTools.vcat(size.(xs)..., size(y))
+    all_sizes = TupleTools.vcat(map(size,xs)..., size(y))
     indices = unique(all_indices)
     sizes = Tuple(all_sizes[i] for i in indexin(indices, collect(all_indices)))
 
@@ -63,27 +62,20 @@ function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
         map(i -> findfirst(==(i), indices)::Int, ix)
     end
     locs_y = map(i -> findfirst(==(i), indices)::Int, iy)
+
     loop!(locs_xs, xs, locs_y, y, ci)
 end
 
 """loop and accumulate products to y"""
-function loop!(locs_xs::NTuple{N, NTuple{M} where M}, xs, locs_y, y::AbstractArray{T}, ci::CartesianIndices) where {N, T, S}
+function loop!(locs_xs::NTuple{N, NTuple{M} where M}, xs,
+              locs_y, y::AbstractArray{T}, ci::CartesianIndices) where {N, T, S}
     @simd for ind in ci
-        # equivalent to doing `mapreduce`, but `mapreduce` is much slower due to the allocation
-        # @inbounds y[index_map(ind, locs_y)] += mapreduce(i -> mygetindex(xs[i], ind, locs_xs[i]), *, 1:N)
-        @inbounds y[index_map(ind, locs_y)] += map_prod(T, xs, ind, locs_xs)
+        @inbounds y[index_map(ind, locs_y)] +=
+            mapreduce(i -> xs[i][index_map(ind, locs_xs[i])], *, Base.OneTo(N))
     end
     y
 end
 
+
 """take an index subset from `ind`"""
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
-
-"""indiex tensors, and return the product of elements"""
-@inline @generated function map_prod(::Type{T}, xs::Tuple,
-        ind::CartesianIndex, locs_xs::NTuple{N, NTuple{M} where M}) where {N, T}
-    quote
-        p = one(T)
-        @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
-    end
-end
