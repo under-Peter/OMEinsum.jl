@@ -1,3 +1,5 @@
+using TupleTools, Base.Cartesian
+
 function einsum(cs, ts)
     allins  = reduce(vcat, collect.(cs))
     outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
@@ -46,36 +48,42 @@ function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
 end
 
 
-function einsum!(contractions::NTuple{N, NTuple{M, Int} where M},
-                tensors::NTuple{N, Array{<:Any,M} where M},
-                outinds::NTuple{L,Int},
-                out::Array{<:Any,L}) where {N,L}
-    allins = reduce(vcat, collect.(contractions))
-    uniqueallins = unique(allins)
-    ntensors = permuteandreshape.(Ref(uniqueallins), tensors, contractions)
+function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
+                xs::NTuple{N, Array{<:Any,M} where M},
+                iy::NTuple{L,Int},
+                y::Array{T,L}) where {N,L,T}
+    foreach(i -> y[i] = zero(T), eachindex(y))
+    all_indices = TupleTools.vcat(ixs..., iy)
+    all_sizes = TupleTools.vcat(size.(xs)..., size(y))
+    indices = unique(all_indices)
+    sizes = Tuple(all_sizes[i] for i in indexin(indices, collect(all_indices)))
 
-    ds = unique([i for i in setdiff(allins, outinds)])
-    ds = map(i -> findfirst(==(i), uniqueallins), ds)
-
-    t = sum(broadcast(*, ntensors...), dims=ds)
-    tf = dropdims(t, dims = tuple(ds...))
-    if isempty(outinds)
-        copyto!(out, tf)
-    else
-        x = [i for i in uniqueallins if i in outinds]
-        p = map(i -> findfirst(==(i),x), outinds)
-        permutedims!(out, tf, p)
+    ci = CartesianIndices(sizes)
+    locs_xs = map(ixs) do ix
+        map(i -> findfirst(==(i), indices)::Int, ix)
     end
-    return out
+    locs_y = map(i -> findfirst(==(i), indices)::Int, iy)
+    loop!(locs_xs, xs, locs_y, y, ci)
 end
 
-function permuteandreshape(uniqueallins, t, c)
-    x = [i for i in uniqueallins if i in c]
-    p = map(i -> findfirst(==(i),x), c)
-    rs = map(uniqueallins) do i
-            j = findfirst(==(i), c)
-            j === nothing && return 1
-            return size(t,j)
-        end
-    return reshape(permutedims(t,p),rs...)
+"""loop and accumulate products to y"""
+function loop!(locs_xs::NTuple{N, NTuple{M} where M}, xs, locs_y, y::AbstractArray{T}, ci::CartesianIndices) where {N, T, S}
+    @simd for ind in ci
+        # equivalent to doing `mapreduce`, but `mapreduce` is much slower due to the allocation
+        # @inbounds y[index_map(ind, locs_y)] += mapreduce(i -> mygetindex(xs[i], ind, locs_xs[i]), *, 1:N)
+        @inbounds y[index_map(ind, locs_y)] += map_prod(T, xs, ind, locs_xs)
+    end
+    y
+end
+
+"""take an index subset from `ind`"""
+index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
+
+"""indiex tensors, and return the product of elements"""
+@inline @generated function map_prod(::Type{T}, xs::Tuple,
+        ind::CartesianIndex, locs_xs::NTuple{N, NTuple{M} where M}) where {N, T}
+    quote
+        p = one(T)
+        @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
+    end
 end
