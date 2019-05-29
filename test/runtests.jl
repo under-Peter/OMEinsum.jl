@@ -25,9 +25,6 @@ using Test
     # diag
     @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
 
-    # permutedims(
-    #                 reduce((x,y) -> cat(x,y, dims=3), aa[:,i,i,:] for i in 1:4),(1,3,2))
-
     # permutation
     @test einsum(((1,2),), (a,), (2,1)) ≈ permutedims(a,(2,1))
     @test einsum(((1,2,3,4),), (t,),(2,3,1,4)) ≈ permutedims(t,(2,3,1,4))
