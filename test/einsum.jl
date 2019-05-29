@@ -16,11 +16,13 @@
     aa = rand(2,4,4,2)
     @test einsum(((1,2,2,1),), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
 
+
     # partial trace
     @test einsum(((1,2,2,3),), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
 
     # diag
     @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
+
 
     # permutation
     @test einsum(((1,2),), (a,), (2,1)) ≈ permutedims(a,(2,1))
@@ -66,4 +68,5 @@
     a = rand(2,3)
     b = rand(2,3)
     @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
+
 end
