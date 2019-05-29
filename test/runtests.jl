@@ -2,8 +2,6 @@ using OMEinsum
 using Test
 
 @testset "OMEinsum.jl" begin
-
-
     # matrix and vector multiplication
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
     v = rand(2)
@@ -17,16 +15,18 @@ using Test
     @test einsum(((1,2),(1,2)), (a,a), ()) ≈ [sum(a .* a)]
 
     # trace
-    @test_broken einsum(((1,1),), (a,)) ≈ sum(a[i,i] for i in 1:2)
+    @test einsum(((1,1),), (a,))[] ≈ sum(a[i,i] for i in 1:2)
     aa = rand(2,4,4,2)
-    @test_broken einsum(((1,2,2,1),), (aa,)) ≈ sum(a[i,j,j,i] for i in 1:2, j in 1:2)
+    @test einsum(((1,2,2,1),), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
 
     # partial trace
-    @test_broken einsum((1,2,2,3), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
+    @test einsum(((1,2,2,3),), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
 
     # diag
-    @test_broken einsum((1,2,2,3), (aa,), (1,2,3)) ≈ permutedims(
-                    reduce((x,y) -> cat(x,y, dims=3), aa[:,i,i,:] for i in 1:4),(1,3,2))
+    @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
+
+    # permutedims(
+    #                 reduce((x,y) -> cat(x,y, dims=3), aa[:,i,i,:] for i in 1:4),(1,3,2))
 
     # permutation
     @test einsum(((1,2),), (a,), (2,1)) ≈ permutedims(a,(2,1))
