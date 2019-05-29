@@ -1,5 +1,5 @@
 module OMEinsum
-export einsum
+export einsum, expandall!
 
 using TupleTools
 

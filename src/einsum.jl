@@ -34,17 +34,20 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions::NTuple{N, NTuple{M, Int} where M},
-                tensors::NTuple{N, Array{<:Any,M} where M},
-                outinds::NTuple{<:Any,Int}) where N
+function einsum(contractions::NTuple{N, NTuple{M, T} where M},
+                tensors::NTuple{N, AbstractArray{<:Any,M} where M},
+                outinds::NTuple{<:Any,T}) where {N,T}
+    out = outputtensor(tensors, contractions, outinds)
+    einsum!(contractions, tensors, outinds, out)
+    return out
+end
+
+function outputtensor(tensors, contractions, outinds)
     T = mapreduce(eltype, promote_type, tensors)
     sizes = TupleTools.vcat(size.(tensors)...)
     indices = TupleTools.vcat(contractions...)
     outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    out = zeros(T,outdims...)
-
-    einsum!(contractions, tensors, outinds, out)
-    return out
+    zeros(T,outdims...)
 end
 
 
