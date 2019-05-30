@@ -9,20 +9,20 @@
     @test einsum(((1,2),(2,)), (a,v)) ≈ a * v
 
     # contract to 0-dim array
-    @test einsum(((1,2),(1,2)), (a,a), ()) ≈ [sum(a .* a)]
+    @test einsum(((1,2),(1,2)), (a,a), ())[] ≈ sum(a .* a)
 
     # trace
-    @test einsum(((1,1),), (a,))[1] ≈ sum(a[i,i] for i in 1:2)
+    @test einsum(((1,1),), (a,))[] ≈ sum(a[i,i] for i in 1:2)
     aa = rand(2,4,4,2)
-    @test einsum(((1,2,2,1),), (aa,))[1] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
+    @test einsum(((1,2,2,1),), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
+
 
     # partial trace
     @test einsum(((1,2,2,3),), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
 
     # diag
-    @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ permutedims(
+    @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
 
-                    reduce((x,y) -> cat(x,y, dims=3), aa[:,i,i,:] for i in 1:4),(1,3,2))
 
     # permutation
     @test einsum(((1,2),), (a,), (2,1)) ≈ permutedims(a,(2,1))
@@ -67,9 +67,6 @@
     # Outer
     a = rand(2,3)
     b = rand(2,3)
-    ab = zeros(2,3,2,3)
-    for (i,j,k,l) in Iterators.product(1:2,1:3,1:2,1:3)
-        ab[i,j,k,l] = a[i,j] * b[k,l]
-    end
-    @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ ab
+    @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
+
 end
