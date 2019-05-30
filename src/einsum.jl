@@ -52,9 +52,9 @@ end
 
 
 function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
-                xs::NTuple{N, Array{<:Any,M} where M},
+                xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 iy::NTuple{L,Int},
-                y::Array{T,L}) where {N,L,T}
+                y::AbstractArray{T,L}) where {N,L,T}
     all_indices = TupleTools.vcat(ixs..., iy)
     all_sizes = TupleTools.vcat(map(size,xs)..., size(y))
     indices = unique(all_indices)
