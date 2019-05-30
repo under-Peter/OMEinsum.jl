@@ -1,5 +1,9 @@
 using Zygote
 
+@doc raw"
+    einsum_grad(ixs, xs, iy, y, i)
+return gradient w.r.t the `i`th tensor in `xs`
+"
 function einsum_grad(ixs, xs, iy, y, i)
     T = mapreduce(eltype, promote_type, xs)
     T = promote_type(T, eltype(y))
@@ -24,6 +28,12 @@ end
 end
 
 
+@doc raw"
+    bpcheck(f, args...; η = 1e-5, verbose=false)
+returns a `Bool` indicating whether Zygote calculates the gradient of `f(args...) -> scalar`
+correctly using the relation `f(x - ηg) ≈ f(x) - η|g|²`.
+If `verbose=true`, print `f(x) - f(x - ηg)`and `η|g|²`.
+"
 function bpcheck(f, args...; η = 1e-5, verbose = false)
     g = gradient(f, args...)
     dy_ref = 0
