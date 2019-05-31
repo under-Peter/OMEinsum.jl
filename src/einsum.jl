@@ -73,8 +73,7 @@ end
 function loop!(locs_xs::NTuple{N, NTuple{M} where M}, xs,
               locs_y, y::AbstractArray{T}, ci::CartesianIndices) where {N, T, S}
     @simd for ind in ci
-        @inbounds y[index_map(ind, locs_y)] +=
-            mapreduce(i -> xs[i][index_map(ind, locs_xs[i])], *, Base.OneTo(N))
+        @inbounds y[index_map(ind, locs_y)] += prod(map(i -> xs[i][index_map(ind, locs_xs[i])], ntuple(identity,N)))
     end
     y
 end
