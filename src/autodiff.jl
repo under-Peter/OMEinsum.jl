@@ -36,6 +36,7 @@ If `verbose=true`, print `f(x) - f(x - ηg)`and `η|g|²`.
 "
 function bpcheck(f, args...; η = 1e-5, verbose = false)
     g = gradient(f, args...)
+    all(==(nothing), g) && error()
     dy_ref = 0
     for x in g
         x === nothing && continue
