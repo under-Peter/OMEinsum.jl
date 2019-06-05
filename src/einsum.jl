@@ -39,7 +39,6 @@ function einsum(contractions::NTuple{N, NTuple{M, T} where M},
                 outinds::NTuple{<:Any,T}) where {N,T}
     out = outputtensor(tensors, contractions, outinds)
     einsum!(contractions, tensors, outinds, out)
-    return out
 end
 
 function outputtensor(tensors, contractions, outinds)
