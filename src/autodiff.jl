@@ -17,7 +17,7 @@ end
 
 @Zygote.adjoint function einsum!(ixs, xs::NTuple{N,T where T}, iy, y) where N
     einsum!(ixs, xs, iy, y)
-    return y, dy -> let cdy = conj!(copy(dy))
+    return y, dy -> let cdy = map(conj,dy)
                 (
                     nothing,
                     ntuple(i -> einsum_grad(ixs, xs, iy, cdy, i), N),
@@ -50,3 +50,5 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
 
     isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8)
 end
+
+@Zygote.nograd outputtensor
