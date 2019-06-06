@@ -110,3 +110,16 @@ end
         end
     end
 end
+
+@testset "gradient type check" begin
+    array_match(x, y) = typeof(x) == typeof(y) && size(x) == size(y)
+    a = randn(3,3)
+    b = randn(3,3)
+    @test array_match(gradient(a->einsum(((1,2), (2,1)), (a, b), ())[] |> abs, a)[1], a)
+    b = randn(ComplexF64,3,3)
+    @test_broken array_match(gradient(a->einsum(((1,2), (2,1)), (a, b), ())[] |> abs, a)[1], a)
+    a = randn(ComplexF64,3,3)
+    @test array_match(gradient(a->einsum(((1,2), (2,3)), (a, b), ())[] |> abs, a)[1], a)
+    b = randn(3,3)
+    @test array_match(gradient(a->einsum(((1,2), (2,3)), (a, b), ())[] |> abs, a)[1], a)
+end
