@@ -70,3 +70,16 @@
     @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
 
 end
+
+@testset "fallback" begin
+    # while we expect some scaling in the allocations for multiple inputs, it
+    # shouldn't increase too much
+    a = rand(2,2)
+    b = rand(2,2)
+    einsum(((1,2),(2,3)), (a,b),(1,3))
+    allocs1 = @allocated einsum(((1,2),(2,3)), (a,b),(1,3))
+    einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
+    allocs2 = @allocated einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
+    @test allocs2 < 1.5 * allocs1
+
+end
