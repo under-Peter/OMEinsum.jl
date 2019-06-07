@@ -55,9 +55,9 @@ function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
                 iy::NTuple{L,Int},
                 y::AbstractArray{T,L}) where {N,L,T}
     all_indices = TupleTools.vcat(ixs..., iy)
-    all_sizes = TupleTools.vcat(map(size,xs)..., size(y))
     indices = unique(all_indices)
-    sizes = Tuple(all_sizes[i] for i in indexin(indices, collect(all_indices)))
+    size_dict = get_size_dict((ixs..., iy), (xs..., y))
+    sizes = Tuple(size_dict[i] for i in indices)
 
     ci = CartesianIndices(sizes)
     locs_xs = map(ixs) do ix
@@ -80,3 +80,19 @@ end
 
 """take an index subset from `ind`"""
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
+
+"""get the dictionary of `index=>size`, error if there are conflicts"""
+function get_size_dict(ixs, xs)
+    nt = length(ixs)
+    size_dict = Dict{Int, Int}()
+    @inbounds for i = 1:nt
+        for (N, leg) in zip(size(xs[i]), ixs[i])
+            if haskey(size_dict, leg)
+                size_dict[leg] == N || throw(DimensionMismatch("size of index($leg) does not match."))
+            else
+                size_dict[leg] = N
+            end
+        end
+    end
+    return size_dict
+end

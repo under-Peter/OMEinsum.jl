@@ -1,3 +1,7 @@
+using Test
+using OMEinsum
+using Zygote
+
 @testset "einsum" begin
     # matrix and vector multiplication
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
@@ -69,4 +73,10 @@
     b = rand(2,3)
     @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
 
+end
+
+@testset "error handling" begin
+    a = randn(3,3)
+    b = randn(4,4)
+    @test_throws DimensionMismatch einsum(((1,2), (2,3)), (a, b), (1,3))
 end
