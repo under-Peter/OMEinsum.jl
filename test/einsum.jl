@@ -75,6 +75,19 @@ using Zygote
 
 end
 
+@testset "fallback" begin
+    # while we expect some scaling in the allocations for multiple inputs, it
+    # shouldn't increase too much
+    a = rand(100,100)
+    b = rand(100,100)
+    einsum(((1,2),(2,3)), (a,b),(1,3))
+    allocs1 = @allocated einsum(((1,2),(2,3)), (a,b),(1,3))
+    @test allocs1 < 10^5
+    einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
+    allocs2 = @allocated einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
+    @test allocs2 < 1.1 * allocs1
+end
+
 @testset "error handling" begin
     a = randn(3,3)
     b = randn(4,4)
