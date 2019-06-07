@@ -1,3 +1,7 @@
+using Test
+using OMEinsum
+using Zygote
+
 @testset "einsum" begin
     # matrix and vector multiplication
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
@@ -82,5 +86,10 @@ end
     einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
     allocs2 = @allocated einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
     @test allocs2 < 1.1 * allocs1
+end
 
+@testset "error handling" begin
+    a = randn(3,3)
+    b = randn(4,4)
+    @test_throws DimensionMismatch einsum(((1,2), (2,3)), (a, b), (1,3))
 end
