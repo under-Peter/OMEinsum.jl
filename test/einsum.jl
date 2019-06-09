@@ -88,6 +88,13 @@ end
     @test allocs2 < 1.1 * allocs1
 end
 
+@testset "more flexible indexing type" begin
+    # Char - interface, matmul
+    a = rand(2,2)
+    b = rand(2,3)
+    @test einsum((('a','b'),('b','c')),(a,b),('a','c')) ≈ a*b
+end
+
 @testset "error handling" begin
     a = randn(3,3)
     b = randn(4,4)

@@ -50,10 +50,10 @@ function outputtensor(tensors, contractions, outinds)
 end
 
 
-function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
+function einsum!(ixs::NTuple{N, NTuple{M, IT} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                iy::NTuple{L,Int},
-                y::AbstractArray{T,L}) where {N,L,T}
+                iy::NTuple{L,IT},
+                y::AbstractArray{T,L}) where {N,L,T,IT}
     all_indices = TupleTools.vcat(ixs..., iy)
     indices = unique(all_indices)
     size_dict = get_size_dict((ixs..., iy), (xs..., y))
@@ -61,9 +61,9 @@ function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
 
     ci = CartesianIndices(sizes)
     locs_xs = map(ixs) do ix
-        map(i -> findfirst(==(i), indices)::Int, ix)
+        map(i -> findfirst(==(i), indices)::Int64, ix)
     end
-    locs_y = map(i -> findfirst(==(i), indices)::Int, iy)
+    locs_y = map(i -> findfirst(==(i), indices)::Int64, iy)
 
     loop!(locs_xs, xs, locs_y, y, ci)
 end
@@ -82,10 +82,9 @@ end
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
-function get_size_dict(ixs, xs)
-    nt = length(ixs)
-    size_dict = Dict{Int, Int}()
-    @inbounds for i = 1:nt
+function get_size_dict(ixs::NTuple{M, NTuple{MM,IT} where MM}, xs) where {M, IT}
+    size_dict = Dict{IT, Int}()
+    @inbounds for i = 1:M
         for (N, leg) in zip(size(xs[i]), ixs[i])
             if haskey(size_dict, leg)
                 size_dict[leg] == N || throw(DimensionMismatch("size of index($leg) does not match."))
