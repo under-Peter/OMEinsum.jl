@@ -61,9 +61,9 @@ function einsum!(ixs::NTuple{N, NTuple{M, IT} where M},
 
     ci = CartesianIndices(sizes)
     locs_xs = map(ixs) do ix
-        map(i -> findfirst(==(i), indices)::Int64, ix)
+        map(i -> findfirst(==(i), indices)::Int, ix)
     end
-    locs_y = map(i -> findfirst(==(i), indices)::Int64, iy)
+    locs_y = map(i -> findfirst(==(i), indices)::Int, iy)
 
     loop!(locs_xs, xs, locs_y, y, ci)
 end
