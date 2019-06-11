@@ -16,7 +16,7 @@ using TensorOperations
 =#
 
 #=
-# TODO 
+# TODO
 #
 # 1. find optimal order with PlaceHolder op (only includes edge and whether to keep or not -> sufficient)
 # 2. when optimal order is found, step through and label the ops correctly
@@ -36,8 +36,8 @@ inds =
 
 @doc raw"
     edgesfrominds(ixs,iy)
-return the edges of the ixs that imply an operation e.g. 
-in ixs = ((1,2),(2,3)), iy = (1,3), edge 2 
+return the edges of the ixs that imply an operation e.g.
+in ixs = ((1,2),(2,3)), iy = (1,3), edge 2
 requires a tensor contraction
 "
 function edgesfrominds(ixs,iy)
@@ -129,7 +129,7 @@ This is a quick fix while initial operation-assignment doesn't work,
 due to how the sequence of operations influences what operations are evaluated,
 e.g. a tensorcontraction might turn into a trace if the corresponding tensors
 are contracted earlier.
-This function just passes over all operations and returns a list of the 
+This function just passes over all operations and returns a list of the
 real operations that are evaluated.
 "
 function modifyops(ixs, sxs, ops, iy)
@@ -143,6 +143,7 @@ function modifyops(ixs, sxs, ops, iy)
 end
 
 
+#in reality, outer products between all tensors should be included as ops
 function operatorsfrominds(ixs,iy)
     edges = edgesfrominds(ixs,iy)
     map(x -> operatorfromedge(x, ixs, iy), edges)
@@ -180,7 +181,7 @@ function evaluate(op::EinsumOp, allixs, allxs)
     nallxs  =  TupleTools.deleteat(allxs,  inds)
 
     nix = indicesafterop(op, ixs)
-    nx = einsum(ixs, xs, nix)
+    nx = einsumexp(ixs, xs, nix)
 
     return (nix, nallixs...), (nx, nallxs...)
 end
@@ -221,14 +222,27 @@ function evaluate(op::Trace, allixs, allxs)
 
     a, = xs
     ia, = ixs
+    i2change =  [i for (i,j) in enumerate(ia) if count(==(j),ia) > 1 && j != e]
+    c = 1
+    for i in i2change
+        ia = TupleTools.insertat(ia, i, (ia[i] + 1000+c,))
+        c += 1
+    end
     nix = indicesafterop(op, (ia,))
     nx = tensortrace(a,ia,nix)
+    c = 1
+    for i in 1:length(nix)
+        if nix[i] > 500
+            nix = TupleTools.insertat(nix, i, (nix[i] - 1000-c,))
+            c += 1
+        end
+    end
     return (nix, nallixs...), (nx, nallxs...)
 end
 
 @doc raw"
     evaluatebutdont(op, ocost, allixs, allsxs)
-returns the cost (in number of iterations it would require in a for loop) 
+returns the cost (in number of iterations it would require in a for loop)
 of evaluating `op` with arguments `allixs` and `allsxs` plus `ocost`
 as well as the new indices and sizes after evaluation.
 
@@ -258,44 +272,20 @@ function evaluatebutdont(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,I
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
 end
 
-#ops = operatorsfrominds(ixs,iy)
-ixs = ((-1,-2,1), (-2,-3,2), (3,-3,-4), (4,-4,-1), (4,4,5), (1,6,7))
-iy = (6,2,3,5)
-ops = operatorsfrominds(ixs, iy)
-xs = map(i -> randn(map(j -> 2, i)), ixs)
-sxs = map(size,xs)
-
-
 @doc raw"
     meinsumcost(ixs, xs, ops)
 returns the cost of evaluating the einsum of `ixs`, `xs` according to the
 sequence in ops.
 "
-function meinsumcost(ixs, xs, ops) 
+function meinsumcost(ixs, xs, ops)
     foldl((args, op) -> evaluatebutdont(op, args...), ops, init = (0, ixs, xs))[1]
 end
 
-meinsum(ixs, xs, iy) = einsum(foldl(((ixs,xs), op) -> evaluate(op, ixs,xs),
-                                    operatorsfrominds(ixs, iy), init = (ixs,xs))..., iy)
 
-@doc raw"
-    meinsumopt(ixs, xs, iy)
-returns the result of the einsum operation implied by `ixs`, `iy` but
-evaluated in the optimal order according to `meinsumcost`.
-"
-function meinsumopt(ixs, xs, iy)
-    ops = operatorsfrominds(ixs, iy)
-    ops = optimiseorder(ixs, size.(xs), ops)[2]
-    ops = modifyops(ixs, size.(xs), ops, iy)
-    @show ops
-    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs),
-                 ops, init = (ixs, xs))
-    return einsum(res...  ,iy)
-end
 
 using Combinatorics
 
-function optimiseorder(ixs, sxs, ops) 
+function optimiseorder(ixs, sxs, ops)
     foldl(permutations(ops), init = (typemax(Int), ops)) do (cost, op1), op2
         ncost = meinsumcost(ixs, sxs, op2)
         ncost < cost ? (ncost, op2) : (cost, op1)

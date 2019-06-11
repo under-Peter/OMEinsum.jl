@@ -34,11 +34,31 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions::NTuple{N, NTuple{M, T} where M},
+function einsum(ixs, xs, iy)
+    ops = operatorsfrominds(ixs, iy)
+    ops = modifyops(ixs, size.(xs), ops, iy)
+    einsumexp(foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))..., iy)
+end
+
+@doc raw"
+    meinsumopt(ixs, xs, iy)
+returns the result of the einsum operation implied by `ixs`, `iy` but
+evaluated in the optimal order according to `meinsumcost`.
+"
+function einsumopt(ixs, xs, iy)
+    ops = operatorsfrominds(ixs, iy)
+    ops = optimiseorder(ixs, size.(xs), ops)[2]
+    ops = modifyops(ixs, size.(xs), ops, iy)
+    @show ops
+    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs),
+                 ops, init = (ixs, xs))
+    return einsumexp(res...  ,iy)
+end
+function einsumexp(contractions::NTuple{N, NTuple{M, T} where M},
                 tensors::NTuple{N, AbstractArray{<:Any,M} where M},
                 outinds::NTuple{<:Any,T}) where {N,T}
     out = outputtensor(tensors, contractions, outinds)
-    einsum!(contractions, tensors, outinds, out)
+    einsumexp!(contractions, tensors, outinds, out)
 end
 
 function outputtensor(tensors, contractions, outinds)
@@ -50,7 +70,7 @@ function outputtensor(tensors, contractions, outinds)
 end
 
 
-function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
+function einsumexp!(ixs::NTuple{N, NTuple{M, Int} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 iy::NTuple{L,Int},
                 y::AbstractArray{T,L}) where {N,L,T}
