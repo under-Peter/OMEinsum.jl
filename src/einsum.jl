@@ -40,6 +40,11 @@ function einsum(ixs, xs, iy)
     einsumexp(foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))..., iy)
 end
 
+function einsumopt(cs, ts)
+    allins  = reduce(vcat, collect.(cs))
+    outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
+    einsumopt(cs, ts, tuple(outinds...))
+end
 @doc raw"
     meinsumopt(ixs, xs, iy)
 returns the result of the einsum operation implied by `ixs`, `iy` but
@@ -49,7 +54,6 @@ function einsumopt(ixs, xs, iy)
     ops = operatorsfrominds(ixs, iy)
     ops = optimiseorder(ixs, size.(xs), ops)[2]
     ops = modifyops(ixs, size.(xs), ops, iy)
-    @show ops
     res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs),
                  ops, init = (ixs, xs))
     return einsumexp(res...  ,iy)

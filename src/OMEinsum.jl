@@ -1,6 +1,6 @@
 module OMEinsum
 export einsum, expandall!
-export meinsumopt
+export einsumopt
 
 using TupleTools
 
