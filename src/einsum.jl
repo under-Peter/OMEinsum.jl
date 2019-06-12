@@ -35,9 +35,10 @@ true
 ```
 "
 function einsum(ixs, xs, iy)
-    ops = operatorsfrominds(ixs, iy)
-    ops = modifyops(ixs, size.(xs), ops, iy)
-    einsumexp(foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))..., iy)
+    opstmp = placeholdersfrominds(ixs, iy)
+    ops = modifyops(ixs, opstmp, iy)
+    res = foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))
+    einsumexp(res..., iy)
 end
 
 function einsumopt(cs, ts)
@@ -51,11 +52,10 @@ returns the result of the einsum operation implied by `ixs`, `iy` but
 evaluated in the optimal order according to `meinsumcost`.
 "
 function einsumopt(ixs, xs, iy)
-    ops = operatorsfrominds(ixs, iy)
-    ops = optimiseorder(ixs, size.(xs), ops)[2]
-    ops = modifyops(ixs, size.(xs), ops, iy)
-    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs),
-                 ops, init = (ixs, xs))
+    opstmp = placeholdersfrominds(ixs, iy)
+    ops = optimiseorder(ixs, size.(xs), opstmp)[2]
+    ops = modifyops(ixs, opstmp, iy)
+    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
     return einsumexp(res...  ,iy)
 end
 function einsumexp(contractions::NTuple{N, NTuple{M, T} where M},

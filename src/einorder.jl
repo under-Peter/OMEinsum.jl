@@ -15,25 +15,6 @@ using TensorOperations
 3. evaluate einsum in optimized order
 =#
 
-#=
-# TODO
-#
-# 1. find optimal order with PlaceHolder op (only includes edge and whether to keep or not -> sufficient)
-# 2. when optimal order is found, step through and label the ops correctly
-# 3. then evaluate
-=#
-inds =
-    [
-        (((1,2),(2,3)),(1,3)), #matmul
-        (((1,2),(1,3),(1,4)),(2,3,4)), #star between
-        (((1,2),(1,3),(1,4),(3,4)),(2,)), #star&contract
-        (((1,2,3),(3,4,5),(5,6,7),(7,8,1)), (2,4,6,8)), #tensor
-        (((1,2),), (1,)), #index reduction
-        (((1,2,2),), (1,)), #partial trace
-        (((1,2,2),), (1,2)), #partial diagonal
-        (((1,2,2),(2,3)), (1,3)), #star mixed
-    ]
-
 @doc raw"
     edgesfrominds(ixs,iy)
 return the edges of the ixs that imply an operation e.g.
@@ -41,13 +22,12 @@ in ixs = ((1,2),(2,3)), iy = (1,3), edge 2
 requires a tensor contraction
 "
 function edgesfrominds(ixs,iy)
-    allixs = reduce(vcat, collect.(ixs))
-    uniqueallixs = unique(allixs)
-    # edges are indices that are not trivial
-    # indices are trivial if they appear once in the input and once in the output
-    pred(x) = !(count(==(x), allixs) == 1 && x in iy)
-    Tuple(filter(pred, uniqueallixs))
+    allixs = TupleTools.vcat(ixs...)
+    pred(i,e) = !(count(==(e), allixs) == 1 && e in iy) && # not trivial
+                all(j -> allixs[j] != e, 1:(i-1)) # not seen before
+    Tuple(e for (i,e) in enumerate(allixs) if pred(i,e))
 end
+
 
 @doc raw"
     EinsumOp
@@ -92,7 +72,10 @@ struct IndexReduction{T} <: EinsumOp
     edge::T
 end
 
-struct Permute <: EinsumOp
+placeholderfromedge(edge, iy) = PlaceHolder(edge, edge in iy)
+function placeholdersfrominds(ixs, iy)
+    edges = edgesfrominds(ixs,iy)
+    map(x -> placeholderfromedge(x, iy), edges)
 end
 
 @doc raw"
@@ -103,7 +86,7 @@ the kind of operation that `edge` implies.
 function operatorfromedge(edge, ixs, iy)
     #it would be nice if this could be user extendible, maybe traits?
     edge == () &&  error()
-    allixs = reduce(vcat, collect.(ixs))
+    allixs = TupleTools.vcat(ixs...)#reduce(vcat, collect.(ixs))
     ce = count(==(edge), allixs)
     ceiniy = count(==(edge), iy)
     ceinixs = count.(==(edge), ixs)
@@ -114,10 +97,10 @@ function operatorfromedge(edge, ixs, iy)
         return IndexReduction(edge)
     elseif ce > 1 && ceiniy == 1
         #diagonal
-        any(ceinixs .> 1) && return MixedDiag{count(ceinixs .> 0)}(edge)
+        any(x -> x > 1, ceinixs) && return MixedDiag{count(ceinixs .> 0)}(edge)
         return Diag{ce}(edge)
     elseif ce > 2 && ceiniy == 0
-        any(ceinixs .> 1) && return MixedStarContract{ce}(edge)
+        any(x -> x > 1, ceinixs) && return MixedStarContract{ce}(edge)
         return StarContract{ce}(edge)
     end
 end
@@ -132,12 +115,12 @@ are contracted earlier.
 This function just passes over all operations and returns a list of the
 real operations that are evaluated.
 "
-function modifyops(ixs, sxs, ops, iy)
-    ops, = foldl(ops, init = (EinsumOp[], ixs, sxs)) do (nops, oixs, osxs), op
+function modifyops(ixs, ops, iy)
+    ops, = foldl(ops, init = ((),ixs)) do (nops, oixs), op
         nop = operatorfromedge(op.edge, oixs, iy)
-        push!(nops,nop)
-        _ , nixs, nsxs = evaluatebutdont(op, 0, oixs, osxs)
-        (nops, nixs, nsxs)
+        nops = (nops..., nop)
+        nixs  = indicesafteroperation(op, oixs)
+        (nops, nixs)
     end
     return ops
 end
@@ -172,7 +155,7 @@ of the operation `op`.
 "
 function evaluate(op::EinsumOp, allixs, allxs)
     e = op.edge
-    println("$op w/ einsum")
+    # println("$op w/ einsum")
     inds = Tuple(i for (i, ix) in enumerate(allixs) if e in ix)
     ixs = TupleTools.getindices(allixs,inds)
     xs  = TupleTools.getindices(allxs,inds)
@@ -186,9 +169,25 @@ function evaluate(op::EinsumOp, allixs, allxs)
     return (nix, nallixs...), (nx, nallxs...)
 end
 
+function evaluate(op::IndexReduction, allixs, allxs)
+    e = op.edge
+    # println("$op w/ sum")
+    ind = findfirst(x -> e in x, allixs)::Int
+    ix, x = allixs[ind], allxs[ind]
+
+    nallixs =  TupleTools.deleteat(allixs, (ind,))
+    nallxs  =  TupleTools.deleteat(allxs,  (ind,))
+
+    i = findfirst(==(e), ix)::Int
+    nix = TupleTools.deleteat(ix, (i,))
+    nx = dropdims(sum(x, dims = i), dims = i)
+
+    return (nallixs..., nix), (nallxs..., nx)
+end
+
 # overload evaluate for special types! multiple dispatch for separate functions!
 function evaluate(op::TensorContract, allixs, allxs)
-    println("$op w/ TensorOperations")
+    # println("$op w/ TensorOperations")
     e = op.edge
     inds = Tuple(i for (i, ix) in enumerate(allixs) if e in ix)
     ixs = TupleTools.getindices(allixs,inds)
@@ -211,7 +210,7 @@ function evaluate(op::TensorContract, allixs, allxs)
 end
 
 function evaluate(op::Trace, allixs, allxs)
-    println("Trace w/ TensorOperations")
+    # println("Trace w/ TensorOperations")
     e = op.edge
     inds = Tuple(i for (i, ix) in enumerate(allixs) if e in ix)
     ixs = TupleTools.getindices(allixs,inds)
@@ -240,8 +239,11 @@ function evaluate(op::Trace, allixs, allxs)
     return (nix, nallixs...), (nx, nallxs...)
 end
 
+
+#Optimiziation
+
 @doc raw"
-    evaluatebutdont(op, ocost, allixs, allsxs)
+    opcost(op, ocost, allixs, allsxs)
 returns the cost (in number of iterations it would require in a for loop)
 of evaluating `op` with arguments `allixs` and `allsxs` plus `ocost`
 as well as the new indices and sizes after evaluation.
@@ -249,27 +251,36 @@ as well as the new indices and sizes after evaluation.
 `allscs` is a tuple of tuples of Ints - the sizes of the respective arrays
 
 "
-function evaluatebutdont(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
+function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
     e = op.edge
     inds = Tuple(i for (i, ix) in enumerate(allixs) if e in ix)
     ixs = TupleTools.getindices(allixs,inds)
-    sxs  = TupleTools.getindices(allsxs,inds)
+    sxs = TupleTools.getindices(allsxs,inds)
     nix = indicesafterop(op, ixs)
 
-    nallixs =  TupleTools.deleteat(allixs, inds)
-    nallsxs  =  TupleTools.deleteat(allsxs,  inds)
+    nallixs = TupleTools.deleteat(allixs, inds)
+    nallsxs = TupleTools.deleteat(allsxs,  inds)
 
-    allinds = reduce(vcat, collect.(ixs))
-    allsizes = reduce(vcat, collect.(sxs))
-    cost += mapreduce(*, unique(allinds)) do i
-        j = findfirst(==(i), allinds)
-        allsizes[j]
-    end
+    allinds  = TupleTools.vcat(ixs...)
+    allsizes = TupleTools.vcat(sxs...)
+
+    cost += prod(map(ntuple(i -> (i, allinds[i]), length(allinds))) do (k,i)
+        ifelse(any(x -> allinds[x] == i, 1:(k-1)), 1, allsizes[k])
+    end)
     nsx = map(nix) do i
-        j = findfirst(==(i), allinds)
+        j = findfirst(==(i), allinds)::Int
         allsizes[j]
     end
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
+end
+
+function indicesafteroperation(op::EinsumOp, allixs)
+    e = op.edge
+    inds = Tuple(i for (i, ix) in enumerate(allixs) if e in ix)
+    ixs = TupleTools.getindices(allixs,inds)
+    nix = indicesafterop(op, ixs)
+    nallixs = TupleTools.deleteat(allixs, inds)
+    return (nix, nallixs...)
 end
 
 @doc raw"
@@ -278,7 +289,7 @@ returns the cost of evaluating the einsum of `ixs`, `xs` according to the
 sequence in ops.
 "
 function meinsumcost(ixs, xs, ops)
-    foldl((args, op) -> evaluatebutdont(op, args...), ops, init = (0, ixs, xs))[1]
+    foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, xs))[1]
 end
 
 
