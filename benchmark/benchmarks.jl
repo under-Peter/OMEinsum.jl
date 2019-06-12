@@ -198,7 +198,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
             "tiny"   => rand(T,fill(2,3)...)
             "small"  => rand(T,fill(10,3)...)
             "medium" => rand(T,fill(30,3)...)
-            "large"  => rand(T,fill(100,3)...)
+            # "large"  => rand(T,fill(100,3)...)
             ]
     for (k,m) in args
         suite[string(T)][k] = @benchmarkable einsum(((1,2,3),(1,2,3)), ($m,$m), (1,2,3))
