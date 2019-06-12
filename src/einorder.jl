@@ -86,16 +86,16 @@ the kind of operation that `edge` implies.
 function operatorfromedge(edge, ixs, iy)
     #it would be nice if this could be user extendible, maybe traits?
     edge == () &&  error()
-    allixs = TupleTools.vcat(ixs...)#reduce(vcat, collect.(ixs))
+    allixs = TupleTools.vcat(ixs...)
     ce = count(==(edge), allixs)
     ceiniy = count(==(edge), iy)
     ceinixs = count.(==(edge), ixs)
     if ce == 2 && ceiniy == 0
-        all(x -> x == 0 || x == 1, ceinixs) && return TensorContract(edge)
+        all(x -> x == 0 || x >= 1, ceinixs) && return TensorContract(edge)
         return Trace(edge)
     elseif  ce == 1 && ceiniy == 0
         return IndexReduction(edge)
-    elseif ce > 1 && ceiniy == 1
+    elseif ce > 1 && ceiniy >= 1
         #diagonal
         any(x -> x > 1, ceinixs) && return MixedDiag{count(ceinixs .> 0)}(edge)
         return Diag{ce}(edge)
