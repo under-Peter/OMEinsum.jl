@@ -53,11 +53,11 @@ evaluated in the optimal order according to `meinsumcost`.
 "
 function einsumopt(ixs, xs, iy)
     opstmp = placeholdersfrominds(ixs, iy)
-    ops = optimiseorder(ixs, size.(xs), opstmp)[2]
-    ops = modifyops(ixs, opstmp, iy)
+    ops = optimiseorder(ixs, size.(xs), opstmp, iy)[2]
     res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
     return einsumexp(res...  ,iy)
 end
+
 function einsumexp(contractions::NTuple{N, NTuple{M, T} where M},
                 tensors::NTuple{N, AbstractArray{<:Any,M} where M},
                 outinds::NTuple{<:Any,T}) where {N,T}
