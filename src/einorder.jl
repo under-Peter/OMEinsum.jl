@@ -94,7 +94,7 @@ function operatorfromedge(edge, ixs, iy)
     ceiniy = count(==(edge), iy)
     ceinixs = count.(==(edge), ixs)
     if ce == 2 && ceiniy == 0
-        all(x -> x == 0 || x >= 1, ceinixs) && return TensorContract(edge)
+        all(x -> x == 0 || x == 1, ceinixs) && return TensorContract(edge)
         return Trace(edge)
     elseif  ce == 1 && ceiniy == 0
         return IndexReduction(edge)
@@ -120,18 +120,22 @@ real operations that are evaluated.
 "
 iscompatible(::EinsumOp, ::EinsumOp) = false
 iscompatible(::TensorContract, ::TensorContract) = true
+iscompatible(::Trace, ::Trace) = true
 iscompatible(::MixedDiag, ::MixedDiag) = true
 iscompatible(::IndexReduction, ::IndexReduction) = true
 iscompatible(::Diag, ::Diag) = true
+
 function foo((ops, ixs, op2, sop2), op, iy)
     sop1 = supportinds(op, ixs)
     op1 = operatorfromedge(op.edge, ixs, iy)
+
     if iscompatible(op1,op2) && sop1 == sop2
         #if compatible and same support - keep and go on
         nop = combineops(op1, op2)
         return (ops, ixs, nop, sop2)
     else
         nixs = indicesafteroperation(op2, ixs)
+        sop1 = supportinds(op1, nixs)
         return ((ops..., op2), nixs, op1, sop1)
     end
 end
@@ -148,14 +152,14 @@ combineops(op1::Diag, op2::Diag) =
 function modifyops(ixs, ops, iy)
     ops == () && return ()
     opi = operatorfromedge(ops[1].edge, ixs, iy)
-    ops, _, op, = foldl((x,z) -> foo(x,z,iy),
+    ops, nixs, op, = foldl((x,z) -> foo(x,z,iy),
                         ops[2:end],
                         init = ((), ixs, opi, supportinds(opi, ixs)))
+    length(op.edges) == 1 && (op = operatorfromedge(op.edges[1], nixs, iy))
     return (ops..., op)
 end
 
-supportinds(op, ixs) =
-    Tuple(i for (i,ix) in enumerate(ixs) if op.edges[1] in ix)
+supportinds(op, ixs) = Tuple(i for (i,ix) in enumerate(ixs) if op.edges[1] in ix)
 supportinds(op::PlaceHolder, ixs) = Tuple(i for (i,ix) in enumerate(ixs) if op.edge[1] in ix)
 
 
