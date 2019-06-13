@@ -9,7 +9,9 @@ end
 @doc raw"
     einsum(cs, ts, out)
 return the tensor that results from contracting the tensors `ts` according
-to their indices `cs`, where twice-appearing indices are contracted.
+to their indices `cs`, where all indices that do not appear in the output are
+summed over. The indices are contracted in the order implied by their numerical value,
+smaller first.
 The result is permuted according to `out`.
 
 - `cs` - tuple of tuple of integers that label all indices of a tensor.
@@ -19,7 +21,6 @@ The result is permuted according to `out`.
 
 - `out` - tuple of integers that should correspond to remaining indices in `cs` after contractions.
 
-This implementation has space requirements that are exponential in the number of unique indices.
 
 # example
 ```jldoctest; setup = :(using OMEinsum)
@@ -36,6 +37,7 @@ true
 "
 function einsum(ixs, xs, iy)
     opstmp = placeholdersfrominds(ixs, iy)
+    opstmp = TupleTools.sort(opstmp, by = x -> x.edge)
     ops = modifyops(ixs, opstmp, iy)
     res = foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))
     einsumexp(res..., iy)
