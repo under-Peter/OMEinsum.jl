@@ -167,7 +167,7 @@ function _modifyhelper((ops, ixs, op2, sop2), op, iy)
     end
 end
 
-supportinds(op, ixs) = Tuple(i for (i,ix) in enumerate(ixs) if op.edges[1] in ix)
+supportinds(op, ixs) = map(x -> op.edges[1] in x, ixs)
 
 function opsfrominds(ixs, iy)
     tmp = placeholdersfrominds(ixs, iy)
@@ -199,7 +199,7 @@ as well as the new indices and sizes after evaluation.
 "
 function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
     e = op.edges
-    inds = Tuple(i for (i, ix) in enumerate(allixs) if !isempty(intersect(e,ix)))
+    inds = Tuple(i for (i, ix) in enumerate(allixs) if overlap(e,ix))
 
     ixs, nallixs = pickfromtup(allixs, inds)
     sxs, nallsxs = pickfromtup(allsxs, inds)
@@ -230,9 +230,12 @@ function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
 end
 
+overlap(s1, s2) = any(x -> x in s1, s2)
+
+
 function indicesafteroperation(op::EinsumOp, allixs)
     e = op.edges
-    inds = Tuple(i for (i, ix) in enumerate(allixs) if !isempty(intersect(ix, e)))
+    inds = Tuple(i for (i, ix) in enumerate(allixs) if overlap(ix,e))
     ixs, nallixs = pickfromtup(allixs, inds)
     nix = indicesafterop(op, ixs)
     return (nix, nallixs...)
