@@ -105,13 +105,16 @@ operatorfromedge(op::EinsumOp{1}, ixs, iy) = operatorfromedge(op.edges[1], ixs, 
 return `true` if `EinsumOp`s `a` and `b` can be combined into one operator.
 "
 iscombineable(::Any,::Any) = false
-iscombineable(::T, ::T) where {T <: EinsumOp} = true
+iscombineable(::T, ::S) where {T <: EinsumOp, S <: EinsumOp} = T.name == S.name
 
 @doc raw"
     combineops(op1, op2)
 return an operator that combines the operations of `op1` and `op2`.
 "
-combineops(op1::T, op2::T) where {T <: EinsumOp} = T.name.wrapper((op1.edges..., op2.edges...))
+function combineops(op1::T, op2::S) where {T <: EinsumOp, S <: EinsumOp}
+    T.name == S.name && return T.name.wrapper((op1.edges..., op2.edges...))
+    error()
+end
 
 
 

@@ -78,6 +78,12 @@ using Zygote
     a2 = [a[1] 0; 0 a[4]]
     @test einsum(((1,1),), (a,), (1,1)) ≈ a2
 
+    ## operations that can be combined
+    a = rand(2,2,2,2)
+    @test einsum(((1,1,2,2),), (a,), ())[] ≈ sum(a[[CartesianIndex(i,i) for i in 1:2], [CartesianIndex(i,i) for i in 1:2]])
+
+    @test einsum(((1,2,3,4), (3,4,5,6)), (a,a), (1,2,5,6)) ≈ reshape(reshape(a,4,4) * reshape(a,4,4),2,2,2,2)
+
 end
 
 @testset "einsumopt" begin
@@ -155,6 +161,12 @@ end
     a = rand(2,2)
     a2 = [a[1] 0; 0 a[4]]
     @test einsumopt(((1,1),), (a,), (1,1)) ≈ a2
+
+    ## operations that can be combined
+    a = rand(2,2,2,2)
+    @test einsumopt(((1,1,2,2),), (a,), ())[] ≈ sum(a[[CartesianIndex(i,i) for i in 1:2], [CartesianIndex(i,i) for i in 1:2]])
+
+    @test einsumopt(((1,2,3,4), (3,4,5,6)), (a,a), (1,2,5,6)) ≈ reshape(reshape(a,4,4) * reshape(a,4,4),2,2,2,2)
 
 end
 
