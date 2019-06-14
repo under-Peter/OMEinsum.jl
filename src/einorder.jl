@@ -219,6 +219,10 @@ function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
 end
 
+opcost(::Union{Fallback, OuterProduct, Permutation},
+    cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M) = (0, (), ())
+
+
 function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
 end
