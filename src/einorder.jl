@@ -7,7 +7,7 @@ in ixs = ((1,2),(2,3)), iy = (1,3), edge 2
 requires a tensor contraction
 "
 function edgesfrominds(ixs,iy)
-    allixs = TupleTools.flatten(ixs)
+    allixs = TupleTools.vcat(ixs...)
     pred(i,e) = !(count(==(e), allixs) == 1 && e in iy) && # not trivial
                 all(j -> allixs[j] != e, 1:(i-1)) # not seen before
     Tuple(e for (i,e) in enumerate(allixs) if pred(i,e))
@@ -80,7 +80,7 @@ corresponds to.
 function operatorfromedge(edge, ixs, iy)
     #it would be nice if this could be user extendible, maybe traits?
     edge == () &&  ArgumentError("empty edge provided")
-    allixs = TupleTools.flatten(ixs)
+    allixs = TupleTools.vcat(ixs...)
     ce      = count(==(edge), allixs)
     ceiniy  = count(==(edge), iy)
     ceinixs = count.(==(edge), ixs)
@@ -176,15 +176,15 @@ end
 
 function indicesafterop(op::EinsumOp, ixs)
     e = op.edges
-    Tuple(i for i in TupleTools.flatten(ixs) if i ∉ e)
+    Tuple(i for i in TupleTools.vcat(ixs...) if i ∉ e)
 end
 
 function indicesafterop(op::Union{MixedDiag,Diag}, ixs)
     e = op.edges
-    (Tuple(i for i in TupleTools.flatten(ixs) if i ∉ e)...,e...)
+    (Tuple(i for i in TupleTools.vcat(ixs...) if i ∉ e)...,e...)
 end
 
-indicesafterop(op::OuterProduct{N}, ixs) where N = TupleTools.flatten(ixs)
+indicesafterop(op::OuterProduct{N}, ixs) where N = TupleTools.vcat(ixs...)
 indicesafterop(op::Permutation, ixs) = TupleTools.permute(ixs, op.perm)
 
 @doc raw"
@@ -205,8 +205,8 @@ function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where
 
     nix = indicesafterop(op, ixs)
 
-    allinds  = TupleTools.flatten(ixs)
-    allsizes = TupleTools.flatten(sxs)
+    allinds  = TupleTools.vcat(ixs...)
+    allsizes = TupleTools.vcat(sxs...)
 
     l = length(allinds)
     dims = map(ntuple(identity,l), allinds) do k,i
@@ -235,7 +235,7 @@ function indicesafteroperation(op::EinsumOp, allixs)
     return (nix, nallixs...)
 end
 
-indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.flatten(allixs),)
+indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(allixs...),)
 
 
 @doc raw"
