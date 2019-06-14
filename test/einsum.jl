@@ -180,7 +180,9 @@ end
     @test allocs1 < 10^5
     einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
     allocs2 = @allocated einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
-    @test_broken allocs2 < 2 * allocs1
+    # doing twice the work (two multiplications instead of one) shouldn't
+    # incure much more than twice the allocations.
+    @test allocs2 < 2.1 * allocs1
 end
 
 @testset "error handling" begin

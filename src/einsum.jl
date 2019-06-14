@@ -1,25 +1,27 @@
 using TupleTools, Base.Cartesian
 
-function einsum(cs, ts)
-    allins  = reduce(vcat, collect.(cs))
-    outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
-    einsum(cs, ts, tuple(outinds...))
+function outindsfrominput(ixs)
+    allixs = vcat(collect.(ixs)...)
+    iy = sort!(filter(x -> count(==(x), allixs) == 1, allixs))
+    return tuple(iy...)
 end
 
+einsum(ixs, xs) = einsum(ixs, xs, outindsfrominput(ixs))
+
 @doc raw"
-    einsum(cs, ts, out)
-return the tensor that results from contracting the tensors `ts` according
-to their indices `cs`, where all indices that do not appear in the output are
+    einsum(ixs, xs, out)
+return the tensor that results from contracting the tensors `xs` according
+to their indices `ixs`, where all indices that do not appear in the output are
 summed over. The indices are contracted in the order implied by their numerical value,
 smaller first.
 The result is permuted according to `out`.
 
-- `cs` - tuple of tuple of integers that label all indices of a tensor.
+- `ixs` - tuple of tuple of integers that label all indices of a tensor.
        Indices that appear twice (in different tensors) are summed over
 
-- `ts` - tuple of tensors
+- `xs` - tuple of tensors
 
-- `out` - tuple of integers that should correspond to remaining indices in `cs` after contractions.
+- `out` - tuple of integers that should correspond to remaining indices in `ixs` after contractions.
 
 
 # example
@@ -40,11 +42,7 @@ function einsum(ixs, xs, iy)
     evaluateall(ixs, xs, ops, iy)
 end
 
-function einsumopt(cs, ts)
-    allins  = reduce(vcat, collect.(cs))
-    outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
-    einsumopt(cs, ts, tuple(outinds...))
-end
+einsumopt(ixs, xs) = einsumopt(ixs, xs, outindsfrominput(ixs))
 @doc raw"
     meinsumopt(ixs, xs, iy)
 returns the result of the einsum operation implied by `ixs`, `iy` but
@@ -56,19 +54,19 @@ function einsumopt(ixs, xs, iy)
 end
 
 
-function einsumexp(contractions::NTuple{N, NTuple{M, T} where M},
-                tensors::NTuple{N, AbstractArray{<:Any,M} where M},
-                outinds::NTuple{<:Any,T}) where {N,T}
-    out = outputtensor(tensors, contractions, outinds)
-    einsumexp!(contractions, tensors, outinds, out)
+function einsumexp(ixs::NTuple{N, NTuple{M, T} where M},
+                xs::NTuple{N, AbstractArray{<:Any,M} where M},
+                iy::NTuple{<:Any,T}) where {N,T}
+    out = outputtensor(xs, ixs, iy)
+    einsumexp!(ixs, xs, iy, out)
 end
 
-function outputtensor(tensors, contractions, outinds)
-    T = mapreduce(eltype, promote_type, tensors)
-    sizes = TupleTools.flatten(size.(tensors))
-    indices = TupleTools.flatten(contractions)
-    outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    zeros(T,outdims...)
+function outputtensor(xs, ixs, iy)
+    T = mapreduce(eltype, promote_type, xs)
+    sizes = TupleTools.vcat(size.(xs)...)
+    indices = TupleTools.vcat(ixs...)
+    outdims = map(x -> sizes[findfirst(==(x), indices)], iy)
+    zeros(T, outdims...)
 end
 
 
