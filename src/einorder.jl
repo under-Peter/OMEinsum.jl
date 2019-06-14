@@ -104,7 +104,6 @@ operatorfromedge(op::EinsumOp{1}, ixs, iy) = operatorfromedge(op.edges[1], ixs, 
     iscombineable(a,b)
 return `true` if `EinsumOp`s `a` and `b` can be combined into one operator.
 "
-iscombineable(::Any,::Any) = false
 iscombineable(::T, ::S) where {T <: EinsumOp, S <: EinsumOp} = T.name == S.name
 
 @doc raw"
@@ -113,7 +112,7 @@ return an operator that combines the operations of `op1` and `op2`.
 "
 function combineops(op1::T, op2::S) where {T <: EinsumOp, S <: EinsumOp}
     T.name == S.name && return T.name.wrapper((op1.edges..., op2.edges...))
-    error()
+    throw(ArgumentError("Can not combine $op1 and $op2"))
 end
 
 
@@ -222,8 +221,10 @@ function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
 end
 
-opcost(::Union{Fallback, OuterProduct, Permutation},
-    cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M) = (0, (), ())
+function opcost(::Union{Fallback, OuterProduct, Permutation},
+    cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
+     (0, (), ())
+ end
 
 function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))

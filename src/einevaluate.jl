@@ -43,6 +43,7 @@ function evaluate(op::Permutation, allixs::NTuple{1,T where T}, allxs)
     (x,)  = allxs
     (ix,) = allixs
     perm = op.perm
+    nix = indicesafterop(op, ix)
     return (TupleTools.permute(ix, perm),), (permutedims(x, perm),)
 end
 

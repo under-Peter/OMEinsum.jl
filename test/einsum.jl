@@ -187,4 +187,5 @@ end
     a = randn(3,3)
     b = randn(4,4)
     @test_throws DimensionMismatch einsum(((1,2), (2,3)), (a, b), (1,3))
+    @test_throws ArgumentError OMEinsum.combineops(OMEinsum.Diag(1), OMEinsum.Trace(2))
 end
