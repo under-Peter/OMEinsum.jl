@@ -36,11 +36,8 @@ true
 ```
 "
 function einsum(ixs, xs, iy)
-    opstmp = placeholdersfrominds(ixs, iy)
-    opstmp = TupleTools.sort(opstmp, by = x -> x.edge)
-    ops = modifyops(ixs, opstmp, iy)
-    res = foldl(((ixs,xs), op) -> evaluate(op, ixs,xs), ops, init = (ixs,xs))
-    einsumexp(res..., iy)
+    ops = opsfrominds(ixs, iy)
+    evaluateall(ixs, xs, ops, iy)
 end
 
 function einsumopt(cs, ts)
@@ -54,11 +51,10 @@ returns the result of the einsum operation implied by `ixs`, `iy` but
 evaluated in the optimal order according to `meinsumcost`.
 "
 function einsumopt(ixs, xs, iy)
-    opstmp = placeholdersfrominds(ixs, iy)
-    ops = optimiseorder(ixs, size.(xs), opstmp, iy)[2]
-    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
-    return einsumexp(res...  ,iy)
+    ops = optimalorder(ixs, xs, iy)
+    evaluateall(ixs, xs, ops, iy)
 end
+
 
 function einsumexp(contractions::NTuple{N, NTuple{M, T} where M},
                 tensors::NTuple{N, AbstractArray{<:Any,M} where M},
@@ -69,16 +65,16 @@ end
 
 function outputtensor(tensors, contractions, outinds)
     T = mapreduce(eltype, promote_type, tensors)
-    sizes = TupleTools.vcat(size.(tensors)...)
-    indices = TupleTools.vcat(contractions...)
+    sizes = TupleTools.flatten(size.(tensors))
+    indices = TupleTools.flatten(contractions)
     outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
     zeros(T,outdims...)
 end
 
 
-function einsumexp!(ixs::NTuple{N, NTuple{M, Int} where M},
+function einsumexp!(ixs::NTuple{N, NTuple{M, Union{AbstractChar,Int}} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                iy::NTuple{L,Int},
+                iy::NTuple{L,Union{AbstractChar,Int}},
                 y::AbstractArray{T,L}) where {N,L,T}
     all_indices = TupleTools.vcat(ixs..., iy)
     indices = unique(all_indices)
@@ -110,7 +106,7 @@ index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindic
 """get the dictionary of `index=>size`, error if there are conflicts"""
 function get_size_dict(ixs, xs)
     nt = length(ixs)
-    size_dict = Dict{Int, Int}()
+    size_dict = Dict{Union{AbstractChar,Int}, Int}()
     @inbounds for i = 1:nt
         for (N, leg) in zip(size(xs[i]), ixs[i])
             if haskey(size_dict, leg)
