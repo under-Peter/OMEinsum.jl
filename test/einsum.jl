@@ -73,6 +73,11 @@ using Zygote
     b = rand(2,3)
     @test einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
 
+    # Projecting to diag
+    a = rand(2,2)
+    a2 = [a[1] 0; 0 a[4]]
+    @test einsum(((1,1),), (a,), (1,1)) ≈ a2
+
 end
 
 @testset "einsumopt" begin
@@ -145,6 +150,11 @@ end
     a = rand(2,3)
     b = rand(2,3)
     @test einsumopt(((1,2),(3,4)),(a,b),(1,2,3,4)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
+
+    # Projecting to diag
+    a = rand(2,2)
+    a2 = [a[1] 0; 0 a[4]]
+    @test einsumopt(((1,1),), (a,), (1,1)) ≈ a2
 
 end
 

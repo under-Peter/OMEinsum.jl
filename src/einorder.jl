@@ -112,7 +112,6 @@ iscombineable(::T, ::T) where {T <: EinsumOp} = true
 return an operator that combines the operations of `op1` and `op2`.
 "
 combineops(op1::T, op2::T) where {T <: EinsumOp} = T.name.wrapper((op1.edges..., op2.edges...))
-combineops(::Any,::Any) = false
 
 
 
