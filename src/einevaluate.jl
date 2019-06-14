@@ -5,8 +5,8 @@ in `ops` in order applying index-permutations, outer products and expansions
 at the end.
 "
 function evaluateall(ixs, xs, ops, iy)
-    res = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
-    return einsumexp(res...  ,iy)
+    _, (x,) = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
+    return x
 end
 
 @doc raw"
@@ -26,6 +26,29 @@ function evaluate(op::EinsumOp, allixs, allxs)
 
     return (nix, nallixs...), (nx, nallxs...)
 end
+
+function evaluate(op::OuterProduct{N}, allixs::NTuple{N,T where T}, allxs) where N
+    nix = indicesafterop(op, allixs)
+    nxs = map(allxs, allixs) do x, ix
+        s = map(nix) do i
+            j = findfirst(==(i), ix)
+            j === nothing ? 1 : size(x,j)
+        end
+        reshape(x, s...)
+    end
+    return (nix,), (broadcast(*, nxs...),)
+end
+
+function evaluate(op::Permutation, allixs::NTuple{1,T where T}, allxs)
+    (x,)  = allxs
+    (ix,) = allixs
+    perm = op.perm
+    return (TupleTools.permute(ix, perm),), (permutedims(x, perm),)
+end
+
+evaluate(op::Fallback{N,T}, allixs, allxs) where {N,T} =
+    ((op.iy,), (einsumexp(allixs, allxs, op.iy),))
+
 
 function evaluate(op::IndexReduction{N}, allixs, allxs) where N
     e = op.edges[1]

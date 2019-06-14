@@ -54,6 +54,17 @@ struct IndexReduction{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+struct Permutation{N,T} <: EinsumOp{1}
+    perm::NTuple{N,T}
+end
+
+struct OuterProduct{N} <: EinsumOp{N}
+end
+
+struct Fallback{N,T} <: EinsumOp{N}
+    iy::NTuple{N,T}
+end
+
 @doc raw"
     placeholdersfrominds(ixs, iy)
 return all indices in `ixs` that imply an operation, wrapped in a `PlaceHolder`.
@@ -111,12 +122,33 @@ given a list of placeholders `ops`, return a list of operations where
 consecutive operations are combined if possible.
 "
 function modifyops(ixs, ops, iy)
-    ops == () && return ()
-    opi = operatorfromedge(first(ops), ixs, iy)
-    ops, _, op, = foldl((x,z) -> _modifyhelper(x,z,iy),
-                        ops[2:end],
-                        init = ((), ixs, opi, supportinds(opi, ixs)))
-    return (ops..., op)
+    if !isempty(ops)
+        opi = operatorfromedge(first(ops), ixs, iy)
+        ops, ixs, op, = foldl((x,z) -> _modifyhelper(x,z,iy),
+                            ops[2:end],
+                            init = ((), ixs, opi, supportinds(opi, ixs)))
+        ops = (ops..., op)
+        ixs = indicesafteroperation(op, ixs)
+    end
+    ops = appendfinalops(ixs,ops, iy)
+end
+
+function appendfinalops(ixs, ops, iy)
+    if length(ixs) != 1
+        op = OuterProduct{length(ixs)}()
+        ops = (ops..., op)
+        ixs = indicesafteroperation(op, ixs)
+    end
+    if all(x -> count(==(x), iy) == 1, iy)
+        if ixs != (iy,)
+            op = Permutation(map(x -> findfirst(==(x), ixs[1]), iy))
+            ixs = (TupleTools.permute(ixs[1], op.perm),)
+            ops = (ops..., op)
+        end
+    else
+        ops = (ops..., Fallback(iy))
+    end
+    return ops
 end
 
 function _modifyhelper((ops, ixs, op2, sop2), op, iy)
@@ -152,6 +184,9 @@ function indicesafterop(op::Union{MixedDiag,Diag}, ixs)
     (Tuple(i for i in TupleTools.flatten(ixs) if i ∉ e)...,e...)
 end
 
+indicesafterop(op::OuterProduct{N}, ixs) where N = TupleTools.flatten(ixs)
+indicesafterop(op::Permutation, ixs) = TupleTools.permute(ixs, op.perm)
+
 @doc raw"
     opcost(op, ocost, allixs, allsxs)
 returns the cost (in number of iterations it would require in a for loop)
@@ -185,6 +220,9 @@ function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
 end
 
+opcost(::Union{Fallback, OuterProduct, Permutation},
+    cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M) = (0, (), ())
+
 function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
 end
@@ -196,6 +234,9 @@ function indicesafteroperation(op::EinsumOp, allixs)
     nix = indicesafterop(op, ixs)
     return (nix, nallixs...)
 end
+
+indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.flatten(allixs),)
+
 
 @doc raw"
     meinsumcost(ixs, xs, ops)
@@ -223,7 +264,7 @@ return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations in `ops` and its cost.
 "
 function optimiseorder(ixs, sxs, ops,iy)
-    isempty(ops) && return (0, ())
+    isempty(ops) && return (0, appendfinalops(ixs, ops, iy))
     foldl(permutations(ops), init = (typemax(Int), modifyops(ixs,ops,iy))) do (cost, op1), op2
         op2p = modifyops(ixs,op2,iy)
         ncost = meinsumcost(ixs, sxs, op2p)
