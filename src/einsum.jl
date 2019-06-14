@@ -6,6 +6,16 @@ function einsum(cs, ts)
     einsum(cs, ts, tuple(outinds...))
 end
 
+function einsum(s::AbstractString, xs)
+    s = replace(s, " " => "")
+    m = match(r"([a-z,]+)->([a-z]*)", s)
+    m == nothing && throw(ArgumentError("invalid einsum specification $s"))
+    sixs, siy = m.captures
+    iy  = Tuple(siy)
+    ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
+    return einsum(ixs, xs, iy)
+end
+
 @doc raw"
     einsum(cs, ts, out)
 return the tensor that results from contracting the tensors `ts` according
