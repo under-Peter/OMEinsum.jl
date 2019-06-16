@@ -15,52 +15,118 @@ end
 
 
 @doc raw"
-    EinsumOp
-abstract supertype of all einsum operations
+    EinsumOp{N}
+abstract supertype of all einsum operations involving N edges
 "
 abstract type EinsumOp{N} end
 
 (::Type{T})(i::S) where {T<:EinsumOp, S<:Union{Integer,AbstractChar}} = T((i,))
 
+@doc raw"
+    PlaceHolder
+subtype of EinsumOp that holds an edge. Is used as a placeholder for an operation
+before the operation is decided.
+"
 struct PlaceHolder{T} <: EinsumOp{1}
     edges::Tuple{T}
 end
 
+@doc raw"
+    TensorContract{N}
+is a type that represents a tensorcontraction of `N` edges
+which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
+is represented by `TensorContract{1}((j,))`.
+"
 struct TensorContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    Trace{N}
+is a type that represents a trace operation of `N` edges,
+i.e. 2`N` indices, which are stored in its `edges` field,
+e.g. `'ijjk -> ik'` is represented by `Trace{1}((j,))`
+"
 struct Trace{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    StarContract{N}
+is a type that represents a star-contraction of `N` edges
+which are stored in its `edges` field.
+A `StarContract{N}` results from `N` tensors sharing at least one index
+but *no* tensor has duplicate shared indices, e.g. `'ij,ik,il -> jkl'`
+is represented by `StarContract{1}((i,))`.
+"
 struct StarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    MixedStarContract{N}
+is a type that represents a mixed star-contraction of `N` edges
+which are stored in its `edges` field.
+A `MixedStarContract{N}` results from `N` tensors sharing at least one index
+and at least one tensor has duplicate shared indices, e.g. `'ij,ik,iil -> jkl'`
+is represented by `MixedStarContract{1}((i,))`.
+"
 struct MixedStarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    Diag{N}
+is a type that represents a (generalized) diagonal of `N` edges
+of one tensor which are stored in its `edges` field, e.g. `'iij -> ij'` is
+represented by `Diag{1}((i,))`
+"
 struct Diag{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    MixedDiag{N}
+is a type that represents a (generalized) mixed diagonal of `N` edges
+of more than one tensor which are stored in its `edges` field,
+ e.g. `'iij, ik -> ijk'` is represented by `MixedDiag{1}((i,))`
+"
 struct MixedDiag{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    IndexReduction{N}
+is a type that represents an index reduction of `N` edges/indices
+which are stored in its `edges` field, e.g. `'ij -> i'` is
+represented by `IndexReduction{1}((j,))`.
+"
 struct IndexReduction{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
+@doc raw"
+    Permutation{N}
+is a type that represents a permutation of `N` indices
+which are stored in its `perm` field.
+"
 struct Permutation{N,T} <: EinsumOp{1}
     perm::NTuple{N,T}
 end
 
+@doc raw"
+    OuterProduct{N}
+is a type that represents an outer product of `N` tensors.
+"
 struct OuterProduct{N} <: EinsumOp{N}
 end
 
+@doc raw"
+    Fallback{N}
+is a type that represents an `einsum` resulting in `N` indices,
+which are stored in its `iy` field.
+It's used as a general fallback if no more efficient method is available.
+"
 struct Fallback{N,T} <: EinsumOp{N}
     iy::NTuple{N,T}
 end
@@ -194,7 +260,7 @@ returns the cost (in number of iterations it would require in a for loop)
 of evaluating `op` with arguments `allixs` and `allsxs` plus `ocost`
 as well as the new indices and sizes after evaluation.
 
-`allscs` is a tuple of tuples of Ints - the sizes of the respective arrays
+`allsxs` is a tuple of tuples of Ints - the sizes of the respective arrays
 
 "
 function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
@@ -214,15 +280,13 @@ function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where
                 ifelse(any(x -> allinds[x] == i, 1:(k-1)), 1, allsizes[k])
             end
     cost += prod(dims)
-    nsx = map(nix) do i
-        j = findfirst(==(i), allinds)::Int
-        allsizes[j]
-    end
+    nsx = map(i -> allsizes[findfirst(==(i), allinds)::Int], nix)
+
     return (cost, (nix, nallixs...), (nsx, nallsxs...))
 end
 
-function opcost(::Union{Fallback, OuterProduct, Permutation},
-    cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
+function opcost(::Union{Fallback, OuterProduct, Permutation}, cost, allixs,
+     allsxs::NTuple{M,NTuple{N,Int} where N} where M)
      (0, (), ())
  end
 
@@ -230,9 +294,17 @@ function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
 end
 
+@doc raw"
+    overlap(s1, s2)
+return true if `s1` and `s2` share any element.
+"
 overlap(s1, s2) = any(x -> x in s1, s2)
 
 
+@doc raw"
+    indicesafteroperation(op, allixs)
+returns all indices of tensors after operation `op` was applied.
+"
 function indicesafteroperation(op::EinsumOp, allixs)
     e = op.edges
     inds = Tuple(i for (i, ix) in enumerate(allixs) if overlap(ix,e))
@@ -275,7 +347,7 @@ function optimiseorder(ixs, sxs, ops,iy)
         op2p = modifyops(ixs,op2,iy)
         ncost = meinsumcost(ixs, sxs, op2p)
         if ncost == cost
-            #prefer less operations even if same cost
+            # if cost is the same, prefer less operations
             length(op2p) < length(op1) ? (ncost, op2p) : (cost, op1)
         else
             ncost < cost ? (ncost, op2p) : (cost, op1)

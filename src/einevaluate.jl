@@ -1,8 +1,7 @@
 @doc raw"
     evaluateall(ixs, xs, ops,iy)
 evaluate the einsum specified by 'ixs -> iy' by going through all operations
-in `ops` in order applying index-permutations, outer products and expansions
-at the end.
+in `ops` in order.
 "
 function evaluateall(ixs, xs, ops, iy)
     _, (x,) = foldl(((ixs, xs), op) -> evaluate(op, ixs, xs), ops, init = (ixs, xs))
