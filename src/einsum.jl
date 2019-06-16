@@ -2,7 +2,7 @@ using TupleTools, Base.Cartesian
 
 function outindsfrominput(ixs)
     allixs = vcat(collect.(ixs)...)
-    iy = sort!(filter(x -> count(==(x), allixs) == 1, allixs))
+    iy = sort!(filter!(x -> count(==(x), TupleTools.vcat(ixs...)) == 1, allixs))
     return tuple(iy...)
 end
 
