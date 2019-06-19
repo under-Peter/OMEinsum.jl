@@ -301,6 +301,7 @@ return true if `s1` and `s2` share any element.
 overlap(s1, s2) = any(x -> x in s1, s2)
 
 
+
 @doc raw"
     indicesafteroperation(op, allixs)
 returns all indices of tensors after operation `op` was applied.
