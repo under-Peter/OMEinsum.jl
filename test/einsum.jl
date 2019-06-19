@@ -78,6 +78,12 @@ using Zygote
     a2 = [a[1] 0; 0 a[4]]
     @test einsum(((1,1),), (a,), (1,1)) ≈ a2
 
+    ## operations that can be combined
+    a = rand(2,2,2,2)
+    @test einsum(((1,1,2,2),), (a,), ())[] ≈ sum(a[[CartesianIndex(i,i) for i in 1:2], [CartesianIndex(i,i) for i in 1:2]])
+
+    @test einsum(((1,2,3,4), (3,4,5,6)), (a,a), (1,2,5,6)) ≈ reshape(reshape(a,4,4) * reshape(a,4,4),2,2,2,2)
+
 end
 
 @testset "einsumopt" begin
@@ -156,6 +162,12 @@ end
     a2 = [a[1] 0; 0 a[4]]
     @test einsumopt(((1,1),), (a,), (1,1)) ≈ a2
 
+    ## operations that can be combined
+    a = rand(2,2,2,2)
+    @test einsumopt(((1,1,2,2),), (a,), ())[] ≈ sum(a[[CartesianIndex(i,i) for i in 1:2], [CartesianIndex(i,i) for i in 1:2]])
+
+    @test einsumopt(((1,2,3,4), (3,4,5,6)), (a,a), (1,2,5,6)) ≈ reshape(reshape(a,4,4) * reshape(a,4,4),2,2,2,2)
+
 end
 
 @testset "fallback" begin
@@ -168,13 +180,16 @@ end
     @test allocs1 < 10^5
     einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
     allocs2 = @allocated einsum(((1,2),(2,3),(3,4)), (a,b,b),(1,4))
-    @test_broken allocs2 < 2 * allocs1
+    # doing twice the work (two multiplications instead of one) shouldn't
+    # incure much more than twice the allocations.
+    @test allocs2 < 2.1 * allocs1
 end
 
 @testset "error handling" begin
     a = randn(3,3)
     b = randn(4,4)
     @test_throws DimensionMismatch einsum(((1,2), (2,3)), (a, b), (1,3))
+    @test_throws ArgumentError OMEinsum.combineops(OMEinsum.Diag(1), OMEinsum.Trace(2))
 end
 
 @testset "string input" begin
