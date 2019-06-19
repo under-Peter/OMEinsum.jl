@@ -24,13 +24,6 @@ abstract type EinsumOp{N} end
 (::Type{T})(i::S) where {T<:EinsumOp, S<:Union{Integer,AbstractChar}} = T((i,))
 
 @doc raw"
-    PlaceHolder
-subtype of EinsumOp that holds an edge. Is used as a placeholder for an operation
-before the operation is decided.
-"
-struct PlaceHolder{T} <: EinsumOp{1}
-    edges::Tuple{T}
-end
     TensorContract{N,T}
 is a type that represents a tensorcontraction of `N` edges
 of type `T` which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
@@ -131,11 +124,6 @@ struct Fallback{N,T} <: EinsumOp{N}
     iy::NTuple{N,T}
 end
 
-@doc raw"
-    placeholdersfrominds(ixs, iy)
-return all indices in `ixs` that imply an operation, wrapped in a `PlaceHolder`.
-"
-placeholdersfrominds(ixs, iy) = map(PlaceHolder, edgesfrominds(ixs, iy))
 
 @doc raw"
     operatorfromedge(edge, ixs, iy)
@@ -184,20 +172,21 @@ end
 
 
 @doc raw"
-    modifyops(ixs, sxs, ops, iy)
-given a list of placeholders `ops`, return a list of operations where
+    modifyops(ixs, sxs, edges, iy)
+given a list of  edges `edges`, return a list of operations where
 consecutive operations are combined if possible.
 "
-function modifyops(ixs, ops, iy)
-    if !isempty(ops)
-        opi = operatorfromedge(first(ops), ixs, iy)
+function modifyops(ixs, edges, iy)
+    if !isempty(edges)
+        opi = operatorfromedge(first(edges), ixs, iy)
         ops, ixs, op, = foldl((x,z) -> _modifyhelper(x,z,iy),
-                            ops[2:end],
+                            edges[2:end],
                             init = ((), ixs, opi, supportinds(opi, ixs)))
         ops = (ops..., op)
         ixs = indicesafteroperation(op, ixs)
+        return appendfinalops(ixs,ops, iy)
     end
-    ops = appendfinalops(ixs,ops, iy)
+    return appendfinalops(ixs, (), iy)
 end
 
 function appendfinalops(ixs, ops, iy)
@@ -218,9 +207,9 @@ function appendfinalops(ixs, ops, iy)
     return ops
 end
 
-function _modifyhelper((ops, ixs, op2, sop2), op, iy)
-    sop1 = supportinds(op, ixs)
-    op1  = operatorfromedge(op, ixs, iy)
+function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
+    sop1 = supportinds(edge, ixs)
+    op1  = operatorfromedge(edge, ixs, iy)
 
     if iscombineable(op1,op2) && sop1 == sop2
         nop = combineops(op1, op2)
@@ -233,12 +222,13 @@ function _modifyhelper((ops, ixs, op2, sop2), op, iy)
     end
 end
 
-supportinds(op, ixs) = map(x -> op.edges[1] in x, ixs)
+supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
+supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
 
 function opsfrominds(ixs, iy)
-    tmp = placeholdersfrominds(ixs, iy)
-    tmp = TupleTools.sort(tmp, by = x -> x.edges[1])
-    return modifyops(ixs, tmp, iy)
+    edges = edgesfrominds(ixs, iy)
+    edges = TupleTools.sort(edges)
+    return modifyops(ixs, edges, iy)
 end
 
 function indicesafterop(op::EinsumOp, ixs)
@@ -318,11 +308,11 @@ indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(al
 
 
 @doc raw"
-    meinsumcost(ixs, xs, ops)
+    einsumcost(ixs, xs, ops)
 returns the cost of evaluating the einsum of `ixs`, `xs` according to the
 sequence in ops.
 "
-function meinsumcost(ixs, xs, ops)
+function einsumcost(ixs, xs, ops)
     foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, xs))[1]
 end
 
@@ -332,21 +322,21 @@ return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations.
 "
 function optimalorder(ixs, xs, iy)
-    tmp = placeholdersfrominds(ixs, iy)
+    edges = edgesfrominds(ixs,iy)
     sxs = size.(xs)
-    optimiseorder(ixs, sxs, tmp, iy)[2]
+    optimiseorder(ixs, sxs, edges, iy)[2]
 end
 
 @doc raw"
-    optimiseorder(ixs, sxs, ops, iy)
+    optimiseorder(ixs, sxs, edges, iy)
 return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations in `ops` and its cost.
 "
-function optimiseorder(ixs, sxs, ops,iy)
-    isempty(ops) && return (0, appendfinalops(ixs, ops, iy))
-    foldl(permutations(ops), init = (typemax(Int), modifyops(ixs,ops,iy))) do (cost, op1), op2
+function optimiseorder(ixs, sxs, edges,iy)
+    isempty(edges) && return (0, appendfinalops(ixs, (), iy))
+    foldl(permutations(edges), init = (typemax(Int), modifyops(ixs,edges,iy))) do (cost, op1), op2
         op2p = modifyops(ixs,op2,iy)
-        ncost = meinsumcost(ixs, sxs, op2p)
+        ncost = einsumcost(ixs, sxs, op2p)
         if ncost == cost
             # if cost is the same, prefer less operations
             length(op2p) < length(op1) ? (ncost, op2p) : (cost, op1)
