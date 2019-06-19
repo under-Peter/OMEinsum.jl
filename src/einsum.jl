@@ -70,10 +70,10 @@ function outputtensor(xs, ixs, iy)
 end
 
 
-function einsumexp!(ixs::NTuple{N, NTuple{M, Union{AbstractChar,Int}} where M},
+function einsumexp!(ixs::NTuple{N, NTuple{M, IT} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                iy::NTuple{L,Union{AbstractChar,Int}},
-                y::AbstractArray{T,L}) where {N,L,T}
+                iy::NTuple{L,IT},
+                y::AbstractArray{T,L}) where {N,L,T,IT <: Union{AbstractChar,Integer}}
     all_indices = TupleTools.vcat(ixs..., iy)
     indices = unique(all_indices)
     size_dict = get_size_dict((ixs..., iy), (xs..., y))
@@ -102,9 +102,9 @@ end
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
-function get_size_dict(ixs, xs)
+function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T
     nt = length(ixs)
-    size_dict = Dict{Union{AbstractChar,Int}, Int}()
+    size_dict = Dict{T,Int}()
     @inbounds for i = 1:nt
         for (N, leg) in zip(size(xs[i]), ixs[i])
             if haskey(size_dict, leg)
