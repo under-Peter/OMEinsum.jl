@@ -16,7 +16,8 @@ end
 
 @doc raw"
     EinsumOp{N}
-abstract supertype of all einsum operations involving N edges
+abstract supertype of all einsum operations involving `N` edges
+or `N` tensors (for `OuterProduct{N}`).
 "
 abstract type EinsumOp{N} end
 
@@ -30,54 +31,52 @@ before the operation is decided.
 struct PlaceHolder{T} <: EinsumOp{1}
     edges::Tuple{T}
 end
-
-@doc raw"
-    TensorContract{N}
+    TensorContract{N,T}
 is a type that represents a tensorcontraction of `N` edges
-which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
-is represented by `TensorContract{1}((j,))`.
+of type `T` which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
+is represented by `TensorContract{1,Char}((j,))`.
 "
 struct TensorContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Trace{N}
-is a type that represents a trace operation of `N` edges,
-i.e. 2`N` indices, which are stored in its `edges` field,
-e.g. `'ijjk -> ik'` is represented by `Trace{1}((j,))`
+    Trace{N,T}
+is a type that represents a trace operation of `N` edges
+of type `T`, i.e. 2`N` indices, which are stored in its `edges` field,
+e.g. `'ijjk -> ik'` is represented by `Trace{1,Char}((j,))`
 "
 struct Trace{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    StarContract{N}
-is a type that represents a star-contraction of `N` edges
+    StarContract{N,T}
+is a type that represents a star-contraction of `N` edges of type `T`
 which are stored in its `edges` field.
 A `StarContract{N}` results from `N` tensors sharing at least one index
 but *no* tensor has duplicate shared indices, e.g. `'ij,ik,il -> jkl'`
-is represented by `StarContract{1}((i,))`.
+is represented by `StarContract{1,Char}((i,))`.
 "
 struct StarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    MixedStarContract{N}
-is a type that represents a mixed star-contraction of `N` edges
+    MixedStarContract{N,T}
+is a type that represents a mixed star-contraction of `N` edges of type `T`
 which are stored in its `edges` field.
 A `MixedStarContract{N}` results from `N` tensors sharing at least one index
 and at least one tensor has duplicate shared indices, e.g. `'ij,ik,iil -> jkl'`
-is represented by `MixedStarContract{1}((i,))`.
+is represented by `MixedStarContract{1,Char}((i,))`.
 "
 struct MixedStarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Diag{N}
-is a type that represents a (generalized) diagonal of `N` edges
+    Diag{N,T}
+is a type that represents a (generalized) diagonal of `N` edges of type `T`
 of one tensor which are stored in its `edges` field, e.g. `'iij -> ij'` is
 represented by `Diag{1}((i,))`
 "
@@ -86,29 +85,30 @@ struct Diag{N,T} <: EinsumOp{N}
 end
 
 @doc raw"
-    MixedDiag{N}
+    MixedDiag{N,T}
 is a type that represents a (generalized) mixed diagonal of `N` edges
-of more than one tensor which are stored in its `edges` field,
- e.g. `'iij, ik -> ijk'` is represented by `MixedDiag{1}((i,))`
+of type `T` of more than one tensor which are stored in its `edges` field,
+ e.g. `'iij, ik -> ijk'` is represented by `MixedDiag{1,Char}((i,))`
 "
 struct MixedDiag{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    IndexReduction{N}
-is a type that represents an index reduction of `N` edges/indices
+    IndexReduction{N,T}
+is a type that represents an index reduction of `N` edges/indices of type `T`
 which are stored in its `edges` field, e.g. `'ij -> i'` is
-represented by `IndexReduction{1}((j,))`.
+represented by `IndexReduction{1,Char}((j,))`.
 "
 struct IndexReduction{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Permutation{N}
+    Permutation{N,T}
 is a type that represents a permutation of `N` indices
-which are stored in its `perm` field.
+which are stored in its `perm` field as a tuple of
+`N` integers of type `T`.
 "
 struct Permutation{N,T} <: EinsumOp{1}
     perm::NTuple{N,T}
@@ -122,8 +122,8 @@ struct OuterProduct{N} <: EinsumOp{N}
 end
 
 @doc raw"
-    Fallback{N}
-is a type that represents an `einsum` resulting in `N` indices,
+    Fallback{N,T}
+is a type that represents an `einsum` resulting in `N` indices of type `T`,
 which are stored in its `iy` field.
 It's used as a general fallback if no more efficient method is available.
 "
