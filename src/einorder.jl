@@ -287,7 +287,7 @@ end
 
 function opcost(::Union{Fallback, OuterProduct, Permutation}, cost, allixs,
      allsxs::NTuple{M,NTuple{N,Int} where N} where M)
-     (0, (), ())
+     (cost, (), ())
  end
 
 function pickfromtup(things, inds)
