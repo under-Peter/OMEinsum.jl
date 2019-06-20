@@ -151,8 +151,6 @@ function operatorfromedge(edge, ixs, iy)
     end
 end
 
-operatorfromedge(op::EinsumOp{1}, ixs, iy) = operatorfromedge(op.edges[1], ixs, iy)
-
 @doc raw"
     iscombineable(a,b)
 return `true` if `EinsumOp`s `a` and `b` can be combined into one operator.
@@ -220,23 +218,6 @@ function appendfinalops(ixs, ops, iy)
     end
     return ops
 end
-
-
-function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
-    sop1 = supportinds(edge, ixs)
-    op1  = operatorfromedge(edge, ixs, iy)
-
-    if iscombineable(op1,op2) && sop1 == sop2
-        nop = combineops(op1, op2)
-        return (ops, ixs, nop, sop2)
-    else
-        nixs = indicesafteroperation(op2, ixs)
-        op1  = operatorfromedge(op1, nixs, iy)
-        sop1 = supportinds(op1, nixs)
-        return ((ops..., op2), nixs, op1, sop1)
-    end
-end
-
 
 supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
 supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
