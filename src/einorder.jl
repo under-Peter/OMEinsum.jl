@@ -18,7 +18,7 @@ end
     EinsumOp{N}
 abstract supertype of all einsum operations involving `N` edges
 or `N` tensors (for `OuterProduct{N}`).
-"
+      "
 abstract type EinsumOp{N} end
 
 (::Type{T})(i::S) where {T<:EinsumOp, S<:Union{Integer,AbstractChar}} = T((i,))
@@ -78,6 +78,7 @@ struct Diag{N,T} <: EinsumOp{N}
 end
 
 @doc raw"
+
     MixedDiag{N,T}
 is a type that represents a (generalized) mixed diagonal of `N` edges
 of type `T` of more than one tensor which are stored in its `edges` field,
@@ -123,7 +124,6 @@ It's used as a general fallback if no more efficient method is available.
 struct Fallback{N,T} <: EinsumOp{N}
     iy::NTuple{N,T}
 end
-
 
 @doc raw"
     operatorfromedge(edge, ixs, iy)
@@ -207,10 +207,11 @@ function appendfinalops(ixs, ops, iy)
     return ops
 end
 
+
 function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
     sop1 = supportinds(edge, ixs)
     op1  = operatorfromedge(edge, ixs, iy)
-
+        
     if iscombineable(op1,op2) && sop1 == sop2
         nop = combineops(op1, op2)
         return (ops, ixs, nop, sop2)
@@ -221,6 +222,7 @@ function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
         return ((ops..., op2), nixs, op1, sop1)
     end
 end
+
 
 supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
 supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
@@ -280,6 +282,7 @@ function opcost(::Union{Fallback, OuterProduct, Permutation}, cost, allixs,
      (cost, (), ())
  end
 
+
 function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
 end
@@ -308,6 +311,7 @@ indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(al
 
 
 @doc raw"
+
     einsumcost(ixs, xs, ops)
 returns the cost of evaluating the einsum of `ixs`, `xs` according to the
 sequence in ops.

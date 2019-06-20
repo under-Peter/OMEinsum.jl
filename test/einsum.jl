@@ -191,3 +191,10 @@ end
     @test_throws DimensionMismatch einsum(((1,2), (2,3)), (a, b), (1,3))
     @test_throws ArgumentError OMEinsum.combineops(OMEinsum.Diag(1), OMEinsum.Trace(2))
 end
+
+@testset "string input" begin
+    a = randn(3,3)
+    @test einsum("ij,jk -> ik", (a,a)) ≈ einsum(((1,2),(2,3)), (a,a), (1,3))
+    @test_throws ArgumentError einsum("ij,123 -> k", (a,a))
+
+end
