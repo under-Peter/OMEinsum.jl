@@ -172,7 +172,7 @@ end
 
 
 @doc raw"
-    modifyops(ixs, sxs, edges, iy)
+    modifyops(ixs, edges, iy)
 given a list of  edges `edges`, return a list of operations where
 consecutive operations are combined if possible.
 "
@@ -223,7 +223,7 @@ function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
 end
 
 supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
-supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
+supportinds(edge::Union{AbstractChar, Integer}, ixs) = map(x -> edge in x, ixs)
 
 function opsfrominds(ixs, iy)
     edges = edgesfrominds(ixs, iy)
@@ -243,42 +243,6 @@ end
 
 indicesafterop(op::OuterProduct{N}, ixs) where N = TupleTools.vcat(ixs...)
 indicesafterop(op::Permutation, ixs) = TupleTools.permute(ixs, op.perm)
-
-@doc raw"
-    opcost(op, ocost, allixs, allsxs)
-returns the cost (in number of iterations it would require in a for loop)
-of evaluating `op` with arguments `allixs` and `allsxs` plus `ocost`
-as well as the new indices and sizes after evaluation.
-
-`allsxs` is a tuple of tuples of Ints - the sizes of the respective arrays
-
-"
-function opcost(op::EinsumOp, cost, allixs, allsxs::NTuple{M,NTuple{N,Int} where N} where M)
-    e = op.edges
-    inds = Tuple(i for (i, ix) in enumerate(allixs) if overlap(e,ix))
-
-    ixs, nallixs = pickfromtup(allixs, inds)
-    sxs, nallsxs = pickfromtup(allsxs, inds)
-
-    nix = indicesafterop(op, ixs)
-
-    allinds  = TupleTools.vcat(ixs...)
-    allsizes = TupleTools.vcat(sxs...)
-
-    l = length(allinds)
-    dims = map(ntuple(identity,l), allinds) do k,i
-                ifelse(any(x -> allinds[x] == i, 1:(k-1)), 1, allsizes[k])
-            end
-    cost += prod(dims)
-    nsx = map(i -> allsizes[findfirst(==(i), allinds)::Int], nix)
-
-    return (cost, (nix, nallixs...), (nsx, nallsxs...))
-end
-
-function opcost(::Union{Fallback, OuterProduct, Permutation}, cost, allixs,
-     allsxs::NTuple{M,NTuple{N,Int} where N} where M)
-     (cost, (), ())
- end
 
 function pickfromtup(things, inds)
     (TupleTools.getindices(things, inds), TupleTools.deleteat(things, inds))
@@ -308,15 +272,6 @@ indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(al
 
 
 @doc raw"
-    einsumcost(ixs, xs, ops)
-returns the cost of evaluating the einsum of `ixs`, `xs` according to the
-sequence in ops.
-"
-function einsumcost(ixs, xs, ops)
-    foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, xs))[1]
-end
-
-@doc raw"
     optimalorder(ixs, xs, iy)
 return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations.
@@ -324,24 +279,49 @@ order of reduction-operations.
 function optimalorder(ixs, xs, iy)
     edges = edgesfrominds(ixs,iy)
     sxs = size.(xs)
-    optimiseorder(ixs, sxs, edges, iy)[2]
+    optorder, = optimiseorder(ixs, sxs, collect(edges), iy)
+    modifyops(ixs, optorder, iy)
 end
 
-@doc raw"
-    optimiseorder(ixs, sxs, edges, iy)
-return a tuple of operations that represents the (possibly nonunique) optimal
-order of reduction-operations in `ops` and its cost.
-"
-function optimiseorder(ixs, sxs, edges,iy)
-    isempty(edges) && return (0, appendfinalops(ixs, (), iy))
-    foldl(permutations(edges), init = (typemax(Int), modifyops(ixs,edges,iy))) do (cost, op1), op2
-        op2p = modifyops(ixs,op2,iy)
-        ncost = einsumcost(ixs, sxs, op2p)
-        if ncost == cost
-            # if cost is the same, prefer less operations
-            length(op2p) < length(op1) ? (ncost, op2p) : (cost, op1)
-        else
-            ncost < cost ? (ncost, op2p) : (cost, op1)
+function optimiseorder(ixs, sxs, edges, iy)
+    N = length(edges)
+    # edges that are in the output-indices have to be kept
+    keep = map(in(iy), edges)
+    optorder, optcost = copy(edges), typemax(Int)
+    sizedict = Dict(TupleTools.vcat(ixs...) .=> TupleTools.vcat(sxs...))
+
+    for order in permutations(edges)
+        cost = einsumcost(order, keep, ixs, sizedict)
+        if cost < optcost
+            optcost = cost
+            optorder .= order
         end
     end
+    optorder, optcost
+end
+
+function einsumcost(edges, keep, ixs, sizedict)
+    cost = 0
+    for (e,k) in zip(edges, keep)
+        ixs, cost = edgecost(e, k, ixs, sizedict, cost)
+    end
+    return cost
+end
+
+
+function edgecost(e, k, allixs, sizedict, cost)
+    nixs, labels = virtualedgecontract(e, k, allixs)
+    cost += prod(sizedict[l] for l in labels)
+    return nixs, cost
+end
+
+function virtualedgecontract(e::T, k, allixs) where T <: Union{AbstractChar, Integer}
+    inds = findall(ix -> e in ix, allixs)
+    ixs, restixs = pickfromtup(allixs, Tuple(inds))
+    labels = unique(TupleTools.vcat(ixs...))
+
+    nix = filter(l -> l != e, labels)
+    k && push!(nix, e)
+    nixs = (restixs..., Tuple(nix))
+    return nixs, labels
 end
