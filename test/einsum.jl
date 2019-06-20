@@ -198,3 +198,10 @@ end
     @test_throws ArgumentError einsum("ij,123 -> k", (a,a))
 
 end
+
+@testset "argument checks" begin
+    @test_throws ArgumentError einsum("ij,jk -> ik", (rand(2,2), rand(2,2), rand(2,2)))
+    @test_throws ArgumentError einsum("ij,jk,k -> ik", (rand(2,2), rand(2,2)))
+    @test_throws ArgumentError einsum("ij,ijk -> ik", (rand(2,2), rand(2,2)))
+    @test_throws DimensionMismatch einsum("ij,jk -> ik", (rand(2,3), rand(2,2)))
+end
