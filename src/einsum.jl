@@ -38,7 +38,7 @@ true
 ```
 "
 function einsum(ixs, xs, iy)
-    ops = opsfrominds(ixs, iy)
+    ops = operatorsfromindices(ixs, iy)
     evaluateall(ixs, xs, ops, iy)
 end
 

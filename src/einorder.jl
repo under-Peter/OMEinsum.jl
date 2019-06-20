@@ -4,13 +4,15 @@ using TensorOperations, TupleTools, Combinatorics
     edgesfrominds(ixs,iy)
 return the edges of the ixs that imply an operation e.g.
 in ixs = ((1,2),(2,3)), iy = (1,3), edge 2
-requires a tensor contraction
+requires a tensor contraction, thus
+```julia
+julia> edgesfrominds(((1,2),(2,3)),(1,3)) == [2]
+```
 "
 function edgesfrominds(ixs,iy)
     allixs = TupleTools.vcat(ixs...)
-    pred(i,e) = !(count(==(e), allixs) == 1 && e in iy) && # not trivial
-                all(j -> allixs[j] != e, 1:(i-1)) # not seen before
-    Tuple(e for (i,e) in enumerate(allixs) if pred(i,e))
+    pred(e) = !(count(==(e), allixs) == 1 && e in iy)
+    filter!(pred, unique(allixs))
 end
 
 
@@ -152,8 +154,6 @@ function operatorfromedge(edge, ixs, iy)
     end
 end
 
-operatorfromedge(op::EinsumOp{1}, ixs, iy) = operatorfromedge(op.edges[1], ixs, iy)
-
 @doc raw"
     iscombineable(a,b)
 return `true` if `EinsumOp`s `a` and `b` can be combined into one operator.
@@ -172,21 +172,35 @@ end
 
 
 @doc raw"
-    modifyops(ixs, sxs, edges, iy)
-given a list of  edges `edges`, return a list of operations where
-consecutive operations are combined if possible.
+    operatorsfromedges(ixs, edges, iy)
+given a list of  edges `edges`, return a list of operations in the
+same order as `edges` where consecutive operations are combined if possible.
 "
-function modifyops(ixs, edges, iy)
-    if !isempty(edges)
-        opi = operatorfromedge(first(edges), ixs, iy)
-        ops, ixs, op, = foldl((x,z) -> _modifyhelper(x,z,iy),
-                            edges[2:end],
-                            init = ((), ixs, opi, supportinds(opi, ixs)))
-        ops = (ops..., op)
-        ixs = indicesafteroperation(op, ixs)
-        return appendfinalops(ixs,ops, iy)
+function operatorsfromedges(ixs, edges, iy)
+    isempty(edges) && return appendfinalops(ixs, (), iy)
+
+    opi = operatorfromedge(first(edges), ixs, iy)
+    ops, ixs, op, = foldl((x,z) -> _operatorsfromedgeshelper(x,z,iy),
+                        edges[2:end],
+                        init = ((), ixs, opi, supportinds(opi, ixs)))
+    ops = (ops..., op)
+    ixs = indicesafteroperation(op, ixs)
+    appendfinalops(ixs,ops, iy)
+end
+
+function _operatorsfromedgeshelper((ops, ixs, op2, sop2), edge, iy)
+    sop1 = supportinds(edge, ixs)
+    op1  = operatorfromedge(edge, ixs, iy)
+
+    if iscombineable(op1,op2) && sop1 == sop2
+        nop = combineops(op1, op2)
+        return (ops, ixs, nop, sop2)
+    else
+        nixs = indicesafteroperation(op2, ixs)
+        op1  = operatorfromedge(edge, nixs, iy)
+        sop1 = supportinds(op1, nixs)
+        return ((ops..., op2), nixs, op1, sop1)
     end
-    return appendfinalops(ixs, (), iy)
 end
 
 function appendfinalops(ixs, ops, iy)
@@ -207,28 +221,14 @@ function appendfinalops(ixs, ops, iy)
     return ops
 end
 
-function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
-    sop1 = supportinds(edge, ixs)
-    op1  = operatorfromedge(edge, ixs, iy)
 
-    if iscombineable(op1,op2) && sop1 == sop2
-        nop = combineops(op1, op2)
-        return (ops, ixs, nop, sop2)
-    else
-        nixs = indicesafteroperation(op2, ixs)
-        op1  = operatorfromedge(op1, nixs, iy)
-        sop1 = supportinds(op1, nixs)
-        return ((ops..., op2), nixs, op1, sop1)
-    end
-end
-
-supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
+supportinds(op::EinsumOp, ixs) = map(x -> overlap(op.edges, x), ixs)
 supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
 
-function opsfrominds(ixs, iy)
+function operatorsfromindices(ixs, iy)
     edges = edgesfrominds(ixs, iy)
-    edges = TupleTools.sort(edges)
-    return modifyops(ixs, edges, iy)
+    sort!(edges)
+    return operatorsfromedges(ixs, edges, iy)
 end
 
 function indicesafterop(op::EinsumOp, ixs)
@@ -334,8 +334,8 @@ order of reduction-operations in `ops` and its cost.
 "
 function optimiseorder(ixs, sxs, edges,iy)
     isempty(edges) && return (0, appendfinalops(ixs, (), iy))
-    foldl(permutations(edges), init = (typemax(Int), modifyops(ixs,edges,iy))) do (cost, op1), op2
-        op2p = modifyops(ixs,op2,iy)
+    foldl(permutations(edges), init = (typemax(Int), operatorsfromedges(ixs,edges,iy))) do (cost, op1), op2
+        op2p = operatorsfromedges(ixs,op2,iy)
         ncost = einsumcost(ixs, sxs, op2p)
         if ncost == cost
             # if cost is the same, prefer less operations
