@@ -10,13 +10,15 @@ function einsum_grad(ixs, xs, iy, y, i)
     nixs = TupleTools.insertat(ixs, i, (iy,))
     nxs  = TupleTools.insertat( xs, i, ( y,))
     niy = ixs[i]
+    ntmp = Tuple(i for i in unique(niy) if any(x -> i in x, nixs))
+    tmp = einsum(nixs, nxs, ntmp)
     ny = zeros(T, size(xs[i])...)
-    einsum!(nixs, nxs, niy, ny)
+    einsumexp!((ntmp,), (tmp,), niy, ny)
     conj!(ny)
 end
 
-@Zygote.adjoint function einsum!(ixs, xs::NTuple{N,T where T}, iy, y) where N
-    einsum!(ixs, xs, iy, y)
+@Zygote.adjoint function einsum(ixs, xs::NTuple{N,T where T}, iy) where N
+    y = einsum(ixs, xs, iy)
     return y, dy -> let cdy = map(conj,dy)
                 (
                     nothing,

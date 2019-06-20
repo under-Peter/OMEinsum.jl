@@ -1,25 +1,28 @@
 using TupleTools, Base.Cartesian
 
-function einsum(cs, ts)
-    allins  = reduce(vcat, collect.(cs))
-    outinds = sort(filter(x -> count(==(x), allins) == 1, allins))
-    einsum(cs, ts, tuple(outinds...))
+function outindsfrominput(ixs)
+    allixs = vcat(collect.(ixs)...)
+    iy = sort!(filter!(x -> count(==(x), TupleTools.vcat(ixs...)) == 1, allixs))
+    return tuple(iy...)
 end
 
+einsum(ixs, xs) = einsum(ixs, xs, outindsfrominput(ixs))
+
 @doc raw"
-    einsum(cs, ts, out)
-return the tensor that results from contracting the tensors `ts` according
-to their indices `cs`, where twice-appearing indices are contracted.
+    einsum(ixs, xs, out)
+return the tensor that results from contracting the tensors `xs` according
+to their indices `ixs`, where all indices that do not appear in the output are
+summed over. The indices are contracted in the order implied by their numerical value,
+smaller first.
 The result is permuted according to `out`.
 
-- `cs` - tuple of tuple of integers that label all indices of a tensor.
+- `ixs` - tuple of tuple of integers that label all indices of a tensor.
        Indices that appear twice (in different tensors) are summed over
 
-- `ts` - tuple of tensors
+- `xs` - tuple of tensors
 
-- `out` - tuple of integers that should correspond to remaining indices in `cs` after contractions.
+- `out` - tuple of integers that should correspond to remaining indices in `ixs` after contractions.
 
-This implementation has space requirements that are exponential in the number of unique indices.
 
 # example
 ```jldoctest; setup = :(using OMEinsum)
@@ -34,26 +37,43 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-function einsum(contractions::NTuple{N, NTuple{M, T} where M},
-                tensors::NTuple{N, AbstractArray{<:Any,M} where M},
-                outinds::NTuple{<:Any,T}) where {N,T}
-    out = outputtensor(tensors, contractions, outinds)
-    einsum!(contractions, tensors, outinds, out)
+function einsum(ixs, xs, iy)
+    ops = opsfrominds(ixs, iy)
+    evaluateall(ixs, xs, ops, iy)
 end
 
-function outputtensor(tensors, contractions, outinds)
-    T = mapreduce(eltype, promote_type, tensors)
-    sizes = TupleTools.vcat(size.(tensors)...)
-    indices = TupleTools.vcat(contractions...)
-    outdims = map(x -> sizes[findfirst(==(x), indices)], outinds)
-    zeros(T,outdims...)
+einsumopt(ixs, xs) = einsumopt(ixs, xs, outindsfrominput(ixs))
+@doc raw"
+    meinsumopt(ixs, xs, iy)
+returns the result of the einsum operation implied by `ixs`, `iy` but
+evaluated in the optimal order according to `meinsumcost`.
+"
+function einsumopt(ixs, xs, iy)
+    ops = optimalorder(ixs, xs, iy)
+    evaluateall(ixs, xs, ops, iy)
 end
 
 
-function einsum!(ixs::NTuple{N, NTuple{M, Int} where M},
+function einsumexp(ixs::NTuple{N, NTuple{M, T} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                iy::NTuple{L,Int},
-                y::AbstractArray{T,L}) where {N,L,T}
+                iy::NTuple{<:Any,T}) where {N,T}
+    out = outputtensor(xs, ixs, iy)
+    einsumexp!(ixs, xs, iy, out)
+end
+
+function outputtensor(xs, ixs, iy)
+    T = mapreduce(eltype, promote_type, xs)
+    sizes = TupleTools.vcat(size.(xs)...)
+    indices = TupleTools.vcat(ixs...)
+    outdims = map(x -> sizes[findfirst(==(x), indices)], iy)
+    zeros(T, outdims...)
+end
+
+
+function einsumexp!(ixs::NTuple{N, NTuple{M, IT} where M},
+                xs::NTuple{N, AbstractArray{<:Any,M} where M},
+                iy::NTuple{L,IT},
+                y::AbstractArray{T,L}) where {N,L,T,IT <: Union{AbstractChar,Integer}}
     all_indices = TupleTools.vcat(ixs..., iy)
     indices = unique(all_indices)
     size_dict = get_size_dict((ixs..., iy), (xs..., y))
@@ -82,9 +102,9 @@ end
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
-function get_size_dict(ixs, xs)
+function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T
     nt = length(ixs)
-    size_dict = Dict{Int, Int}()
+    size_dict = Dict{T,Int}()
     @inbounds for i = 1:nt
         for (N, leg) in zip(size(xs[i]), ixs[i])
             if haskey(size_dict, leg)
