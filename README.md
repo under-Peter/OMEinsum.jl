@@ -34,8 +34,8 @@ to the following specification:
 where the sum over `l` implies the sum over all possible values of the labels in `l`.
 
 
-For [benchmarks](https://github.com/under-Peter/OMEinsum-Benchmarks)
-(The significant overhead of order optimisation is being worked on).
+
+[Benchmarks are available here](https://github.com/under-Peter/OMEinsum-Benchmarks)
 
 ## Examples
 Consider multiplying two matrices `a` and `b` which we specify with
@@ -45,20 +45,26 @@ julia> a, b = rand(2,2), rand(2,2);
 julia> einsum((('i','k'),('k','j')), (a,b), ('i','j'))
 ```
 
-To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
-
-We might instead be interested in the sum of all elements of the matrix product `a*b`
-and reduce over all indices, specifying `iy = ()`:
+`einsum` might also be used in a way closer to the use in `numpy`, via a string specification
+such as:
 ```julia
-julia> xs = (rand(2,2), rand(2,2));
-
-julia> ixs = (('i','k'),('k','j'));
-
-julia> iy = ();
-
-julia> einsum(ixs, xs, iy) ≈  sum(a * b)
+julia> einsum("ij,jk -> ik", (a,b)) ≈ a*b
 true
 ```
+
+The string parsing introduces a small overhead compared to writing the indices as tuples, but for operations that take on the order of ms this is often negligible.
+
+To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
+
+If we're interested in the sum of all elements of a matrix product `a*b`
+we can reduce over all indices with the specification `ij,jk -> `
+```julia
+julia> einsum("ij,jk ->", (a,b))[] ≈ sum(a * b)
+true
+```
+
+Note the use of `[]` to extract the element of a 0-dimensional array.
+`einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
 `einsumopt` will calculate the cost of each possible sequence of operations and evaluate
 the (possibly nonunique) optimal operations order.
@@ -69,19 +75,23 @@ cases it might still be worth it:
 julia> d = 5; χ = 50; a = randn(χ,χ); b= randn(χ,d,χ); c = randn(d,d,d,d);
 
 julia> @btime einsum((('x','y'), ('x','k','l'), ('y','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
-  1.396 s (460 allocations: 2.33 GiB)
+  1.323 s (473 allocations: 2.33 GiB)
 
 julia> @btime einsumopt((('x','y'), ('x','k','l'), ('y','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
-  2.579 ms (11789 allocations: 2.00 MiB)
+  2.845 ms (11733 allocations: 2.00 MiB)
 
 ```
 although the same effect can be had by choosing the labels appropriately, such that
 the best contraction sequence is in alphabetical order:
 ```julia
 julia> @btime einsum((('i','j'), ('i','k','l'), ('j','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
-  773.467 μs (339 allocations: 1.54 MiB)
+  645.273 μs (331 allocations: 1.54 MiB)
 ```
-
+or with a string-specification
+```julia
+julia> @btime einsum("ij,ikl,jmn,kmop -> lnop", ($a, $b, $b, $c))
+  681.774 μs (370 allocations: 1.54 MiB)
+```
 
 
 ## Contribute
