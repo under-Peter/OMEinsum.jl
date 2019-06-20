@@ -326,12 +326,12 @@ indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(al
 
 @doc raw"
 
-    einsumcost(ixs, xs, ops)
-returns the cost of evaluating the einsum of `ixs`, `xs` according to the
-sequence in ops.
+    einsumcost(ixs, sxs, ops)
+returns the cost of evaluating the einsum of `ixs`, `sxs` according to the
+sequence in ops, where `sxs` is a tuple of sizes.
 "
-function einsumcost(ixs, xs, ops)
-    foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, xs))[1]
+function einsumcost(ixs, sxs, ops)
+    foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, sxs))[1]
 end
 
 @doc raw"
