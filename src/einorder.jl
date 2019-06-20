@@ -192,8 +192,8 @@ function _operatorsfromedgeshelper((ops, ixs, op2, sop2), edge, iy)
     sop1 = supportinds(edge, ixs)
     op1  = operatorfromedge(edge, ixs, iy)
 
-    if iscombineable(op1,op2) && sop1 == sop2
-        nop = combineops(op1, op2)
+    if iscombineable(op2,op1) && sop1 == sop2
+        nop = combineops(op2, op1)
         return (ops, ixs, nop, sop2)
     else
         nixs = indicesafteroperation(op2, ixs)
