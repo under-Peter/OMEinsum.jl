@@ -16,68 +16,60 @@ end
 
 @doc raw"
     EinsumOp{N}
-abstract supertype of all einsum operations involving N edges
-"
+abstract supertype of all einsum operations involving `N` edges
+or `N` tensors (for `OuterProduct{N}`).
+      "
 abstract type EinsumOp{N} end
 
 (::Type{T})(i::S) where {T<:EinsumOp, S<:Union{Integer,AbstractChar}} = T((i,))
 
 @doc raw"
-    PlaceHolder
-subtype of EinsumOp that holds an edge. Is used as a placeholder for an operation
-before the operation is decided.
-"
-struct PlaceHolder{T} <: EinsumOp{1}
-    edges::Tuple{T}
-end
-
-@doc raw"
-    TensorContract{N}
+    TensorContract{N,T}
 is a type that represents a tensorcontraction of `N` edges
-which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
-is represented by `TensorContract{1}((j,))`.
+of type `T` which are stored in its `edges` field, e.g. `'ij,jk -> ik'`
+is represented by `TensorContract{1,Char}((j,))`.
 "
 struct TensorContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Trace{N}
-is a type that represents a trace operation of `N` edges,
-i.e. 2`N` indices, which are stored in its `edges` field,
-e.g. `'ijjk -> ik'` is represented by `Trace{1}((j,))`
+    Trace{N,T}
+is a type that represents a trace operation of `N` edges
+of type `T`, i.e. 2`N` indices, which are stored in its `edges` field,
+e.g. `'ijjk -> ik'` is represented by `Trace{1,Char}((j,))`
 "
 struct Trace{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    StarContract{N}
-is a type that represents a star-contraction of `N` edges
+    StarContract{N,T}
+is a type that represents a star-contraction of `N` edges of type `T`
 which are stored in its `edges` field.
 A `StarContract{N}` results from `N` tensors sharing at least one index
 but *no* tensor has duplicate shared indices, e.g. `'ij,ik,il -> jkl'`
-is represented by `StarContract{1}((i,))`.
+is represented by `StarContract{1,Char}((i,))`.
 "
 struct StarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    MixedStarContract{N}
-is a type that represents a mixed star-contraction of `N` edges
+    MixedStarContract{N,T}
+is a type that represents a mixed star-contraction of `N` edges of type `T`
 which are stored in its `edges` field.
 A `MixedStarContract{N}` results from `N` tensors sharing at least one index
 and at least one tensor has duplicate shared indices, e.g. `'ij,ik,iil -> jkl'`
-is represented by `MixedStarContract{1}((i,))`.
+is represented by `MixedStarContract{1,Char}((i,))`.
 "
 struct MixedStarContract{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Diag{N}
-is a type that represents a (generalized) diagonal of `N` edges
+    Diag{N,T}
+is a type that represents a (generalized) diagonal of `N` edges of type `T`
 of one tensor which are stored in its `edges` field, e.g. `'iij -> ij'` is
 represented by `Diag{1}((i,))`
 "
@@ -86,29 +78,31 @@ struct Diag{N,T} <: EinsumOp{N}
 end
 
 @doc raw"
-    MixedDiag{N}
+
+    MixedDiag{N,T}
 is a type that represents a (generalized) mixed diagonal of `N` edges
-of more than one tensor which are stored in its `edges` field,
- e.g. `'iij, ik -> ijk'` is represented by `MixedDiag{1}((i,))`
+of type `T` of more than one tensor which are stored in its `edges` field,
+ e.g. `'iij, ik -> ijk'` is represented by `MixedDiag{1,Char}((i,))`
 "
 struct MixedDiag{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    IndexReduction{N}
-is a type that represents an index reduction of `N` edges/indices
+    IndexReduction{N,T}
+is a type that represents an index reduction of `N` edges/indices of type `T`
 which are stored in its `edges` field, e.g. `'ij -> i'` is
-represented by `IndexReduction{1}((j,))`.
+represented by `IndexReduction{1,Char}((j,))`.
 "
 struct IndexReduction{N,T} <: EinsumOp{N}
     edges::NTuple{N,T}
 end
 
 @doc raw"
-    Permutation{N}
+    Permutation{N,T}
 is a type that represents a permutation of `N` indices
-which are stored in its `perm` field.
+which are stored in its `perm` field as a tuple of
+`N` integers of type `T`.
 "
 struct Permutation{N,T} <: EinsumOp{1}
     perm::NTuple{N,T}
@@ -122,20 +116,14 @@ struct OuterProduct{N} <: EinsumOp{N}
 end
 
 @doc raw"
-    Fallback{N}
-is a type that represents an `einsum` resulting in `N` indices,
+    Fallback{N,T}
+is a type that represents an `einsum` resulting in `N` indices of type `T`,
 which are stored in its `iy` field.
 It's used as a general fallback if no more efficient method is available.
 "
 struct Fallback{N,T} <: EinsumOp{N}
     iy::NTuple{N,T}
 end
-
-@doc raw"
-    placeholdersfrominds(ixs, iy)
-return all indices in `ixs` that imply an operation, wrapped in a `PlaceHolder`.
-"
-placeholdersfrominds(ixs, iy) = map(PlaceHolder, edgesfrominds(ixs, iy))
 
 @doc raw"
     operatorfromedge(edge, ixs, iy)
@@ -184,20 +172,21 @@ end
 
 
 @doc raw"
-    modifyops(ixs, sxs, ops, iy)
-given a list of placeholders `ops`, return a list of operations where
+    modifyops(ixs, sxs, edges, iy)
+given a list of  edges `edges`, return a list of operations where
 consecutive operations are combined if possible.
 "
-function modifyops(ixs, ops, iy)
-    if !isempty(ops)
-        opi = operatorfromedge(first(ops), ixs, iy)
+function modifyops(ixs, edges, iy)
+    if !isempty(edges)
+        opi = operatorfromedge(first(edges), ixs, iy)
         ops, ixs, op, = foldl((x,z) -> _modifyhelper(x,z,iy),
-                            ops[2:end],
+                            edges[2:end],
                             init = ((), ixs, opi, supportinds(opi, ixs)))
         ops = (ops..., op)
         ixs = indicesafteroperation(op, ixs)
+        return appendfinalops(ixs,ops, iy)
     end
-    ops = appendfinalops(ixs,ops, iy)
+    return appendfinalops(ixs, (), iy)
 end
 
 function appendfinalops(ixs, ops, iy)
@@ -218,10 +207,11 @@ function appendfinalops(ixs, ops, iy)
     return ops
 end
 
-function _modifyhelper((ops, ixs, op2, sop2), op, iy)
-    sop1 = supportinds(op, ixs)
-    op1  = operatorfromedge(op, ixs, iy)
 
+function _modifyhelper((ops, ixs, op2, sop2), edge, iy)
+    sop1 = supportinds(edge, ixs)
+    op1  = operatorfromedge(edge, ixs, iy)
+        
     if iscombineable(op1,op2) && sop1 == sop2
         nop = combineops(op1, op2)
         return (ops, ixs, nop, sop2)
@@ -233,12 +223,14 @@ function _modifyhelper((ops, ixs, op2, sop2), op, iy)
     end
 end
 
-supportinds(op, ixs) = map(x -> op.edges[1] in x, ixs)
+
+supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
+supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
 
 function opsfrominds(ixs, iy)
-    tmp = placeholdersfrominds(ixs, iy)
-    tmp = TupleTools.sort(tmp, by = x -> x.edges[1])
-    return modifyops(ixs, tmp, iy)
+    edges = edgesfrominds(ixs, iy)
+    edges = TupleTools.sort(edges)
+    return modifyops(ixs, edges, iy)
 end
 
 function indicesafterop(op::EinsumOp, ixs)
@@ -319,11 +311,12 @@ indicesafteroperation(op::OuterProduct{N}, allixs) where N = (TupleTools.vcat(al
 
 
 @doc raw"
-    meinsumcost(ixs, xs, ops)
+
+    einsumcost(ixs, xs, ops)
 returns the cost of evaluating the einsum of `ixs`, `xs` according to the
 sequence in ops.
 "
-function meinsumcost(ixs, xs, ops)
+function einsumcost(ixs, xs, ops)
     foldl((args, op) -> opcost(op, args...), ops, init = (0, ixs, xs))[1]
 end
 
@@ -333,21 +326,21 @@ return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations.
 "
 function optimalorder(ixs, xs, iy)
-    tmp = placeholdersfrominds(ixs, iy)
+    edges = edgesfrominds(ixs,iy)
     sxs = size.(xs)
-    optimiseorder(ixs, sxs, tmp, iy)[2]
+    optimiseorder(ixs, sxs, edges, iy)[2]
 end
 
 @doc raw"
-    optimiseorder(ixs, sxs, ops, iy)
+    optimiseorder(ixs, sxs, edges, iy)
 return a tuple of operations that represents the (possibly nonunique) optimal
 order of reduction-operations in `ops` and its cost.
 "
-function optimiseorder(ixs, sxs, ops,iy)
-    isempty(ops) && return (0, appendfinalops(ixs, ops, iy))
-    foldl(permutations(ops), init = (typemax(Int), modifyops(ixs,ops,iy))) do (cost, op1), op2
+function optimiseorder(ixs, sxs, edges,iy)
+    isempty(edges) && return (0, appendfinalops(ixs, (), iy))
+    foldl(permutations(edges), init = (typemax(Int), modifyops(ixs,edges,iy))) do (cost, op1), op2
         op2p = modifyops(ixs,op2,iy)
-        ncost = meinsumcost(ixs, sxs, op2p)
+        ncost = einsumcost(ixs, sxs, op2p)
         if ncost == cost
             # if cost is the same, prefer less operations
             length(op2p) < length(op1) ? (ncost, op2p) : (cost, op1)

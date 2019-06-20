@@ -196,4 +196,5 @@ end
     a = randn(3,3)
     @test einsum("ij,jk -> ik", (a,a)) ≈ einsum(((1,2),(2,3)), (a,a), (1,3))
     @test_throws ArgumentError einsum("ij,123 -> k", (a,a))
+
 end
