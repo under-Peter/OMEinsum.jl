@@ -5,4 +5,5 @@ using LinearAlgebra
 @testset "OMEinsum.jl" begin
     include("einsum.jl")
     include("autodiff.jl")
+    include("einorder.jl")
 end
