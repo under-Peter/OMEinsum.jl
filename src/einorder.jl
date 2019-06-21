@@ -220,7 +220,7 @@ function appendfinalops(ixs, ops, iy)
 end
 
 supportinds(op::EinsumOp, ixs) = map(x -> op.edges[1] in x, ixs)
-supportinds(edge::Int, ixs) = map(x -> edge in x, ixs)
+supportinds(edge::T, ixs) where T <: Union{AbstractChar,Integer} = map(x -> edge in x, ixs)
 
 function opsfrominds(ixs, iy)
     edges = edgesfrominds(ixs, iy)
