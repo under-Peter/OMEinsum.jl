@@ -73,32 +73,13 @@ function evaluate(op::TensorContract, allixs, allxs)
     (ia, ib), nallixs = pickfromtup(allixs, inds)
     (a, b),   nallxs  = pickfromtup(allxs, inds)
 
-    ia, ib, rev = tcdups(ia, ib, e)
+    (ia,ib), rev = dedup((ia,ib), op)
     nix = indicesafterop(op, (ia,ib))
-    nx = tensorcontract(a,ia,b,ib,nix)
-    nix = undotcdups(nix, rev)
+    nx  = tensorcontract(a,ia,b,ib,nix)
+    nix = redup(nix, rev)
 
     return (nix, nallixs...), (nx, nallxs...)
 end
-
-function tcdups(ia::NTuple{N}, ib::NTuple{M}, e) where {N,M}
-    # if there are duplicate indices in either ia or ib that are not tensor-contracted,
-    # we need to change labels because TensorOperations doesn't allow duplicate output labels
-    # the third return value encodes all information needed to undo this deduplication
-    imax = max(maximum(ia), maximum(ib))
-    ra = ntuple(identity,N)
-    rb = ntuple(identity,M)
-    ia2 = map(ra, ia) do i, a
-        ifelse(count(==(a), ia) > 1 || a in ib && a ∉ e, imax + i, a)
-    end
-    ib2 = map(rb, ib) do i, a
-        ifelse(count(==(a), ib) > 1 || a in ia && a ∉ e, imax + N + i, a)
-    end
-
-    ia2, ib2, (TupleTools.vcat(ia,ib), TupleTools.vcat(ia2, ib2))
-end
-
-undotcdups(nix, (iaib, ia2ib2)) = map(i -> iaib[findfirst(==(i), ia2ib2)], nix)
 
 function evaluate(op::Trace, allixs, allxs)
     e = op.edges
@@ -106,27 +87,57 @@ function evaluate(op::Trace, allixs, allxs)
     (ia, ), nallixs = pickfromtup(allixs, inds)
     (a, ),  nallxs  = pickfromtup(allxs, inds)
 
-
-    ia, rev = tracedups(ia, e)
+    (ia,), rev = dedup((ia,), op)
 
     nix = indicesafterop(op, (ia,))
     nx = tensortrace(a,ia,nix)
 
-    nix = undotracedups(nix, rev)
+    nix = redup(nix, rev)
 
     return (nix, nallixs...), (nx, nallxs...)
 end
 
-function tracedups(ia::NTuple{N}, e) where N
-    # if there are duplicate indices in ia that are not tensor-traced,
-    # we need to change labels because TensorOperations doesn't allow duplicate output labels
-    # the second return value encodes all information needed to undo this deduplication
-    iamax = maximum(ia)
-    r = ntuple(identity,N)
-    ib = map(r, ia) do i, a
-        ifelse(count(==(a), ia) > 1 && a ∉ e, iamax + i, a)
+@doc raw"
+    dedup(ixs, op)
+changes all duplicate indices in ixs that are not directly acted on by `op`.
+This is needed when inputs are evaluated by functions that would otherwise
+error or evaluate not just the `op`, e.g. in `iijj -> j`,
+`tensortrace` is called for the `Trace(i)` but will try to evaluate a trace
+over `j` althought that's not a trace.
+
+`dedup` returns the new, renamed indices as well as an argument to `redup`,
+a function to undo the index renaming.
+"
+function dedup(ixs, op)
+    allixs = TupleTools.vcat(ixs...)
+    edges = op.edges
+
+    imax = maximum(allixs)
+    offsets = cumsum((0, length.(ixs[1:end-1])...)) .+ imax
+
+    # associate with each element of ixs a unique (in the indexes) candidate replacement
+    iys = map(ixs, offsets) do ix, offset
+        ntuple(identity, length(ix)) .+ offset
     end
-    return ib, (ia,ib)
+
+    nixs = map(ixs, iys) do ix, iy
+        map(ix, iy) do i,j
+            i in edges && return i
+            #pick candidate replacement if index is duplicate and not in edges
+            (count(==(i), ix) > 1 || count(z -> i in z, ixs) > 1) ? j : i
+        end
+    end
+
+    return nixs, (TupleTools.vcat(iys...), TupleTools.vcat(ixs...))
 end
 
-undotracedups(ix, (ia, ib)) = map(i -> ib[findfirst(==(i), ia)], ix)
+@doc raw"
+    redup(ix, rev)
+undoes the index-renaming of `nixs, rev = dedup(ixs, op)`.
+"
+function redup(ix, (alliys, allixs))
+    map(ix) do i
+        j = findfirst(==(i), alliys)
+        j === nothing ? i : allixs[j]
+    end
+end
