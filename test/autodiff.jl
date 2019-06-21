@@ -68,3 +68,11 @@ end
     b = randn(3,3)
     @test array_match(gradient(a->einsum(((1,2), (2,3)), (a, b), ())[] |> abs, a)[1], a)
 end
+
+@testset "string-specification" begin
+    a,b,c = rand(2,2), rand(2,2), rand(2,2)
+    v = rand(2)
+    @test bpcheck((a,b,c) -> einsum("ij,jk,kl -> il", (a,b,c)) |> abs ∘ sum ,a,b,c)
+    @test bpcheck((a,b,c) -> einsum("ij,jk,kl -> li", (a,b,c)) |> abs ∘ sum ,a,b,c)
+    @test bpcheck((a,v) -> einsum("ij,j -> i", (a,v)) |> abs ∘ sum , a, v)
+end
