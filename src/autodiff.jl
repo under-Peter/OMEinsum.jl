@@ -1,5 +1,7 @@
 using Zygote
 
+@Zygote.nograd parseeinsumsstring
+
 @doc raw"
     einsum_grad(ixs, xs, iy, y, i)
 return gradient w.r.t the `i`th tensor in `xs`

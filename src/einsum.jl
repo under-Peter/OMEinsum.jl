@@ -6,13 +6,18 @@ function outindsfrominput(ixs)
     return tuple(iy...)
 end
 
-function einsum(s::AbstractString, xs)
+function parseeinsumsstring(s::AbstractString)
     s = replace(s, " " => "")
     m = match(r"([a-z,]+)->([a-z]*)", s)
     m == nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
     iy  = Tuple(siy)
     ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
+    return (ixs, iy)
+end
+
+function einsum(s::AbstractString, xs)
+    ixs, iy = parseeinsumsstring(s)
     return einsum(ixs, xs, iy)
 end
 
