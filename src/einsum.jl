@@ -48,6 +48,7 @@ true
 ```
 "
 function einsum(ixs, xs, iy)
+    checkargs(ixs, xs, iy)
     ops = opsfrominds(ixs, iy)
     evaluateall(ixs, xs, ops, iy)
 end
@@ -59,10 +60,19 @@ returns the result of the einsum operation implied by `ixs`, `iy` but
 evaluated in the optimal order according to `meinsumcost`.
 "
 function einsumopt(ixs, xs, iy)
+    checkargs(ixs, xs, iy)
     ops = optimalorder(ixs, xs, iy)
     evaluateall(ixs, xs, ops, iy)
 end
 
+function checkargs(ixs, xs, iy)
+    length(ixs) == length(xs) || throw(
+        ArgumentError("Number of indices and tensors not the same"))
+    foreach(ixs, xs) do ix, x
+        length(ix) == ndims(x) || throw(
+        ArgumentError("Indices $ix are invalid for a tensor with ndims = $(ndims(x))"))
+    end
+end
 
 function einsumexp(ixs::NTuple{N, NTuple{M, T} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
