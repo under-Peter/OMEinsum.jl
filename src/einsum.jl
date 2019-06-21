@@ -72,20 +72,7 @@ function checkargs(ixs, xs, iy)
         length(ix) == ndims(x) || throw(
         ArgumentError("Indices $ix are invalid for a tensor with ndims = $(ndims(x))"))
     end
-    sxs = size.(xs)
-    allixs = TupleTools.vcat(ixs...)
-    allsxs = TupleTools.vcat(sxs...)
-    foreach(allixs, allsxs) do i, s
-        allsxs[findfirst(==(i), allixs)] == s || throw(
-            DimensionMismatch("Index $i does not have consistent size"))
-    end
-    return nothing
 end
-
-
-
-
-
 
 function einsumexp(ixs::NTuple{N, NTuple{M, T} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
