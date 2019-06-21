@@ -7,22 +7,22 @@ using Zygote
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
     v = rand(2)
     t = randn(2,2,2,2)
-    @test einsum(((1,2),(2,3),(3,4)), (a,b,c)) ≈ a * b * c
-    @test einsum(((1,20),(20,3),(3,4)), (a,b,c)) ≈ a * b * c
+    @test einsum(((1,2),(2,3),(3,4)), (a,b,c), (1,4)) ≈ a * b * c
+    @test einsum(((1,20),(20,3),(3,4)), (a,b,c), (1,4)) ≈ a * b * c
     @test einsum(((1,2),(2,3),(3,4)), (a,b,c), (4,1)) ≈ permutedims(a*b*c, (2,1))
-    @test einsum(((1,2),(2,)), (a,v)) ≈ a * v
+    @test einsum(((1,2),(2,)), (a,v), (1,)) ≈ a * v
 
     # contract to 0-dim array
     @test einsum(((1,2),(1,2)), (a,a), ())[] ≈ sum(a .* a)
 
     # trace
-    @test einsum(((1,1),), (a,))[] ≈ sum(a[i,i] for i in 1:2)
+    @test einsum(((1,1),), (a,),())[] ≈ sum(a[i,i] for i in 1:2)
     aa = rand(2,4,4,2)
-    @test einsum(((1,2,2,1),), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
+    @test einsum(((1,2,2,1),), (aa,),())[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
 
 
     # partial trace
-    @test einsum(((1,2,2,3),), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
+    @test einsum(((1,2,2,3),), (aa,),(1,3)) ≈ sum(aa[:,i,i,:] for i in 1:4)
 
     # diag
     @test einsum(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
@@ -37,7 +37,7 @@ using Zygote
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
         ta[i,l] += t[i,j,k,l] * a[j,k]
     end
-    @test einsum(((1,2,3,4), (2,3)), (t,a)) ≈  ta
+    @test einsum(((1,2,3,4), (2,3)), (t,a), (1,4)) ≈  ta
 
     ta = zeros(size(t)[[1,2]]...)
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
@@ -50,7 +50,7 @@ using Zygote
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
         aaa[j,k,l] += a[i,j] * a[i,k] * a[i,l]
     end
-    @test aaa ≈ einsum(((1,2),(1,3),(1,4)), (a,a,a))
+    @test aaa ≈ einsum(((1,2),(1,3),(1,4)), (a,a,a),(2,3,4))
 
     # star and contract
     aaa = zeros(2);
@@ -91,22 +91,22 @@ end
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
     v = rand(2)
     t = randn(2,2,2,2)
-    @test einsumopt(((1,2),(2,3),(3,4)), (a,b,c)) ≈ a * b * c
-    @test einsumopt(((1,20),(20,3),(3,4)), (a,b,c)) ≈ a * b * c
+    @test einsumopt(((1,2),(2,3),(3,4)), (a,b,c), (1,4)) ≈ a * b * c
+    @test einsumopt(((1,20),(20,3),(3,4)), (a,b,c), (1,4)) ≈ a * b * c
     @test einsumopt(((1,2),(2,3),(3,4)), (a,b,c), (4,1)) ≈ permutedims(a*b*c, (2,1))
-    @test einsumopt(((1,2),(2,)), (a,v)) ≈ a * v
+    @test einsumopt(((1,2),(2,)), (a,v), (1,)) ≈ a * v
 
     # contract to 0-dim array
     @test einsumopt(((1,2),(1,2)), (a,a), ())[] ≈ sum(a .* a)
 
     # trace
-    @test einsumopt(((1,1),), (a,))[] ≈ sum(a[i,i] for i in 1:2)
+    @test einsumopt(((1,1),), (a,),())[] ≈ sum(a[i,i] for i in 1:2)
     aa = rand(2,4,4,2)
-    @test einsumopt(((1,2,2,1),), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
+    @test einsumopt(((1,2,2,1),), (aa,),())[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
 
 
     # partial trace
-    @test einsumopt(((1,2,2,3),), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
+    @test einsumopt(((1,2,2,3),), (aa,),(1,3)) ≈ sum(aa[:,i,i,:] for i in 1:4)
 
     # diag
     @test einsumopt(((1,2,2,3),), (aa,), (1,2,3)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
@@ -121,7 +121,7 @@ end
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
         ta[i,l] += t[i,j,k,l] * a[j,k]
     end
-    @test einsumopt(((1,2,3,4), (2,3)), (t,a)) ≈  ta
+    @test einsumopt(((1,2,3,4), (2,3)), (t,a), (1,4)) ≈  ta
 
     ta = zeros(size(t)[[1,2]]...)
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
@@ -134,7 +134,7 @@ end
     for (i,j,k,l) in Iterators.product(1:2,1:2,1:2,1:2)
         aaa[j,k,l] += a[i,j] * a[i,k] * a[i,l]
     end
-    @test aaa ≈ einsumopt(((1,2),(1,3),(1,4)), (a,a,a))
+    @test aaa ≈ einsumopt(((1,2),(1,3),(1,4)), (a,a,a),(2,3,4))
 
     # star and contract
     aaa = zeros(2);
@@ -183,6 +183,8 @@ end
     # doing twice the work (two multiplications instead of one) shouldn't
     # incure much more than twice the allocations.
     @test allocs2 < 2.1 * allocs1
+
+    @test_throws MethodError einsum(((1,2),(2,3)), (a,a))
 end
 
 @testset "error handling" begin

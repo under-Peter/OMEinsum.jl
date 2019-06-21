@@ -22,8 +22,8 @@ of operations that are evaluated internally which might lead to better performan
 in some cases.
 
 `einsum` operations are specified by a tuple of tensors `xs = (x1, x2, x3...)`
-and a tuple of index-labels for the tensors in `xs`, `ixs = (ix1, ix2, ix3...)`,
-optionally an output index-labels can be specified `iy` as `einsum(ixs, xs, iy)`.
+, a tuple of index-labels for the tensors in `xs`, `ixs = (ix1, ix2, ix3...)`,
+and output index-labels `iy` specified as `einsum(ixs, xs, iy)`.
 
 Let `l` be the set of all unique labels in the `ixs` without the ones in `iy`.
 `einsum` then calculates an output tensor `y` with indices labelled `iy` according
