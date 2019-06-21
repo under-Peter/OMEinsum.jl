@@ -97,6 +97,31 @@ function evaluate(op::Trace, allixs, allxs)
     return (nix, nallixs...), (nx, nallxs...)
 end
 
+function evaluate(op::Diag, allixs, allxs)
+    e = op.edges
+    inds = Tuple(i for (i, ix) in enumerate(allixs) if !isempty(intersect(e,ix)))
+    ixs, nallixs = pickfromtup(allixs, inds)
+    xs,  nallxs  = pickfromtup(allxs, inds)
+
+    ixs, rev = dedup(ixs, op)
+    nix = indicesafterop(op, ixs)
+
+    nxs = map(ixs, xs) do ix, x
+        permuteandreshape(nix, x, ix)
+    end
+    nx = broadcast(*, nxs...)
+    nix = redup(nix, rev)
+
+    return (nix, nallixs...), (nx, nallxs...)
+end
+
+function evaluate(op::StarContract, allixs, allxs)
+    # evaluate star-contraction as a Diagonal followed by an index-reduction
+    opd = Diag(op.edges)
+    opr = IndexReduction(op.edges)
+    evaluate(opr, evaluate(opd, allixs, allxs)...)
+end
+
 @doc raw"
     dedup(ixs, op)
 changes all duplicate indices in ixs that are not directly acted on by `op`.
@@ -139,5 +164,27 @@ function redup(ix, (alliys, allixs))
     map(ix) do i
         j = findfirst(==(i), alliys)
         j === nothing ? i : allixs[j]
+    end
+end
+
+@doc raw"
+    permuteandreshape(nix, x, ix)
+reshape and permute the tensor `x` such that its indices `ix`
+transform into indices `nix` where singleton-dimensions are
+introduced for missing indices (i.e. in nix but not ix).
+"
+function permuteandreshape(nix, x, ix)
+    nixinix = filter!(in(ix), collect(nix))
+    p = map(i -> findfirst(==(i), nixinix), ix)
+    rs = map(nix) do i
+            j = findfirst(==(i), ix)
+            j === nothing ? 1 : size(x,j)
+        end
+    if isempty(rs)
+        return x
+    elseif isempty(p)
+        return reshape(x,rs...)
+    else
+        return reshape(permutedims(x,p),rs...)
     end
 end
