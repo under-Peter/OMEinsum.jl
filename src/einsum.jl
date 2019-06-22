@@ -99,29 +99,50 @@ function einsumexp!(ixs::NTuple{N, NTuple{M, IT} where M},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 iy::NTuple{L,IT},
                 y::AbstractArray{T,L}) where {N,L,T,IT <: Union{AbstractChar,Integer}}
+    # outer legs and inner legs
+    outer_indices = unique(iy)
+    inner_indices = setdiff(TupleTools.vcat(ixs...), outer_indices)
+
+    # find size for each leg
     all_indices = TupleTools.vcat(ixs..., iy)
-    indices = unique(all_indices)
-    size_dict = get_size_dict((ixs..., iy), (xs..., y))
-    sizes = Tuple(size_dict[i] for i in indices)
+    all_sizes = TupleTools.vcat(size.(xs)..., size(y))
+    outer_sizes = Tuple(all_sizes[i] for i in indexin(outer_indices, [all_indices...]))
+    inner_sizes = Tuple(all_sizes[i] for i in indexin(inner_indices, [all_indices...]))
 
-    ci = CartesianIndices(sizes)
-    locs_xs = map(ixs) do ix
-        map(i -> findfirst(==(i), indices)::Int, ix)
-    end
-    locs_y = map(i -> findfirst(==(i), indices)::Int, iy)
+    # cartesian indices for outer and inner legs
+    outer_ci = CartesianIndices(outer_sizes)
+    inner_ci = CartesianIndices(inner_sizes)
 
-    loop!(locs_xs, xs, locs_y, y, ci)
+    # for indexing tensors (leg binding)
+    indices = (outer_indices..., inner_indices...)
+    locs_xs = Tuple(Tuple(findfirst(isequal(i), indices) for i in ix) for ix in ixs)
+    locs_y = Tuple(findfirst(isequal(i), outer_indices) for i in iy)
+
+    loop!(locs_xs, xs, locs_y, y, outer_ci, inner_ci)
 end
 
-"""loop and accumulate products to y"""
-function loop!(locs_xs::NTuple{N, NTuple{M} where M}, xs,
-              locs_y, y::AbstractArray{T}, ci::CartesianIndices) where {N, T, S}
-    @simd for ind in ci
-        @inbounds y[index_map(ind, locs_y)] += prod(map(i -> xs[i][index_map(ind, locs_xs[i])], ntuple(identity,N)))
+"""indiex tensors, and return the product of elements"""
+@inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N}) where {N, T}
+    quote
+        p = one(T)
+        @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
+    end
+end
+
+"""
+loop and accumulate products to y, the CPU version.
+"""
+function loop!(locs_xs::NTuple{N}, xs::NTuple{N, AbstractArray}, locs_y, y::AbstractArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
+    @simd for i in outer_ci
+        @inbounds ind_y = outer_ci[i]
+        iy = index_map(ind_y, locs_y)
+        for ind_x in inner_ci
+            ind_xy = CartesianIndex(TupleTools.vcat(ind_y.I, ind_x.I))
+            @inbounds y[iy] += map_prod(T, xs, ind_xy, locs_xs)
+        end
     end
     y
 end
-
 
 """take an index subset from `ind`"""
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
