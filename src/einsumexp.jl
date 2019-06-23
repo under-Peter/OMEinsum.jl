@@ -1,30 +1,32 @@
 using TupleTools, Base.Cartesian
+export einsumexp, einsumexp!, EinCode
 
 struct EinCode{ixs, iy} end
 EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
 
 """
-    einsumexp(::EinCode, xs, y_size)
+    einsumexp(::EinCode, xs, size_dict)
 
 The brute-force looping einsum.
 """
 function einsumexp(::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                y_size::Tuple) where {N,T, ixs, iy}
+                size_dict::Dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
-    out = zeros(TO, y_size...)
-    einsumexp!(ixs, xs, iy, out)
+    #size_dict = get_size_dict!(copy(size_dict), ixs, xs)  # do not change input
+    out = zeros(TO, (size_dict[i] for i in iy)...)
+    einsumexp!(ixs, xs, iy, out, size_dict)
 end
 
 @generated function einsumexp!(::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                y::AbstractArray{T,L}) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+                y::AbstractArray{T,L}, size_dict::Dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     check_tensor_order(ixs, xs)
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
 
     quote
         # find size for each leg
-        size_dict = get_size_dict($((ixs..., iy)), (xs..., y))
+        #size_dict = get_size_dict($((ixs..., iy)), (xs..., y))
         outer_sizes = getindex.(Ref(size_dict), $outer_indices)
         inner_sizes = getindex.(Ref(size_dict), $inner_indices)
 
@@ -62,23 +64,9 @@ end
 """take an index subset from `ind`"""
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
 
-"""get the dictionary of `index=>size`, error if there are conflicts"""
-function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T
-    nt = length(ixs)
-    size_dict = Dict{T,Int}()
-    @inbounds for i = 1:nt
-        for (N, leg) in zip(size(xs[i]), ixs[i])
-            if haskey(size_dict, leg)
-                size_dict[leg] == N || throw(DimensionMismatch("size of index($leg) does not match."))
-            else
-                size_dict[leg] = N
-            end
-        end
-    end
-    return size_dict
-end
-
-# This function only checks the order of tensors.
+# This function only checks the order of tensors,
+# `ixs` is the indices.
+# `xs` is the types of tensors.
 function check_tensor_order(ixs, xs)
     xl = xs.parameters
     length(ixs) == length(xl) || throw(ArgumentError("Number of indices and tensors not the same"))

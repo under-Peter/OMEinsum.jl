@@ -1,8 +1,8 @@
-include("EinRule.jl")
+include("EinsumOp.jl")
 
 # TODO: fix the docstring
 @doc raw"
-    einsum(::EinCode{ixs, iy}, out, y_shape) where {ixs, iy}
+    einsum(::EinCode{ixs, iy}, out, size_dict) where {ixs, iy}
 
 return the tensor that results from contracting the tensors `xs` according
 to their indices `ixs`, where all indices that do not appear in the output are
@@ -31,26 +31,22 @@ julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-@generated function einsum(::EinCode{ixs, iy}, xs, y_shape) where {ixs, iy}
-    rule = EinRule(code_to_rule(ixs, iy))
-    :(einsum($rule, xs, y_shape))
+@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    rule = EinRule(match_rule(ixs, iy))
+    :(einsum($rule, code, xs, size_dict))
 end
 
-function einsum(::Trace, ::EinCode, xs, y_shape)
-    asarray(tr(xs[1]))
+function einsum(::Trace, ::EinCode, xs, size_dict)
+    asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
 end
 
-function outindsfrominput(ixs)
-    allixs = vcat(collect.(ixs)...)
-    iy = sort!(filter!(x -> count(==(x), TupleTools.vcat(ixs...)) == 1, allixs))
-    return tuple(iy...)
-end
-
-@generated function einsum(::EinRule{:PairWise}, ::EinCode{ixs, iy}, xs, y_shape) where {ixs, iy}
+@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT}, size_dict) where {ixs, iy, NT}
     out_indices = outindsfrominput(ixs)
-    ex = :(res[])
+    body = Expr(:call, :*, (:(xs[$i][$(ixs[i]...)]) for i in 1:NT)...)
+    :(@tensoropt res[$(out_indices...)] := $body)
 end
 
-function einsum(::EinRule{:General}, code::EinCode{ixs, iy}, xs, y_shape) where {ixs, iy}
-    einsumexp(code, xs, y_shape)
+# the fallback
+function einsum(::EinsumOp, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    einsumexp(code, xs, size_dict)
 end

@@ -2,7 +2,7 @@ module OMEinsum
 export einsum, expandall!
 export einsumopt
 
-using TupleTools, Requires, TensorOperations
+using TupleTools, Requires, TensorOperations, LinearAlgebra
 
 asarray(x::Number) = fill(x, ())
 asarray(x::AbstractArray) = x
