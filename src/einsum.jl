@@ -1,11 +1,5 @@
 using TupleTools, Base.Cartesian
 
-function outindsfrominput(ixs)
-    allixs = vcat(collect.(ixs)...)
-    iy = sort!(filter!(x -> count(==(x), TupleTools.vcat(ixs...)) == 1, allixs))
-    return tuple(iy...)
-end
-
 function parseeinsumsstring(s::AbstractString)
     s = replace(s, " " => "")
     m = match(r"([a-z,]+)->([a-z]*)", s)
@@ -20,8 +14,6 @@ function einsum(s::AbstractString, xs)
     ixs, iy = parseeinsumsstring(s)
     return einsum(ixs, xs, iy)
 end
-
-einsum(ixs, xs) = einsum(ixs, xs, outindsfrominput(ixs))
 
 @doc raw"
     einsum(ixs, xs, out)
@@ -58,7 +50,6 @@ function einsum(ixs, xs, iy)
     evaluateall(ixs, xs, ops, iy)
 end
 
-einsumopt(ixs, xs) = einsumopt(ixs, xs, outindsfrominput(ixs))
 @doc raw"
     meinsumopt(ixs, xs, iy)
 returns the result of the einsum operation implied by `ixs`, `iy` but
