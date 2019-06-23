@@ -5,8 +5,9 @@ struct Sum <: EinsumOp{1}
     dims
 end
 struct Trace <: EinsumOp{1} end
-struct PairWise{NT} <: EinsumOp{NT} end
+struct PairWise <: EinsumOp{Any} end
 struct Permutedims <: EinsumOp{1} end
+struct Fallback <: EinsumOp{Any} end
 
 
 """
@@ -16,19 +17,19 @@ function match_rule(::Type{Trace}, ixs, iy)
     iy == () &&
     length(ixs) == 1 &&
     length(ixs[1]) == 2 &&
-    ixs[1][1] == ixs[1][2] ? Trace : nothing
+    ixs[1][1] == ixs[1][2] ? Trace() : nothing
 end
 
 """
 a einsum code is a pairwise graph.
 """
-function match_rule(::Type{PairWise}, ixs::NTuple{N}, iy) where N
+function match_rule(::Type{PairWise}, ixs::NTuple{N, NTuple{X,T} where X}, iy::NTuple{M, T}) where {N, M, T}
     all_indices = TupleTools.vcat(ixs..., iy)
-    counts = Dict{Int, Int}()
+    counts = Dict{T, Int}()
     for ind in all_indices
         counts[ind] = get(counts, ind, 0) + 1
     end
-    all(isequal(2), counts |> values) ? PairWise{N}() : nothing
+    all(isequal(2), counts |> values) ? PairWise() : nothing
 end
 
 """
@@ -44,7 +45,7 @@ function match_rule(::Type{Sum}, ixs, iy)
             push!(dims, i)
         end
     end
-    setdiff(ix, dims) == [iy...] ? Sum(Tuple(dims...)) : nothing
+    setdiff(ix, dims) == [iy...] ? Sum(Tuple(dims)) : nothing
 end
 
 global einsum_rules = [Trace, Sum, PairWise]
@@ -58,4 +59,5 @@ function match_rule(ixs, iy)
             return res
         end
     end
+    return Fallback()
 end

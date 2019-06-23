@@ -1,36 +1,28 @@
 using Zygote
 
-@Zygote.nograd parseeinsumsstring
-
 @doc raw"
     einsum_grad(ixs, xs, iy, y, i)
 return gradient w.r.t the `i`th tensor in `xs`
 "
-function einsum_grad(ixs, xs, iy, y, i)
+function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     T = mapreduce(eltype, promote_type, xs)
-    T = promote_type(T, eltype(y))
+    T = promote_type(T, eltype(cdy))
     nixs = TupleTools.insertat(ixs, i, (iy,))
-    nxs  = TupleTools.insertat( xs, i, ( y,))
+    nxs  = TupleTools.insertat( xs, i, (cdy,))
     niy = ixs[i]
-    ntmp = Tuple(i for i in unique(niy) if any(x -> i in x, nixs))
-    tmp = einsum(nixs, nxs, ntmp)
-    ny = zeros(T, size(xs[i])...)
-    einsumexp!((ntmp,), (tmp,), niy, ny)
-    conj!(ny)
+    conj!(einsum(EinCode(nixs, niy), nxs, size_dict))
 end
 
-@Zygote.adjoint function einsum(ixs, xs::NTuple{N,T where T}, iy) where N
-    y = einsum(ixs, xs, iy)
+@Zygote.adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::Dict) where {N, ixs, iy}
+    y = einsum(code, xs, size_dict)
     return y, dy -> let cdy = map(conj,dy)
                 (
                     nothing,
-                    ntuple(i -> einsum_grad(ixs, xs, iy, cdy, i), N),
-                    nothing,
+                    ntuple(i -> einsum_grad(code, xs, size_dict, cdy, i), N),
                     nothing
                 )
             end
 end
-
 
 @doc raw"
     bpcheck(f, args...; η = 1e-5, verbose=false)
@@ -55,4 +47,7 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
     isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8)
 end
 
-@Zygote.nograd outputtensor
+@Zygote.nograd get_size_dict
+@Zygote.nograd get_size_dict!
+@Zygote.nograd check_tensor_order
+#@Zygote.nograd outputtensor

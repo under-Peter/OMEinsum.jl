@@ -32,7 +32,8 @@ true
 ```
 "
 @generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    rule = EinRule(match_rule(ixs, iy))
+    check_tensor_order(ixs, xs)
+    rule = match_rule(ixs, iy)
     :(einsum($rule, code, xs, size_dict))
 end
 
@@ -41,9 +42,12 @@ function einsum(::Trace, ::EinCode, xs, size_dict)
 end
 
 @generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT}, size_dict) where {ixs, iy, NT}
-    out_indices = outindsfrominput(ixs)
-    body = Expr(:call, :*, (:(xs[$i][$(ixs[i]...)]) for i in 1:NT)...)
-    :(@tensoropt res[$(out_indices...)] := $body)
+    if NT > 1
+        body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
+    else
+        body = :(xs[1][$(Symbol.(ixs[1])...)])
+    end
+    :(@tensoropt res[$(Symbol.(iy)...)] := $body)
 end
 
 # the fallback

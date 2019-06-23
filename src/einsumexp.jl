@@ -9,13 +9,13 @@ EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} =
 
 The brute-force looping einsum.
 """
-function einsumexp(::EinCode{ixs, iy},
+function einsumexp(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 size_dict::Dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
     #size_dict = get_size_dict!(copy(size_dict), ixs, xs)  # do not change input
     out = zeros(TO, (size_dict[i] for i in iy)...)
-    einsumexp!(ixs, xs, iy, out, size_dict)
+    einsumexp!(code, xs, out, size_dict)
 end
 
 @generated function einsumexp!(::EinCode{ixs, iy},
@@ -39,7 +39,7 @@ end
 end
 
 """indiex tensors, and return the product of elements"""
-@inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N}) where {N, T}
+@inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N,Any}) where {N, T}
     quote
         p = one(T)
         @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
@@ -49,7 +49,7 @@ end
 """
 loop and accumulate products to y, the CPU version.
 """
-function loop!(locs_xs::NTuple{N}, xs::NTuple{N, AbstractArray}, locs_y, y::AbstractArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
+function loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, locs_y, y::AbstractArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
     @simd for i in outer_ci
         @inbounds ind_y = outer_ci[i]
         iy = index_map(ind_y, locs_y)
@@ -67,11 +67,11 @@ index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindic
 # This function only checks the order of tensors,
 # `ixs` is the indices.
 # `xs` is the types of tensors.
-function check_tensor_order(ixs, xs)
-    xl = xs.parameters
+function check_tensor_order(ixs, xs_type)
+    xl = xs_type.parameters
     length(ixs) == length(xl) || throw(ArgumentError("Number of indices and tensors not the same"))
     foreach(ixs, xl) do ix, x
-        length(ix) == length(x.parameters) || throw(
+        length(ix) == ndims(x) || throw(
         ArgumentError("Indices $ix are invalid for a tensor with ndims = $(ndims(x))"))
     end
 end
