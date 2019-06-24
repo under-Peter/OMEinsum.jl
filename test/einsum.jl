@@ -1,7 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: check_tensor_order, match_rule, get_size_dict
-using OMEinsum: Trace, PairWise, Sum, Fallback
+using OMEinsum: check_tensor_order, get_size_dict
 
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
@@ -17,13 +16,6 @@ end
     @test get_size_dict(((1,2), (2,3)), (a, a')) == Dict(1=>3, 2=>2, 3=>3)
     @test get_size_dict((('i','j'), ('k','j')), (a, a)) == Dict('i'=>3, 'k'=>3, 'j'=>2)
     @test_throws DimensionMismatch get_size_dict((('i','j'), ('j','k')), (a, a))
-end
-
-@testset "match rule" begin
-    @test match_rule((('i', 'j'), ('j','k')), ('i','k')) isa PairWise
-    @test match_rule(((1,1),), ()) isa Trace
-    @test match_rule(((1,2,1),), ()) isa Fallback
-    @test match_rule(((1,2,3),), (3,)) == Sum((1,2))
 end
 
 @testset "einsum" begin

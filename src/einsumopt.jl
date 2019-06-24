@@ -1,11 +1,14 @@
-einsumopt(ixs, xs) = einsumopt(ixs, xs, outindsfrominput(ixs))
 @doc raw"
-    meinsumopt(ixs, xs, iy)
+    einsumopt(::EinCode{ixs, iy}, xs) where {ixs, iy}
+
 returns the result of the einsum operation implied by `ixs`, `iy` but
 evaluated in the optimal order according to `meinsumcost`.
 "
-function einsumopt(ixs, xs, iy)
-    checkargs(ixs, xs, iy)
-    ops = optimalorder(ixs, xs, iy)
-    evaluateall(ixs, xs, ops, iy)
+@generated function einsumopt(::EinCode{ixs, iy}, xs) where {ixs, iy}
+    check_tensor_order(ixs, xs)
+    quote
+        size_dict = get_size_dict(ixs, xs)
+        ops = optimalorder(ixs, xs, iy)  # should be static if `xs` is not included
+        evaluateall(ixs, xs, ops, iy)
+    end
 end

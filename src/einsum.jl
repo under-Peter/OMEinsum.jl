@@ -1,5 +1,3 @@
-include("EinsumOp.jl")
-
 # TODO: fix the docstring
 @doc raw"
     einsum(::EinCode{ixs, iy}, out, size_dict) where {ixs, iy}
@@ -24,38 +22,15 @@ julia> a = rand(2,2);
 
 julia> b = rand(2,2);
 
-julia> einsum(((1,2),(2,3)), (a, b), (1,3)) ≈ a * b
+julia> einsum(ein\"ij,jk->ij\", (a, b)) ≈ a * b
 true
 
-julia> einsum(((1,2),(2,3)), (a, b), (3,1)) ≈ permutedims(a * b, (2,1))
+julia> einsum(ein\"ij,jk->ki\", (a, b)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
 @generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    check_tensor_order(ixs, xs)
-    rule = match_rule(ixs, iy)
-    :(einsum($rule, code, xs, size_dict))
-end
-
-function einsum(::Trace, ::EinCode, xs, size_dict)
-    asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
-end
-
-@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,Any}, size_dict) where {ixs, iy, NT}
-    if NT > 1
-        body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
-    else
-        body = :(xs[1][$(Symbol.(ixs[1])...)])
-    end
-    :(@tensoropt res[$(Symbol.(iy)...)] := $body)
-end
-
-# the fallback
-function einsum(sm::Sum, code::EinCode, xs, size_dict)
-    dropdims(sum(xs[1], dims=sm.dims), dims=sm.dims)
-end
-
-# the fallback
-function einsum(::Fallback, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    einsumexp(code, xs, size_dict)
+    # TODO: dispatch to different functions.
+    # currently, it fallbacks to the naive one.
+    :(einsumexp(code, xs, size_dict))
 end

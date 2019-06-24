@@ -18,12 +18,12 @@ using Zygote
             @test bpcheck((a,b) -> einsum(EinCode(((1,2),(1,2)), ()), (a,b)) |> abs ∘ sum , a,b)
 
             # trace
-            @test_broken bpcheck(a -> einsum(EinCode(((1,1),), ()), (a,)) |> abs ∘ sum, a)
+            @test bpcheck(a -> einsum(EinCode(((1,1),), ()), (a,)) |> abs ∘ sum, a)
             aa = rand(T,2,4,4,2)
-            @test_broken bpcheck(aa -> einsum(EinCode(((1,2,2,1),), ()), (aa,)) |> abs ∘ sum, aa)
+            @test bpcheck(aa -> einsum(EinCode(((1,2,2,1),), ()), (aa,)) |> abs ∘ sum, aa)
 
             # partial trace
-            @test_broken bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,3)), (aa,)) |> abs ∘ sum, aa)
+            @test bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,3)), (aa,)) |> abs ∘ sum, aa)
 
             # diag
             @test bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,2,3)), (aa,)) |> abs ∘ sum, aa)
