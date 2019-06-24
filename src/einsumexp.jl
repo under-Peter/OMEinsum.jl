@@ -86,7 +86,9 @@ function indices_and_locs(ixs, iy)
 
     # for indexing tensors (leg binding)
     indices = (outer_indices..., inner_indices...)
-    locs_xs = Tuple(Tuple(findfirst(isequal(i), indices) for i in ix) for ix in ixs)
-    locs_y = Tuple(findfirst(isequal(i), outer_indices) for i in iy)
+    locs_xs = map(ixs) do ix
+        map(i->findfirst(isequal(i), indices), ix)
+    end
+    locs_y = map(i->findfirst(isequal(i), outer_indices), iy)
     return inner_indices, outer_indices, locs_xs, locs_y
 end

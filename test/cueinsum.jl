@@ -1,5 +1,5 @@
 using Test
-using OMEinsum: einsumexp!
+using OMEinsum
 using CuArrays
 
 CuArrays.allowscalar(false)
