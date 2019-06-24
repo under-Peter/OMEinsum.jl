@@ -4,6 +4,7 @@ export einsumopt
 
 using TupleTools, Requires
 
+include("utils.jl")
 include("einsum.jl")
 include("autodiff.jl")
 include("einorder.jl")
