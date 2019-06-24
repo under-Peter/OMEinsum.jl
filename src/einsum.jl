@@ -41,7 +41,7 @@ function einsum(::Trace, ::EinCode, xs, size_dict)
     asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
 end
 
-@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT}, size_dict) where {ixs, iy, NT}
+@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,Any}, size_dict) where {ixs, iy, NT}
     if NT > 1
         body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
     else
@@ -51,6 +51,11 @@ end
 end
 
 # the fallback
-function einsum(::EinsumOp, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum(sm::Sum, code::EinCode, xs, size_dict)
+    dropdims(sum(xs[1], dims=sm.dims), dims=sm.dims)
+end
+
+# the fallback
+function einsum(::Fallback, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     einsumexp(code, xs, size_dict)
 end
