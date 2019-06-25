@@ -42,13 +42,13 @@ Consider multiplying two matrices `a` and `b` which we specify with
 ```julia
 julia> a, b = rand(2,2), rand(2,2);
 
-julia> einsum((('i','k'),('k','j')), (a,b), ('i','j'))
+julia> ein"ik,kl->ij"(a,b)
 ```
 
 `einsum` might also be used in a way closer to the use in `numpy`, via a string specification
 such as:
 ```julia
-julia> einsum("ij,jk -> ik", (a,b)) ≈ a*b
+julia> einsum("ij,jk->ik", (a,b)) ≈ a*b
 true
 ```
 
@@ -59,7 +59,7 @@ To find out the details about einsum, check out my [nextjournal-article](https:/
 If we're interested in the sum of all elements of a matrix product `a*b`
 we can reduce over all indices with the specification `ij,jk -> `
 ```julia
-julia> einsum("ij,jk ->", (a,b))[] ≈ sum(a * b)
+julia> einsum("ij,jk->", (a,b))[] ≈ sum(a * b)
 true
 ```
 
@@ -74,25 +74,13 @@ cases it might still be worth it:
 ```julia
 julia> d = 5; χ = 50; a = randn(χ,χ); b= randn(χ,d,χ); c = randn(d,d,d,d);
 
-julia> @btime einsum((('x','y'), ('x','k','l'), ('y','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
+julia> @btime ein"xy,xkl,ymn,kmop->lnop"($a, $b, $b, $c);
   1.323 s (473 allocations: 2.33 GiB)
 
 julia> @btime einsumopt((('x','y'), ('x','k','l'), ('y','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
   2.845 ms (11733 allocations: 2.00 MiB)
 
 ```
-although the same effect can be had by choosing the labels appropriately, such that
-the best contraction sequence is in alphabetical order:
-```julia
-julia> @btime einsum((('i','j'), ('i','k','l'), ('j','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
-  645.273 μs (331 allocations: 1.54 MiB)
-```
-or with a string-specification
-```julia
-julia> @btime einsum("ij,ikl,jmn,kmop -> lnop", ($a, $b, $b, $c))
-  681.774 μs (370 allocations: 1.54 MiB)
-```
-
 
 ## Contribute
 
