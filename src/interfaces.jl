@@ -45,33 +45,28 @@ function infer_y_size(xs, ixs, iy)
 end
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
-get_size_dict(ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T = get_size_dict!(Dict{T,Int}(), ixs, xs)
-@generated function get_size_dict!(size_dict::Dict{T,Int}, ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {T,X,N}
-    xl = xs.parameters
-    ixl = ixs.parameters
+function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
     # check size of input tuples
-    if X != N
-        return :(throw(ArgumentError("Number of indices ($N) and tensors ($X) not match")))
-    end
+    N != X && throw(ArgumentError(""))
 
     # check tensor orders
-    for (ix, x) in zip(ixl, xl)
-        DI, DX = length(ix.parameters), ndims(x)
-        if DI != DX
-            return :(throw(ArgumentError("Index tuple length $($DI) does not match tensor ndims = $($DX)")))
-        end
+    foreach(ixs, xs) do ix, x
+        length(ix) == ndims(x) || throw(ArgumentError(""))
     end
+    sd = get_size_dict!(Dict{T,Int}(), ixs, xs)
+    allixs = TupleTools.flatten(ixs)
+    allsxs = TupleTools.flatten(size.(xs))
+    foreach(allixs, allsxs) do i, s
+        sd[i] == s || throw(DimensionMismatch(""))
+    end
+    return sd
+end
 
-    quote
-        @inbounds for i = 1:$N
-            for (n, leg) in zip(size(xs[i]), ixs[i])
-                if haskey(size_dict, leg)
-                    size_dict[leg] == n || throw(DimensionMismatch("size of index($leg) does not match."))
-                else
-                    size_dict[leg] = n
-                end
-            end
+function get_size_dict!(size_dict::Dict{T,Int}, ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {T,X,N}
+    @inbounds for i = 1:N
+        for (n, leg) in zip(size(xs[i]), ixs[i])
+            size_dict[leg] = n
         end
-        return size_dict
     end
+    return size_dict
 end
