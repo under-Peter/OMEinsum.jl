@@ -1,5 +1,7 @@
 using CuArrays, CUDAnative
 
+println("CUDA: YOU FIND ME!")
+
 """decide the number of threads and blocks to be launched."""
 @inline function cudiv(x::Int)
     max_threads = 256
@@ -13,7 +15,7 @@ loop and accumulate products to y, the GPU version.
 ## References
     * CUDAnative.jl: https://github.com/JuliaGPU/CUDAnative.jl
 """
-function loop!(locs_xs::NTuple{N}, xs::NTuple{N, CuArray}, locs_y, y::CuArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
+function loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, CuArray}, locs_y, y::CuArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
     function loop_kernel(locs_xs, xs, locs_y, y, outer_ci, inner_ci)
         i = (blockIdx().x-1) * blockDim().x + threadIdx().x
         i > length(outer_ci) && return nothing
@@ -33,4 +35,12 @@ function loop!(locs_xs::NTuple{N}, xs::NTuple{N, CuArray}, locs_y, y::CuArray{T}
     X, Y = cudiv(length(outer_ci))
     @cuda threads=X blocks=Y loop_kernel(locs_xs, xs, locs_y, y, outer_ci, inner_ci)
     y
+end
+
+function einsumexp(code::EinCode{ixs, iy},
+                xs::NTuple{N, CuArray{<:Any,M} where M},
+                size_dict::Dict) where {N,T, ixs, iy}
+    TO = mapreduce(eltype, promote_type, xs)
+    out = CuArrays.zeros(TO, getindex.(Ref(size_dict), iy))
+    einsumexp!(code, xs, out, size_dict)
 end
