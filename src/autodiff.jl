@@ -13,7 +13,7 @@ function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     conj!(einsum(EinCode(nixs, niy), nxs, size_dict))
 end
 
-@Zygote.adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::Dict) where {N, ixs, iy}
+@Zygote.adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
     y = einsum(code, xs, size_dict)
     return y, dy -> let cdy = map(conj,dy)
                 (
@@ -48,4 +48,4 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
 end
 
 @Zygote.nograd get_size_dict
-@Zygote.nograd get_size_dict!
+# @Zygote.nograd get_size_dict!

@@ -53,20 +53,31 @@ function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, Abstr
     foreach(ixs, xs) do ix, x
         length(ix) == ndims(x) || throw(ArgumentError(""))
     end
-    sd = get_size_dict!(Dict{T,Int}(), ixs, xs)
-    allixs = TupleTools.flatten(ixs)
-    allsxs = TupleTools.flatten(size.(xs))
-    foreach(allixs, allsxs) do i, s
-        sd[i] == s || throw(DimensionMismatch(""))
-    end
+
+    sd = IndexSize(ixs, xs)
+    dimensionsmatch(sd)
     return sd
 end
 
-function get_size_dict!(size_dict::Dict{T,Int}, ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {T,X,N}
-    @inbounds for i = 1:N
-        for (n, leg) in zip(size(xs[i]), ixs[i])
-            size_dict[leg] = n
-        end
+struct IndexSize{N,T}
+    k::NTuple{N,T}
+    v::NTuple{N,Int32}
+end
+
+function IndexSize(ixs, xs)
+    k = TupleTools.flatten(ixs)
+    v = TupleTools.flatten(map(size,xs))
+    T, N = eltype(k), length(k)
+    IndexSize{N,T}(k,v)
+end
+
+Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), inds.k)]
+
+function dimensionsmatch(inds::IndexSize)
+    for (c,i) in enumerate(inds.k)
+        j = findnext(==(i), inds.k, c+1)
+        j != nothing && inds.v[c] != inds.v[j] && return throw(
+            DimensionMismatch("index $i has incosistent sizes"))
     end
-    return size_dict
+    return true
 end
