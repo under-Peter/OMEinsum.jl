@@ -9,7 +9,7 @@ requires a tensor contraction
 function edgesfrominds(ixs,iy)
     allixs = TupleTools.vcat(ixs...)
     pred(e) = !(count(==(e), allixs) == 1 && e in iy)
-    filter!(pred, unique(allixs))
+    filter!(pred, tunique(allixs))
 end
 
 

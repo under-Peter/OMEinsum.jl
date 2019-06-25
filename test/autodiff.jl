@@ -10,48 +10,47 @@ using Zygote
             a,b,c = rand(T,2,2), rand(T,2,2), rand(T,2,2)
             v = rand(T,2)
             t = randn(2,2,2,2)
-            @test bpcheck( (a,b,c) -> einsum(((1,2),(2,3),(3,4)), (a,b,c), (1,4)) |> abs ∘ sum ,a,b,c)
-            @test bpcheck( (a,b,c) -> einsum(((1,2),(2,3),(3,4)), (a,b,c), (4,1)) |> abs ∘ sum ,a,b,c)
-            @test bpcheck((a,v) -> einsum(((1,2),(2,)), (a,v), (1,)) |> abs ∘ sum , a, v)
+            @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (1,4)), (a,b,c)) |> abs ∘ sum ,a,b,c)
+            @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (4,1)), (a,b,c)) |> abs ∘ sum ,a,b,c)
+            @test bpcheck((a,v) -> einsum(EinCode(((1,2),(2,)), (1,)), (a,v)) |> abs ∘ sum , a, v)
 
             # contract to 0-dim array
-            @test bpcheck((a,b) -> einsum(((1,2),(1,2)), (a,b), ()) |> abs ∘ sum , a,b)
+            @test bpcheck((a,b) -> einsum(EinCode(((1,2),(1,2)), ()), (a,b)) |> abs ∘ sum , a,b)
 
             # trace
-            @test bpcheck(a -> einsum(((1,1),), (a,), ()) |> abs ∘ sum, a)
+            @test bpcheck(a -> einsum(EinCode(((1,1),), ()), (a,)) |> abs ∘ sum, a)
             aa = rand(T,2,4,4,2)
-            @test bpcheck(aa -> einsum(((1,2,2,1),), (aa,), ()) |> abs ∘ sum, aa)
-
+            @test bpcheck(aa -> einsum(EinCode(((1,2,2,1),), ()), (aa,)) |> abs ∘ sum, aa)
 
             # partial trace
-            @test bpcheck(aa -> einsum(((1,2,2,3),), (aa,), (1,3)) |> abs ∘ sum, aa)
+            @test bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,3)), (aa,)) |> abs ∘ sum, aa)
 
             # diag
-            @test bpcheck(aa -> einsum(((1,2,2,3),), (aa,), (1,2,3)) |> abs ∘ sum, aa)
+            @test bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,2,3)), (aa,)) |> abs ∘ sum, aa)
 
             # permutation
-            @test bpcheck(a -> einsum(((1,2),), (a,), (2,1)) |> abs ∘ sum, a)
-            @test bpcheck(t -> einsum(((1,2,3,4),), (t,),(2,3,1,4)) |> abs ∘ sum, t)
+            @test bpcheck(a -> einsum(EinCode(((1,2),), (2,1)), (a,)) |> abs ∘ sum, a)
+            @test bpcheck(t -> einsum(EinCode(((1,2,3,4),),(2,3,1,4)), (t,)) |> abs ∘ sum, t)
 
             # tensor contraction
-            @test bpcheck((t,a) -> einsum(((1,2,3,4), (2,3)), (t,a), (1,4)) |> abs ∘ sum, t,a)
-            @test bpcheck((t,a) -> einsum(((4,3,2,1), (2,3)), (t,a), (1,4)) |> abs ∘ sum, t,a)
+            @test bpcheck((t,a) -> einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a)) |> abs ∘ sum, t,a)
+            @test bpcheck((t,a) -> einsum(EinCode(((4,3,2,1), (2,3)), (1,4)), (t,a)) |> abs ∘ sum, t,a)
 
             # star-contraction
-            @test bpcheck((a,b,c) -> einsum(((1,2),(1,3),(1,4)), (a,b,c), (2,3,4)) |> abs ∘ sum, a,b,c)
+            @test bpcheck((a,b,c) -> einsum(EinCode(((1,2),(1,3),(1,4)), (2,3,4)), (a,b,c)) |> abs ∘ sum, a,b,c)
 
             # star and contract
-            @test bpcheck((a,b,c) -> einsum(((1,2),(1,2),(1,3)), (a,b,c), (3,)) |> abs ∘ sum, a,b,c)
+            @test bpcheck((a,b,c) -> einsum(EinCode(((1,2),(1,2),(1,3)), (3,)), (a,b,c)) |> abs ∘ sum, a,b,c)
 
             # index-sum
             a3 = rand(T,2,2,2)
-            @test bpcheck(a -> einsum(((1,2,3),),(a,),(1,2)) |> abs ∘ sum, a3)
+            @test bpcheck(a -> einsum(EinCode(((1,2,3),),(1,2)),(a,)) |> abs ∘ sum, a3)
 
             # Hadamard product
-            @test bpcheck((a,b) -> einsum(((1,2),(1,2)), (a,b), (1,2)) |> abs ∘ sum, a, b)
+            @test bpcheck((a,b) -> einsum(EinCode(((1,2),(1,2)), (1,2)), (a,b)) |> abs ∘ sum, a, b)
 
             # Outer
-            @test bpcheck((a,b) -> einsum(((1,2),(3,4)),(a,b),(1,2,3,4)) |> abs ∘ sum, a, b)
+            @test bpcheck((a,b) -> einsum(EinCode(((1,2),(3,4)),(1,2,3,4)),(a,b)) |> abs ∘ sum, a, b)
         end
     end
 end
@@ -60,19 +59,19 @@ end
     array_match(x, y) = typeof(x) == typeof(y) && size(x) == size(y)
     a = randn(3,3)
     b = randn(3,3)
-    @test array_match(gradient(a->einsum(((1,2), (2,1)), (a, b), ())[] |> abs, a)[1], a)
+    @test array_match(gradient(a->einsum(EinCode(((1,2), (2,1)), ()), (a, b))[] |> abs, a)[1], a)
     b = randn(ComplexF64,3,3)
-    @test_broken array_match(gradient(a->einsum(((1,2), (2,1)), (a, b), ())[] |> abs, a)[1], a)
+    @test_broken array_match(gradient(a->einsum(EinCode(((1,2), (2,1)), ()), (a, b))[] |> abs, a)[1], a)
     a = randn(ComplexF64,3,3)
-    @test array_match(gradient(a->einsum(((1,2), (2,3)), (a, b), ())[] |> abs, a)[1], a)
+    @test array_match(gradient(a->einsum(EinCode(((1,2), (2,3)), ()), (a, b))[] |> abs, a)[1], a)
     b = randn(3,3)
-    @test array_match(gradient(a->einsum(((1,2), (2,3)), (a, b), ())[] |> abs, a)[1], a)
+    @test array_match(gradient(a->einsum(EinCode(((1,2), (2,3)), ()), (a, b))[] |> abs, a)[1], a)
 end
 
 @testset "string-specification" begin
     a,b,c = rand(2,2), rand(2,2), rand(2,2)
     v = rand(2)
-    @test bpcheck((a,b,c) -> einsum("ij,jk,kl -> il", (a,b,c)) |> abs ∘ sum ,a,b,c)
-    @test bpcheck((a,b,c) -> einsum("ij,jk,kl -> li", (a,b,c)) |> abs ∘ sum ,a,b,c)
-    @test bpcheck((a,v) -> einsum("ij,j -> i", (a,v)) |> abs ∘ sum , a, v)
+    @test bpcheck((a,b,c) -> einsum(ein"ij,jk,kl -> il", (a,b,c)) |> abs ∘ sum ,a,b,c)
+    @test bpcheck((a,b,c) -> einsum(ein"ij,jk,kl -> li", (a,b,c)) |> abs ∘ sum ,a,b,c)
+    @test bpcheck((a,v) -> einsum(ein"ij,j -> i", (a,v)) |> abs ∘ sum , a, v)
 end

@@ -1,10 +1,12 @@
 using Test
-using OMEinsum: einsumexp!
+using OMEinsum
 using CuArrays
 
 CuArrays.allowscalar(false)
 
 @testset "cuda einsum" begin
     a = randn(3, 3) |> CuArray
-    @test einsumexp!(((1,2), (2,3)), (a, a), (1,3), zeros(3,3) |> CuArray) ≈ a*a
+    @test einsumexp!(EinCode(((1,2), (2,3)), (1,3)), (a, a), zeros(3,3) |> CuArray) ≈ a*a
+    @test ein"ij,jk->ik"(a, a) ≈ a*a
+    @test ein"ij,jk->ik"(a, a) isa CuArray
 end

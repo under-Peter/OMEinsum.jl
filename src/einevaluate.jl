@@ -21,7 +21,7 @@ function evaluate(op::EinsumOp, allixs, allxs)
     xs,  nallxs  = pickfromtup(allxs, inds)
 
     nix = indicesafterop(op, ixs)
-    nx = einsumexp(ixs, xs, nix)
+    nx = einsumexp(EinCode(ixs, nix), xs, get_size_dict(ixs, xs))
 
     return (nix, nallixs...), (nx, nallxs...)
 end
@@ -47,7 +47,7 @@ function evaluate(op::Permutation, allixs::NTuple{1,T where T}, allxs)
 end
 
 evaluate(op::Fallback{N,T}, allixs, allxs) where {N,T} =
-    ((op.iy,), (einsumexp(allixs, allxs, op.iy),))
+    ((op.iy,), (einsumexp(EinCode(allixs, op.iy), allxs, get_size_dict(allixs, allxs)),))
 
 
 function evaluate(op::IndexReduction{N}, allixs, allxs) where N
