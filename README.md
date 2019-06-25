@@ -45,21 +45,14 @@ julia> a, b = rand(2,2), rand(2,2);
 julia> ein"ik,kl->ij"(a,b)
 ```
 
-`einsum` might also be used in a way closer to the use in `numpy`, via a string specification
-such as:
-```julia
-julia> einsum("ij,jk->ik", (a,b)) ≈ a*b
-true
-```
-
-The string parsing introduces a small overhead compared to writing the indices as tuples, but for operations that take on the order of ms this is often negligible.
+The [string literal](https://docs.julialang.org/en/latest/manual/metaprogramming/#Non-Standard-String-Literals-1) does not introduce any runtime overhead thanks to Julia's powerful meta programming.
 
 To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
 
 If we're interested in the sum of all elements of a matrix product `a*b`
 we can reduce over all indices with the specification `ij,jk -> `
 ```julia
-julia> einsum("ij,jk->", (a,b))[] ≈ sum(a * b)
+julia> ein"ij,jk->"(a,b)[] ≈ sum(a * b)
 true
 ```
 
