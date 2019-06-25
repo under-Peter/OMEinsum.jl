@@ -47,13 +47,13 @@ end
 """get the dictionary of `index=>size`, error if there are conflicts"""
 function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
     # check size of input tuples
-    N != X && throw(ArgumentError(""))
+    N != X && throw(ArgumentError("$X tensors labelled by $N indices"))
 
     # check tensor orders
     foreach(ixs, xs) do ix, x
-        length(ix) == ndims(x) || throw(ArgumentError(""))
+        length(ix) == ndims(x) || throw(
+            ArgumentError("indices $ix invalid for tensor with ndims = $(ndims(x))"))
     end
-
     sd = IndexSize(ixs, xs)
     dimensionsmatch(sd)
     return sd
