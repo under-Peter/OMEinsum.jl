@@ -12,8 +12,10 @@ end
 
 @testset "get size dict" begin
     a = randn(3,2)
-    @test get_size_dict(((1,2), (2,3)), (a, a')) == Dict(1=>3, 2=>2, 3=>3)
-    @test get_size_dict((('i','j'), ('k','j')), (a, a)) == Dict('i'=>3, 'k'=>3, 'j'=>2)
+    sizedict = get_size_dict(((1,2), (2,3)), (a, a'))
+    @test (sizedict[1], sizedict[2], sizedict[3]) == (3,2,3)
+    sizedict = get_size_dict((('i','j'), ('k','j')), (a, a))
+    @test (sizedict['i'], sizedict['j'], sizedict['k']) == (3,2,3)
     @test_throws DimensionMismatch get_size_dict((('i','j'), ('j','k')), (a, a))
 end
 
