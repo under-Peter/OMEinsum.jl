@@ -1,14 +1,13 @@
 using Test
 using OMEinsum
-using OMEinsum: check_tensor_order, get_size_dict
+using OMEinsum: get_size_dict
 
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
     a = randn(3,3)
-    @test check_tensor_order(ixs, typeof((a,a))) === nothing
-    @test_throws ArgumentError check_tensor_order(ixs, typeof((a,a,a)))
+    @test_throws ArgumentError get_size_dict(ixs, (a,a,a))
     a = randn(3,3,3)
-    @test_throws ArgumentError check_tensor_order(ixs, typeof((a,a)))
+    @test_throws ArgumentError get_size_dict(ixs, (a,a))
 end
 
 @testset "get size dict" begin

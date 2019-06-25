@@ -7,26 +7,28 @@ EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} =
 """
     einsumexp(::EinCode, xs, size_dict)
 
-The brute-force looping einsum.
+The brute-force looping einsum, `xs` is a tuple of input tensors.
 """
 function einsumexp(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 size_dict::Dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
-    #size_dict = get_size_dict!(copy(size_dict), ixs, xs)  # do not change input
-    out = zeros(TO, (size_dict[i] for i in iy)...)
+    out = zeros(TO, getindex.(Ref(size_dict), iy))
     einsumexp!(code, xs, out, size_dict)
 end
 
+"""
+    einsumexp!(::EinCode, xs, y, size_dict)
+
+The inplace brute-force looping einsum, `y` is the output tensor.
+"""
 @generated function einsumexp!(::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 y::AbstractArray{T,L}, size_dict::Dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
-    check_tensor_order(ixs, xs)
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
 
     quote
         # find size for each leg
-        #size_dict = get_size_dict($((ixs..., iy)), (xs..., y))
         outer_sizes = getindex.(Ref(size_dict), $outer_indices)
         inner_sizes = getindex.(Ref(size_dict), $inner_indices)
 
@@ -64,25 +66,13 @@ end
 """take an index subset from `ind`"""
 index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
 
-# This function only checks the order of tensors,
-# `ixs` is the indices.
-# `xs` is the types of tensors.
-function check_tensor_order(ixs, xs_type)
-    xl = xs_type.parameters
-    length(ixs) == length(xl) || throw(ArgumentError("Number of indices and tensors not the same"))
-    foreach(ixs, xl) do ix, x
-        length(ix) == ndims(x) || throw(
-        ArgumentError("Indices $ix are invalid for a tensor with ndims = $(ndims(x))"))
-    end
-end
-
 # get inner indices, outer indices,
 # locations of input indices in total indices
 # and locations of output indices in outer indices.
 function indices_and_locs(ixs, iy)
     # outer legs and inner legs
-    outer_indices = unique(iy)
-    inner_indices = setdiff(TupleTools.vcat(ixs...), outer_indices)
+    outer_indices = tunique(iy)
+    inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
 
     # for indexing tensors (leg binding)
     indices = (outer_indices..., inner_indices...)

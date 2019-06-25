@@ -49,5 +49,3 @@ end
 
 @Zygote.nograd get_size_dict
 @Zygote.nograd get_size_dict!
-@Zygote.nograd check_tensor_order
-#@Zygote.nograd outputtensor

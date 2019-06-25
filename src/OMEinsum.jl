@@ -4,10 +4,8 @@ export einsumopt
 
 using TupleTools, Requires, TensorOperations, LinearAlgebra
 
-asarray(x::Number) = fill(x, ())
-asarray(x::AbstractArray) = x
-
 include("einsumexp.jl")
+include("utils.jl")
 include("einsum.jl")
 include("einsumopt.jl")
 include("einorder.jl")

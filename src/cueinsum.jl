@@ -3,8 +3,9 @@ using CuArrays, CUDAnative
 """decide the number of threads and blocks to be launched."""
 @inline function cudiv(x::Int)
     max_threads = 256
-    threads_x = min(max_threads, x)
-    threads_x, ceil(Int, x/threads_x)
+    num_threads = min(max_threads, x)
+    num_blocks = ceil(Int, x/num_threads)
+    num_threads, num_blocks
 end
 
 """

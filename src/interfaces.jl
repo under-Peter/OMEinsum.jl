@@ -29,8 +29,8 @@ end
 (code::EinCode)(xs...; size_dict=nothing) where {T, N} = einsum(code, xs, size_dict)
 
 einsum(code::EinCode{ixs, iy}, xs) where {ixs, iy} = einsum(code, xs, nothing)
+
 function einsum(code::EinCode{ixs, iy}, xs, ::Nothing) where {ixs, iy}
-    check_tensor_order(ixs, typeof(xs))
     einsum(code, xs, get_size_dict(ixs, xs))
 end
 
@@ -46,16 +46,32 @@ end
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
 get_size_dict(ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T = get_size_dict!(Dict{T,Int}(), ixs, xs)
-function get_size_dict!(size_dict::Dict{T,Int}, ixs::NTuple{N, NTuple{M, T} where M} where N, xs) where T
-    nt = length(ixs)
-    @inbounds for i = 1:nt
-        for (N, leg) in zip(size(xs[i]), ixs[i])
-            if haskey(size_dict, leg)
-                size_dict[leg] == N || throw(DimensionMismatch("size of index($leg) does not match."))
-            else
-                size_dict[leg] = N
-            end
+@generated function get_size_dict!(size_dict::Dict{T,Int}, ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {T,X,N}
+    xl = xs.parameters
+    ixl = ixs.parameters
+    # check size of input tuples
+    if X != N
+        return :(throw(ArgumentError("Number of indices ($N) and tensors ($X) not match")))
+    end
+
+    # check tensor orders
+    for (ix, x) in zip(ixl, xl)
+        DI, DX = length(ix.parameters), ndims(x)
+        if DI != DX
+            return :(throw(ArgumentError("Index tuple length $($DI) does not match tensor ndims = $($DX)")))
         end
     end
-    return size_dict
+
+    quote
+        @inbounds for i = 1:$N
+            for (n, leg) in zip(size(xs[i]), ixs[i])
+                if haskey(size_dict, leg)
+                    size_dict[leg] == n || throw(DimensionMismatch("size of index($leg) does not match."))
+                else
+                    size_dict[leg] = n
+                end
+            end
+        end
+        return size_dict
+    end
 end

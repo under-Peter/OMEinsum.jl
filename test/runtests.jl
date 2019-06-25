@@ -2,6 +2,10 @@ using OMEinsum
 using Test
 using LinearAlgebra
 
+@testset "OMEinsum.jl" begin
+    include("utils.jl")
+end
+
 @testset "einsum" begin
     include("einsum.jl")
 end
