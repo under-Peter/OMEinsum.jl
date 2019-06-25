@@ -34,16 +34,6 @@ function einsum(code::EinCode{ixs, iy}, xs, ::Nothing) where {ixs, iy}
     einsum(code, xs, get_size_dict(ixs, xs))
 end
 
-function infer_y_size(xs, ixs, iy)
-    sizes = TupleTools.vcat(size.(xs)...)
-    indices = TupleTools.vcat(ixs...)
-    map(iy) do x
-        i = findfirst(==(x), indices)
-        i==nothing && throw(ArgumentError("Size of output index $x can not be infered."))
-        return sizes[i]
-    end
-end
-
 """get the dictionary of `index=>size`, error if there are conflicts"""
 function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
     # check size of input tuples
@@ -54,8 +44,8 @@ function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, Abstr
         length(ix) == ndims(x) || throw(
             ArgumentError("indices $ix invalid for tensor with ndims = $(ndims(x))"))
     end
-    sd = IndexSize(ixs, xs)
-    dimensionsmatch(sd)
+    sd = getindexsize(ixs, xs)
+    check_dimensions(sd)
     return sd
 end
 
@@ -64,7 +54,7 @@ struct IndexSize{N,T}
     v::NTuple{N,Int32}
 end
 
-function IndexSize(ixs, xs)
+function getindexsize(ixs, xs)
     k = TupleTools.flatten(ixs)
     v = TupleTools.flatten(map(size,xs))
     T, N = eltype(k), length(k)
@@ -73,7 +63,7 @@ end
 
 Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), inds.k)]
 
-function dimensionsmatch(inds::IndexSize)
+function check_dimensions(inds::IndexSize)
     for (c,i) in enumerate(inds.k)
         j = findnext(==(i), inds.k, c+1)
         j != nothing && inds.v[c] != inds.v[j] && return throw(
