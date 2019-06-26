@@ -11,7 +11,7 @@ The brute-force looping einsum, `xs` is a tuple of input tensors.
 """
 function einsumexp(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                size_dict::Dict) where {N,T, ixs, iy}
+                size_dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
     out = zeros(TO, getindex.(Ref(size_dict), iy))
     einsumexp!(code, xs, out, size_dict)
@@ -24,7 +24,7 @@ The inplace brute-force looping einsum, `y` is the output tensor.
 """
 @generated function einsumexp!(::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                y::AbstractArray{T,L}, size_dict::Dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+                y::AbstractArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
 
     quote

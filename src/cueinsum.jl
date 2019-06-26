@@ -39,7 +39,7 @@ end
 
 function einsumexp(code::EinCode{ixs, iy},
                 xs::NTuple{N, CuArray{<:Any,M} where M},
-                size_dict::Dict) where {N,T, ixs, iy}
+                size_dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
     out = CuArrays.zeros(TO, getindex.(Ref(size_dict), iy))
     einsumexp!(code, xs, out, size_dict)
