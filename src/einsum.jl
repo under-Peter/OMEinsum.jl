@@ -1,4 +1,4 @@
-include("EinsumOp.jl")
+include("EinRule.jl")
 
 # TODO: fix the docstring
 @doc raw"
@@ -36,7 +36,7 @@ true
     :(einsum($rule, code, xs, size_dict))
 end
 
-function einsum(::Trace, ::EinCode, xs, size_dict)
+function einsum(::Tr, ::EinCode, xs, size_dict)
     asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
 end
 
@@ -50,11 +50,12 @@ end
 end
 
 # the fallback
-function einsum(sm::Sum, code::EinCode, xs, size_dict)
-    dropdims(sum(xs[1], dims=sm.dims), dims=sm.dims)
+function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    dims = _sumed_dims(ixs[1], iy)
+    dropdims(sum(xs[1], dims=dims), dims=dims)
 end
 
 # the fallback
-function einsum(::Fallback, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     einsumexp(code, xs, size_dict)
 end

@@ -2,8 +2,8 @@ using OMEinsum
 using Test
 using LinearAlgebra
 
-@testset "EinsumOp" begin
-    include("EinsumOp.jl")
+@testset "EinRule" begin
+    include("EinRule.jl")
 end
 
 @testset "utils.jl" begin

@@ -51,14 +51,13 @@ end
 
 struct IndexSize{N,T}
     k::NTuple{N,T}
-    v::NTuple{N,Int32}
+    v::NTuple{N,Int}
 end
 
 function getindexsize(ixs, xs)
     k = TupleTools.flatten(ixs)
     v = TupleTools.flatten(map(size,xs))
-    T, N = eltype(k), length(k)
-    IndexSize{N,T}(k,v)
+    IndexSize(k,v)
 end
 
 Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), inds.k)]
