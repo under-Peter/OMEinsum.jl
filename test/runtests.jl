@@ -2,7 +2,11 @@ using OMEinsum
 using Test
 using LinearAlgebra
 
-@testset "OMEinsum.jl" begin
+@testset "EinsumOp" begin
+    include("EinsumOp.jl")
+end
+
+@testset "utils.jl" begin
     include("utils.jl")
 end
 
