@@ -1,4 +1,4 @@
-export @ein_str
+export @ein_str, @ein
 
 # TODO: delete this kind of interface completely?
 function einsumexp!(ixs::NTuple{N, NTuple{M, IT} where M},
@@ -16,6 +16,12 @@ function einsumexp!(code::EinCode{ixs, iy},
     einsumexp!(code, xs, y, size_dict)
 end
 
+"""
+    ein"ij,jk -> ik"(A,B)
+    einsum(ein"ij,jk -> ik", (A,B))
+
+String macro interface which understands `numpy.einsum`'s notation.
+"""
 macro ein_str(s::AbstractString)
     s = replace(s, " " => "")
     m = match(r"([\(\)a-z,]+)->([a-z]*)", s)
@@ -73,4 +79,53 @@ function check_dimensions(inds::IndexSize)
             DimensionMismatch("index $i has incosistent sizes"))
     end
     return true
+end
+
+"""
+    @ein A[i,k] := B[i,j] * C[j,k]     # A = B * C
+    @ein A[i,k] = B[i,j] * C[j,k]      # mul!(A, B, C)
+
+Macro interface similar to that of other packages.
+
+You may use numbers in place of letters for dummy indices, as in `@tensor`,
+and need not name the output array. Thus `A = @ein [1,2] := B[1,ξ] * C[ξ,2]`
+is equivalent to the above. This can also be written `A = ein"ij,jk -> ik"(B,C)`
+using the numpy-style string macro.
+"""
+macro ein(exs...)
+    _ein_macro(exs...)
+end
+
+using MacroTools
+
+primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
+
+function _ein_macro(ex; einsum=:einsum)
+    @capture(ex, (left_ := right_) | (left_ = right_) ) || error("expected A[] := B[]... or else A[] = B[]...")
+    @capture(left, Z_[leftind__] | [leftind__] ) || error("can't understand LHS, expected A[i,j] etc.")
+    isnothing(Z) && @gensym Z
+    primefix!(leftind)
+
+    rightind, rightpairs = [], []
+    @capture(right, *(factors__)) || (factors = [right])
+    for fact in factors
+        @capture(fact, A_[Aind__]) || error("can't understand RHS, expected A[i,j] * B[k,l] etc.")
+        primefix!(Aind)
+        append!(rightind, Aind)
+        push!(rightpairs, (A, Aind) )
+    end
+    unique!(rightind)
+    isempty(setdiff(leftind, rightind)) || error("some indices appear only on the left")
+
+    lefttuple = Tuple(map(i -> findfirst(isequal(i), rightind), leftind))
+    righttuples = [ Tuple(map(i -> findfirst(isequal(i), rightind), ind)) for (A, ind) in rightpairs ]
+    rightnames = [ esc(A) for (A, ind) in rightpairs ]
+
+    if @capture(ex, left_ := right_ )
+        # return :( $(esc(Z)) = $einsum( ($(righttuples...),), ($(rightnames...),), $lefttuple ) )
+        return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
+    else
+        einsum! = :einsumexp! # Symbol(einsum, :!)
+        return :( $einsum!( ($(righttuples...),), ($(rightnames...),), $lefttuple, $(esc(Z))) )
+    end
 end

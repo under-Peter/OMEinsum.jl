@@ -128,8 +128,16 @@ end
     a = randn(3,3)
     @test einsum(ein"ij,jk -> ik", (a,a)) ≈ einsum(EinCode(((1,2),(2,3)), (1,3)), (a,a))
     @test ein"ij,jk -> ik"(a,a) ≈ einsum(EinCode(((1,2),(2,3)), (1,3)), (a,a))
+    @test ein"αβ,βγ -> αγ"(a,a) ≈ a * a
     # Note: the following statement is nolonger testable, since will cause load error now!
     #@test_throws ArgumentError einsum(ein"ij,123 -> k", (a,a))
+end
+
+@testset "macro input" begin
+    a = randn(3,3)
+    @test a * a ≈ @ein [i,k] := a[i,j] * a[j,k]
+    b = similar(a)
+    @test a * a ≈ @ein b[i,k] = a[i,j] * a[j,k]
 end
 
 @testset "argument checks" begin
