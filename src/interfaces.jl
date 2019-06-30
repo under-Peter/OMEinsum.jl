@@ -103,7 +103,7 @@ primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 function _ein_macro(ex; einsum=:einsum)
     @capture(ex, (left_ := right_) | (left_ = right_) ) || error("expected A[] := B[]... or else A[] = B[]...")
     @capture(left, Z_[leftind__] | [leftind__] ) || error("can't understand LHS, expected A[i,j] etc.")
-    isnothing(Z) && @gensym Z
+    Z===nothing && @gensym Z
     primefix!(leftind)
 
     rightind, rightpairs = [], []
