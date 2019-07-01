@@ -70,6 +70,9 @@ end
 Hadamard
 """
 function match_rule(::Type{Hadamard}, ixs, iy)
+    for i in iy
+        count(==(i), iy) == 1 || return nothing
+    end
     for ix in ixs
         ix === iy || return nothing
     end
@@ -83,11 +86,18 @@ appear twice and don't appear in iy
 function match_rule(::Type{PTrace}, ixs, iy)
     length(ixs) == 1 || return nothing
     (ix,) = ixs
+    for i in iy
+        count(==(i), ix) == 1 || return nothing
+        count(==(i), iy) == 1 || return nothing
+    end
     for i in ix
         ciy = count(==(i), iy)
+        cix = count(==(i), ix)
         if ciy == 0
-            count(==(i), ix) == 2 || return nothing
-        elseif ciy != 1
+            cix == 2 || return nothing
+        elseif ciy == 1
+            cix == 1 || return nothing
+        elseif ciy > 1
             return nothing
         end
     end
