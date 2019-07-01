@@ -1,27 +1,23 @@
 using OMEinsum
 using Test
 using LinearAlgebra
+using ProgressMeter
 
-@testset "EinRule" begin
+p = ProgressUnknown("Testset-running:")
+
+
+@testset "OMEinsum.jl" begin
+    next!(p)
     include("EinRule.jl")
-end
-
-@testset "utils.jl" begin
+    next!(p)
     include("utils.jl")
-end
-
-@testset "einsum" begin
+    next!(p)
     include("einsum.jl")
-end
-
-@testset "autodiff" begin
+    next!(p)
     include("autodiff.jl")
-end
-
-@testset "einorder" begin
+    next!(p)
     include("einorder.jl")
-end
-
-@testset "einsumopt" begin
+    next!(p)
     include("einsumopt.jl")
+    finish!(p)
 end
