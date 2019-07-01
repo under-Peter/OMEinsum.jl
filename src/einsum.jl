@@ -40,6 +40,16 @@ function einsum(::Tr, ::EinCode, xs, size_dict)
     asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
 end
 
+using TensorOperations
+
+function einsum(::PTrace, ::EinCode{ixs,iy}, xs, size_dict) where {ixs, iy}
+    tensortrace(xs[1], ixs[1], iy)
+end
+
+function einsum(::Hadamard, ::EinCode, xs, size_dict)
+    broadcast(*, xs...)
+end
+
 @generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,Any}, size_dict) where {ixs, iy, NT}
     if NT > 1
         body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
@@ -49,9 +59,8 @@ end
     :(@tensoropt res[$(Symbol.(iy)...)] := $body)
 end
 
-# the fallback
 function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    dims = _sumed_dims(ixs[1], iy)
+    dims = (findall(i -> i ∉ iy, ixs[1])...,)
     dropdims(sum(xs[1], dims=dims), dims=dims)
 end
 

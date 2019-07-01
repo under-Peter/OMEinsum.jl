@@ -5,6 +5,8 @@ struct Sum <: EinRule{1} end
 struct Tr <: EinRule{1} end
 struct PairWise <: EinRule{Any} end
 struct Permutedims <: EinRule{1} end
+struct Hadamard <: EinRule{Any} end
+struct PTrace <: EinRule{1} end
 struct DefaultRule <: EinRule{Any} end
 
 
@@ -41,8 +43,8 @@ function match_rule(::Type{Sum}, ixs, iy)
     setdiff(ix, dims) == [iy...] ? Sum() : nothing
 end
 
-function _sumed_dims(ix, iy)
-    dims = []
+function _sumed_dims(ix, iy::NTuple{N,T}) where {N,T}
+    dims = T[]
     for i in ix
         if !(i in iy)
             push!(dims, i)
@@ -51,7 +53,48 @@ function _sumed_dims(ix, iy)
     return (dims...,)
 end
 
-global einsum_rules = [Tr, Sum, PairWise]
+"""
+permutation rule
+"""
+function match_rule(::Type{Permutedims}, ixs, iy)
+    length(ixs) == 1 || return nothing
+    (ix,) = ixs
+    length(ix) == length(iy) || return nothing
+    for i in ix
+        count(==(i), iy) == 1 || return nothing
+    end
+    return Permutedims()
+end
+
+"""
+Hadamard
+"""
+function match_rule(::Type{Hadamard}, ixs, iy)
+    for ix in ixs
+        ix === iy || return nothing
+    end
+    return Hadamard()
+end
+
+"""
+Ptrace rule if all indices of one ix in ixs all appear in iy or
+appear twice and don't appear in iy
+"""
+function match_rule(::Type{PTrace}, ixs, iy)
+    length(ixs) == 1 || return nothing
+    (ix,) = ixs
+    for i in ix
+        ciy = count(==(i), iy)
+        if ciy == 0
+            count(==(i), ix) == 2 || return nothing
+        elseif ciy != 1
+            return nothing
+        end
+    end
+    return PTrace()
+end
+
+global einsum_rules = [Tr, Sum, PairWise, Permutedims, Hadamard, PTrace]
 
 """Find the matched rule."""
 function match_rule(ixs, iy)
