@@ -64,6 +64,10 @@ function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     dropdims(sum(xs[1], dims=dims), dims=dims)
 end
 
+function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    xs[1] * xs[2]
+end
+
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     einsumexp(code, xs, size_dict)

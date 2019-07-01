@@ -7,6 +7,7 @@ struct PairWise <: EinRule{Any} end
 struct Permutedims <: EinRule{1} end
 struct Hadamard <: EinRule{Any} end
 struct PTrace <: EinRule{1} end
+struct MatMul <: EinRule{2} end
 struct DefaultRule <: EinRule{Any} end
 
 
@@ -104,7 +105,16 @@ function match_rule(::Type{PTrace}, ixs, iy)
     return PTrace()
 end
 
-global einsum_rules = [Tr, Sum, PairWise, Permutedims, Hadamard, PTrace]
+function match_rule(::Type{MatMul}, ixs, iy)
+    length.(ixs) == (2,2) || return nothing
+    iy[1] == ixs[1][1] || return nothing
+    iy[2] == ixs[2][2] || return nothing
+    ixs[1][2] == ixs[2][1] || return nothing
+
+    return MatMul()
+end
+
+global einsum_rules = [MatMul, Tr, Sum, PairWise, Permutedims, Hadamard, PTrace]
 
 """Find the matched rule."""
 function match_rule(ixs, iy)
