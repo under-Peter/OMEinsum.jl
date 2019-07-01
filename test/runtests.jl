@@ -19,5 +19,7 @@ p = ProgressUnknown("Testset-running:")
     include("einorder.jl")
     next!(p)
     include("einsumopt.jl")
+    next!(p)
+    include("einsequence.jl")
     finish!(p)
 end

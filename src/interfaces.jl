@@ -18,12 +18,16 @@ end
 
 macro ein_str(s::AbstractString)
     s = replace(s, " " => "")
-    m = match(r"([a-z,]+)->([a-z]*)", s)
+    m = match(r"([\(\)a-z,]+)->([a-z]*)", s)
     m == nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
-    iy  = Tuple(siy)
-    ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
-    return EinCode(ixs, iy)
+    if '(' in sixs
+        return parse_nested(sixs, collect(siy))
+    else
+        iy  = Tuple(siy)
+        ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
+        return EinCode(ixs, iy)
+    end
 end
 
 (code::EinCode)(xs...; size_dict=nothing) where {T, N} = einsum(code, xs, size_dict)
