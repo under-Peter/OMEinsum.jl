@@ -68,6 +68,13 @@ function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, i
     xs[1] * xs[2]
 end
 
+function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    (ix,) = ixs
+    (x,) = xs
+    perm = map(i -> findfirst(==(i), ix), iy)
+    return permutedims(x, perm)
+end
+
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     einsumexp(code, xs, size_dict)

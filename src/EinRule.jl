@@ -107,6 +107,7 @@ end
 
 function match_rule(::Type{MatMul}, ixs, iy)
     length.(ixs) == (2,2) || return nothing
+    length(iy) == 2 || return nothing
     iy[1] == ixs[1][1] || return nothing
     iy[2] == ixs[2][2] || return nothing
     ixs[1][2] == ixs[2][1] || return nothing
@@ -114,7 +115,15 @@ function match_rule(::Type{MatMul}, ixs, iy)
     return MatMul()
 end
 
-global einsum_rules = [MatMul, Tr, Sum, PairWise, Permutedims, Hadamard, PTrace]
+global einsum_rules = [
+    MatMul,
+    Permutedims,
+    Hadamard,
+    Tr,
+    PTrace,
+    Sum,
+    PairWise,
+    ]
 
 """Find the matched rule."""
 function match_rule(ixs, iy)
