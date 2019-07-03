@@ -15,22 +15,21 @@ struct DefaultRule <: EinRule{Any} end
 a einsum code is trace
 """
 function match_rule(::Type{Tr}, ixs, iy)
-    iy == () &&
-    length(ixs) == 1 &&
-    length(ixs[1]) == 2 &&
-    ixs[1][1] == ixs[1][2] ? Tr() : nothing
+    iy == () || return
+    length.(ixs) === (2,) || return
+    ixs[1][1] == ixs[1][2]  || return
+    return Tr()
 end
 
 """
 a einsum code is a pairwise graph.
 """
 function match_rule(::Type{PairWise}, ixs::NTuple{N, NTuple{X,T} where X}, iy::NTuple{M, T}) where {N, M, T}
-    all_indices = TupleTools.vcat(ixs..., iy)
-    counts = Dict{T, Int}()
-    for ind in all_indices
-        counts[ind] = get(counts, ind, 0) + 1
-    end
-    all(isequal(2), counts |> values) && length(tunique(iy)) == M ? PairWise() : nothing
+    allinds = TupleTools.vcat(ixs..., iy)
+    counts = map(x -> count(==(x), allinds), allinds)
+    all(isequal(2), counts) || return
+    all(i -> count(==(i), iy) == 1, iy) || return
+    return PairWise()
 end
 
 """
@@ -38,32 +37,22 @@ a einsum code is sum.
 """
 function match_rule(::Type{Sum}, ixs, iy)
     length(ixs) != 1 && return
-    ix = ixs[1]
-    length(ix) != length(tunique(ix)) && return
-    dims = _sumed_dims(ix, iy)
-    setdiff(ix, dims) == [iy...] ? Sum() : nothing
-end
-
-function _sumed_dims(ix, iy::NTuple{N,T}) where {N,T}
-    dims = T[]
-    for i in ix
-        if !(i in iy)
-            push!(dims, i)
-        end
-    end
-    return (dims...,)
+    (ix,) = ixs
+    all(i -> count(==(i),ix) == 1, ix) || return
+    all(i -> count(==(i),iy) == 1, iy) || return
+    all(i -> i in ix, iy) || return
+    return Sum()
 end
 
 """
 permutation rule
 """
 function match_rule(::Type{Permutedims}, ixs, iy)
-    length(ixs) == 1 || return nothing
+    length(ixs) == 1 || return
     (ix,) = ixs
-    length(ix) == length(iy) || return nothing
-    for i in ix
-        count(==(i), iy) == 1 || return nothing
-    end
+    length(ix) == length(iy) || return
+    all(i -> count(==(i), iy) == 1, ix) || return
+
     return Permutedims()
 end
 
@@ -71,12 +60,8 @@ end
 Hadamard
 """
 function match_rule(::Type{Hadamard}, ixs, iy)
-    for i in iy
-        count(==(i), iy) == 1 || return nothing
-    end
-    for ix in ixs
-        ix === iy || return nothing
-    end
+    all(i -> count(==(i), iy) == 1, iy) || return
+    all(ix -> ix === iy, ixs) || return
     return Hadamard()
 end
 
@@ -85,37 +70,37 @@ Ptrace rule if all indices of one ix in ixs all appear in iy or
 appear twice and don't appear in iy
 """
 function match_rule(::Type{PTrace}, ixs, iy)
-    length(ixs) == 1 || return nothing
+    length(ixs) == 1 || return
     (ix,) = ixs
     for i in iy
-        count(==(i), ix) == 1 || return nothing
-        count(==(i), iy) == 1 || return nothing
+        count(==(i), ix) == 1 || return
+        count(==(i), iy) == 1 || return
     end
     for i in ix
         ciy = count(==(i), iy)
         cix = count(==(i), ix)
         if ciy == 0
-            cix == 2 || return nothing
+            cix == 2 || return
         elseif ciy == 1
-            cix == 1 || return nothing
+            cix == 1 || return
         elseif ciy > 1
-            return nothing
+            return
         end
     end
     return PTrace()
 end
 
 function match_rule(::Type{MatMul}, ixs, iy)
-    length.(ixs) == (2,2) || return nothing
-    length(iy) == 2 || return nothing
-    iy[1] == ixs[1][1] || return nothing
-    iy[2] == ixs[2][2] || return nothing
-    ixs[1][2] == ixs[2][1] || return nothing
+    length.(ixs) == (2,2) || return
+    length(iy) == 2 || return
+    iy[1] == ixs[1][1] || return
+    iy[2] == ixs[2][2] || return
+    ixs[1][2] == ixs[2][1] || return
 
     return MatMul()
 end
 
-global einsum_rules = [
+const einsum_rules = [
     MatMul,
     Permutedims,
     Hadamard,
