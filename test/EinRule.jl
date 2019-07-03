@@ -1,6 +1,6 @@
 using Test, OMEinsum
 using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
-                Permutedims, PTrace, Hadamard, MatMul
+                Permutedims, PTrace, Hadamard, MatMul, nopermute
 
 @testset "match rule" begin
     ixs = ((1,2), (2,3))
@@ -23,6 +23,10 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     iy = (1,)
     @test match_rule(ixs, iy) == Sum()
 
+    ixs = ((1,2,3),)
+    iy = (2,1)
+    @test match_rule(ixs, iy) != Sum()
+
     ixs = ((1,2),(1,2),(1,2))
     iy = (1,2)
     @test match_rule(ixs, iy) == Hadamard()
@@ -35,4 +39,11 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     iy = (1,1)
     @test match_rule(ixs, iy) == DefaultRule()
 
+    ix = (1,2,3)
+    iy = (1,2)
+    @test nopermute(ix,iy)
+
+    ix = (1,2,3)
+    iy = (2,1)
+    @test !nopermute(ix,iy)
 end

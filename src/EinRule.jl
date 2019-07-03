@@ -40,7 +40,7 @@ function match_rule(::Type{Sum}, ixs, iy)
     (ix,) = ixs
     all(i -> count(==(i),ix) == 1, ix) || return
     all(i -> count(==(i),iy) == 1, iy) || return
-    all(i -> i in ix, iy) || return
+    nopermute(ix, iy) || return
     return Sum()
 end
 
@@ -87,6 +87,8 @@ function match_rule(::Type{PTrace}, ixs, iy)
             return
         end
     end
+    nopermute(ix, iy) || return
+
     return PTrace()
 end
 
@@ -120,4 +122,22 @@ function match_rule(ixs, iy)
         end
     end
     return DefaultRule()
+end
+
+"""
+    nopermute(ix,iy)
+check that all values in `iy` that are also in `ix` have the same relative order,
+e.g. `nopermute((1,2,3),(1,2))` is true while `nopermute((1,2,3),(2,1))` is false
+"""
+function nopermute(ix, iy)
+    i, j, jold = 1, 1, 0
+    for i in 1:length(iy)
+        # find each element of iy in ix
+        # and check that the order is the same
+        # (modulo elements in ix but not in iy)
+        j = findfirst(==(iy[i]), ix)
+        (j === nothing || j <= jold) && return false
+        jold = j
+    end
+    return true
 end
