@@ -15,10 +15,9 @@ struct DefaultRule <: EinRule{Any} end
 a einsum code is trace
 """
 function match_rule(::Type{Tr}, ixs, iy)
-    iy == () || return
-    length.(ixs) === (2,) || return
-    ixs[1][1] == ixs[1][2]  || return
-    return Tr()
+    iy == () &&
+    length.(ixs) === (2,) &&
+    ixs[1][1] == ixs[1][2]
 end
 
 """
@@ -26,42 +25,33 @@ a einsum code is a pairwise graph.
 """
 function match_rule(::Type{PairWise}, ixs::NTuple{N, NTuple{X,T} where X}, iy::NTuple{M, T}) where {N, M, T}
     allinds = TupleTools.vcat(ixs..., iy)
-    counts = map(x -> count(==(x), allinds), allinds)
-    all(isequal(2), counts) || return
-    allunique(iy) || return
-    return PairWise()
+    all(i -> count(==(i), allinds) == 2, allinds) && allunique(iy)
 end
 
 """
 a einsum code is sum.
 """
 function match_rule(::Type{Sum}, ixs, iy)
-    length(ixs) != 1 && return
+    length(ixs) != 1 && return false
     (ix,) = ixs
-    (allunique(ix) && allunique(iy)) || return
-    nopermute(ix, iy) || return
-    return Sum()
+    length(ix) != length(iy) &&
+    allunique(ix) && allunique(iy) && nopermute(ix, iy)
 end
 
 """
 permutation rule
 """
 function match_rule(::Type{Permutedims}, ixs, iy)
-    length(ixs) == 1 || return
+    length(ixs) == 1 || return false
     (ix,) = ixs
-    length(ix) == length(iy) || return
-    all(i -> count(==(i), iy) == 1, ix) || return
-
-    return Permutedims()
+    length(ix) == length(iy) && all(i -> count(==(i), iy) == 1, ix)
 end
 
 """
 Hadamard
 """
 function match_rule(::Type{Hadamard}, ixs, iy)
-    allunique(iy) || return
-    all(ix -> ix === iy, ixs) || return
-    return Hadamard()
+    allunique(iy) && all(ix -> ix === iy, ixs)
 end
 
 """
@@ -69,36 +59,24 @@ Ptrace rule if all indices of one ix in ixs all appear in iy or
 appear twice and don't appear in iy
 """
 function match_rule(::Type{PTrace}, ixs, iy)
-    length(ixs) == 1 || return
+    length(ixs) == 1 || return false
     (ix,) = ixs
-    for i in iy
-        count(==(i), ix) == 1 || return
-        count(==(i), iy) == 1 || return
-    end
-    for i in ix
-        ciy = count(==(i), iy)
-        cix = count(==(i), ix)
-        if ciy == 0
-            cix == 2 || return
-        elseif ciy == 1
-            cix == 1 || return
-        elseif ciy > 1
-            return
-        end
-    end
-    nopermute(ix, iy) || return
-
-    return PTrace()
+    all(iy) do i
+        count(==(i), ix) == 1 && count(==(i), iy) == 1
+    end || return false
+    all(ix) do i
+        ciy, cix = count.(==(i), (iy,ix))
+        (ciy == 0 && cix == 2) ||
+        (ciy == 1 && cix == 1) ||
+        (ciy > 1)
+    end || return false
+    nopermute(ix, iy)
 end
 
 function match_rule(::Type{MatMul}, ixs, iy)
-    length.(ixs) == (2,2) || return
-    length(iy) == 2 || return
-    iy[1] == ixs[1][1] || return
-    iy[2] == ixs[2][2] || return
-    ixs[1][2] == ixs[2][1] || return
-
-    return MatMul()
+    length.(ixs) == (2,2) && length(iy) == 2 &&
+    iy[1] == ixs[1][1] && iy[2] == ixs[2][2] &&
+    ixs[1][2] == ixs[2][1]
 end
 
 const einsum_rules = [
@@ -115,10 +93,7 @@ const einsum_rules = [
 function match_rule(ixs, iy)
     # the first rule with the higher the priority
     for T in einsum_rules
-        res = match_rule(T, ixs, iy)
-        if res !== nothing
-            return res
-        end
+        match_rule(T, ixs, iy) && return T()
     end
     return DefaultRule()
 end
