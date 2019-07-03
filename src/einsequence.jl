@@ -8,50 +8,54 @@ objects as nodes and `IndexGroup` as leaves.
 function parse_nested(s::AbstractString, iy = [])
     count(==('('),s) == count(==(')'),s) || throw(
         ArgumentError("Parentheses don't pair up in $s"))
-    _, out = parse_level(s, firstindex(s), 1)
+
+    _, out = parse_parens(s, firstindex(s), 1)
     out.iy = iy
     filliys!(out)
     return out
 end
 
 """
-    parse_level(s::AbstractString, i, narg)
-parse one level of parantheses starting at index `i` where `narg` counts which tensor the
+    parse_parens(s::AbstractString, i, narg)
+parse one level of parens starting at index `i` where `narg` counts which tensor the
 current group of indices, e.g. "ijk", belongs to.
-Recursively calls itself for each new parantheses that's opened.
+Recursively calls itself for each new opening paren that's opened.
 """
-function parse_level(s::AbstractString, i, narg)
-    out = NestedEinsum([], 0, Vector(), [])
+function parse_parens(s::AbstractString, i, narg)
+    out = NestedEinsum([], [], [])
     g = IndexGroup([],narg)
+
     while i <= lastindex(s)
         c = s[i]
         j = nextind(s,i)
         if c === '('
-            j, out2, narg = parse_level(s, j, narg)
-            out = push!(out, out2)
+            # opening a parens means that next a new contraction is parsed
+            j, out2, narg = parse_parens(s, j, narg)
+            push!(out, out2)
             union!(out.inds, out2.inds)
-            out.nargs += out2.nargs
         elseif c === ')' || c === ','
+            # either closing a parens or a comma means that a tensors indices
+            # are complete and can be added to the contraction-object
             if !isempty(g)
                 push!(out, g)
-                out.nargs += 1
                 union!(out.inds, g.inds)
             end
             if  c === ','
+                # comma implies that a new tensor is parsed for the current contraction
                 narg += 1
                 g = IndexGroup([], narg)
             else
+                # parens implies that the current contraction is complete
                 return j, out, narg
             end
-        elseif isletter(c)
-            g = push!(g,c)
+        elseif isletter(c) # could allow isnumeric() too
+            push!(g,c)
         else
             throw(ArgumentError("parsing $s failed, $c is not a valid entry"))
         end
         i = j
     end
     if !isempty(g)
-        out.nargs += 1
         push!(out, g)
         union!(out.inds, g.inds)
     end
@@ -100,7 +104,6 @@ describes a (potentially) nested einsum. Important fields:
 """
 mutable struct NestedEinsum
     args::Vector{Union{NestedEinsum, IndexGroup}}
-    nargs::Int
     inds::Vector{Char}
     iy::Vector{Char}
 end
