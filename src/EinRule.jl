@@ -28,7 +28,7 @@ function match_rule(::Type{PairWise}, ixs::NTuple{N, NTuple{X,T} where X}, iy::N
     allinds = TupleTools.vcat(ixs..., iy)
     counts = map(x -> count(==(x), allinds), allinds)
     all(isequal(2), counts) || return
-    all(i -> count(==(i), iy) == 1, iy) || return
+    allunique(iy) || return
     return PairWise()
 end
 
@@ -38,8 +38,7 @@ a einsum code is sum.
 function match_rule(::Type{Sum}, ixs, iy)
     length(ixs) != 1 && return
     (ix,) = ixs
-    all(i -> count(==(i),ix) == 1, ix) || return
-    all(i -> count(==(i),iy) == 1, iy) || return
+    (allunique(ix) && allunique(iy)) || return
     nopermute(ix, iy) || return
     return Sum()
 end
@@ -60,7 +59,7 @@ end
 Hadamard
 """
 function match_rule(::Type{Hadamard}, ixs, iy)
-    all(i -> count(==(i), iy) == 1, iy) || return
+    allunique(iy) || return
     all(ix -> ix === iy, ixs) || return
     return Hadamard()
 end
@@ -122,22 +121,4 @@ function match_rule(ixs, iy)
         end
     end
     return DefaultRule()
-end
-
-"""
-    nopermute(ix,iy)
-check that all values in `iy` that are also in `ix` have the same relative order,
-e.g. `nopermute((1,2,3),(1,2))` is true while `nopermute((1,2,3),(2,1))` is false
-"""
-function nopermute(ix, iy)
-    i, j, jold = 1, 1, 0
-    for i in 1:length(iy)
-        # find each element of iy in ix
-        # and check that the order is the same
-        # (modulo elements in ix but not in iy)
-        j = findfirst(==(iy[i]), ix)
-        (j === nothing || j <= jold) && return false
-        jold = j
-    end
-    return true
 end
