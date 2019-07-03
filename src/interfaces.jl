@@ -103,11 +103,14 @@ primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 function _ein_macro(ex; einsum=:einsum)
     @capture(ex, (left_ := right_) | (left_ = right_) ) || error("expected A[] := B[]... or else A[] = B[]...")
     @capture(left, Z_[leftind__] | [leftind__] ) || error("can't understand LHS, expected A[i,j] etc.")
-    Z===nothing && @gensym Z
+    if Z===nothing
+        @capture(ex, left_ := right_ ) || error("can't omit output name for in-place operation, only [i,j] := ... is allowed")
+        @gensym Z
+    end
     primefix!(leftind)
 
     rightind, rightpairs = [], []
-    @capture(right, *(factors__)) || (factors = [right])
+    @capture(right, *(factors__)) || (factors = Any[right])
     for fact in factors
         @capture(fact, A_[Aind__]) || error("can't understand RHS, expected A[i,j] * B[k,l] etc.")
         primefix!(Aind)
@@ -117,12 +120,11 @@ function _ein_macro(ex; einsum=:einsum)
     unique!(rightind)
     isempty(setdiff(leftind, rightind)) || error("some indices appear only on the left")
 
-    lefttuple = Tuple(map(i -> findfirst(isequal(i), rightind), leftind))
-    righttuples = [ Tuple(map(i -> findfirst(isequal(i), rightind), ind)) for (A, ind) in rightpairs ]
+    lefttuple = Tuple(indexin(leftind, rightind))
+    righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
     if @capture(ex, left_ := right_ )
-        # return :( $(esc(Z)) = $einsum( ($(righttuples...),), ($(rightnames...),), $lefttuple ) )
         return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
     else
         einsum! = :einsumexp! # Symbol(einsum, :!)
