@@ -24,6 +24,7 @@ end
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
     v = rand(2)
     t = randn(2,2,2,2)
+    @test einsum(ein"ijkl -> ijkl", (t,)) ≈ t
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,20),(20,3),(3,4)), (1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(4,1)), (a,b,c)) ≈ permutedims(a*b*c, (2,1))

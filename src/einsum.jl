@@ -75,6 +75,10 @@ function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
     return permutedims(x, perm)
 end
 
+function einsum(::Identity, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    xs[1]
+end
+
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     einsumexp(code, xs, size_dict)

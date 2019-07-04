@@ -8,6 +8,7 @@ struct Permutedims <: EinRule{1} end
 struct Hadamard <: EinRule{Any} end
 struct PTrace <: EinRule{1} end
 struct MatMul <: EinRule{2} end
+struct Identity <: EinRule{Any} end
 struct DefaultRule <: EinRule{Any} end
 
 
@@ -44,7 +45,8 @@ permutation rule
 function match_rule(::Type{Permutedims}, ixs, iy)
     length(ixs) == 1 || return false
     (ix,) = ixs
-    length(ix) == length(iy) && all(i -> count(==(i), iy) == 1, ix)
+    length(ix) == length(iy) && allunique(ix) && allunique(iy) &&
+     all(i -> i in iy, ix)
 end
 
 """
@@ -79,7 +81,12 @@ function match_rule(::Type{MatMul}, ixs, iy)
     ixs[1][2] == ixs[2][1]
 end
 
+function match_rule(::Type{Identity}, ixs, iy)
+    ixs === (iy,) && allunique(iy)
+end
+
 const einsum_rules = [
+    Identity,
     MatMul,
     Permutedims,
     Hadamard,
