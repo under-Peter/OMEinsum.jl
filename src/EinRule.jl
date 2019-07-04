@@ -35,7 +35,6 @@ a einsum code is sum.
 function match_rule(::Type{Sum}, ixs, iy)
     length(ixs) != 1 && return false
     (ix,) = ixs
-    length(ix) != length(iy) &&
     allunique(ix) && allunique(iy) && nopermute(ix, iy)
 end
 

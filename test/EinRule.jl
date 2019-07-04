@@ -59,7 +59,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
 
     @test match_rule(Sum, ((1,2,3,4),), (1,2))
     @test match_rule(Sum, ((1,2,3,4),), (1,2))
-    @test !match_rule(Sum, ((1,2,3,4),), (1,2,3,4))
+    @test match_rule(Sum, ((1,2,3,4),), (1,2,3,4))
     @test !match_rule(Sum, ((1,2,3,4),), (2,1))
 
     @test match_rule(Permutedims, ((1,2),), (2,1))
