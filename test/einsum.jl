@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict
+using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims
 
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
@@ -24,6 +24,7 @@ end
     a,b,c = randn(2,2), rand(2,2), rand(2,2)
     v = rand(2)
     t = randn(2,2,2,2)
+    @test einsum(ein"ijkl -> ijkl", (t,)) ≈ t
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,20),(20,3),(3,4)), (1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(4,1)), (a,b,c)) ≈ permutedims(a*b*c, (2,1))
@@ -136,4 +137,19 @@ end
     @test_throws ArgumentError einsum(ein"ij,jk,k -> ik", (rand(2,2), rand(2,2)))
     @test_throws ArgumentError einsum(ein"ij,ijk -> ik", (rand(2,2), rand(2,2)))
     @test_throws DimensionMismatch einsum(ein"ij,jk -> ik", (rand(2,3), rand(2,2)))
+end
+
+@testset "dispatched" begin
+    # index-sum
+    a = rand(2,2,5)
+    ixs, xs = ((1,2,3),), (a,)
+    @test einsum(Sum(), EinCode(ixs,(1,2)),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    a = rand(5,5)
+    @test einsum(Tr(), EinCode(((1,1),),()), (a,), get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
+    t = rand(5,5,5,5)
+    a = rand(5,5)
+    size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
+    ta = einsumexp(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end

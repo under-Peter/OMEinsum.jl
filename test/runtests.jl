@@ -5,7 +5,10 @@ using ProgressMeter
 
 p = ProgressUnknown("Testset-running:")
 
+
 @testset "OMEinsum.jl" begin
+    next!(p)
+    include("EinRule.jl")
     next!(p)
     include("utils.jl")
     next!(p)
