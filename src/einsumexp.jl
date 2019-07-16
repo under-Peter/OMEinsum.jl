@@ -12,7 +12,7 @@ The brute-force looping einsum, `xs` is a tuple of input tensors.
 function einsumexp(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 size_dict) where {N,T, ixs, iy}
-    TO = mapreduce(eltype, promote_type, xs)
+    TO = promote_type(map(eltype,xs)...)
     out = zeros(TO, getindex.(Ref(size_dict), iy))
     einsumexp!(code, xs, out, size_dict)
 end
