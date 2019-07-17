@@ -12,7 +12,7 @@ function parse_nested(s::AbstractString, iy = [])
     _, out = parse_parens(s, firstindex(s), 1)
     out.iy = iy
     filliys!(out)
-    return out
+    return stabilize(out)
 end
 
 """
@@ -133,37 +133,23 @@ or evaluate and return the tensor associated with x (if x isa NestedEinsum)
 extractxs(xs, x::NestedEinsum) = x(xs...)
 extractxs(xs, x::IndexGroup) = xs[x.n]
 
-# @time parse_nested("((ij,iab),jcd),afce", collect("bdfe"))
-# @time parse_nested("(ij,jk),kl", collect("il"))
-# @time parse_nested("((ij,jk),kl)", collect("il"))
-# test =  parse_nested("(ij,jk),kl", collect("il"))
-# @time parse_nested("(ij,jk),(kl,lm)", collect("im"))
-#
-# using BenchmarkTools
-# @btime parse_nested("((ij,iab),jcd),afce", collect("bdfe"))
-# @btime parse_nested("(ij,jk),kl", collect("im"))
-# @btime parse_nested("(ij,jk),(kl,lm)", collect("im"))
-#
-# nein1 = parse_nested("(ij,jk),kl", collect("il"))
-# nein2 = parse_nested("((ij,jk),kl)", collect("il"))
-# a, b, c = rand(2,2), rand(2,2), rand(2,2)
-#
-# nein1(a,b,c) ≈ nein2(a,b,c)
-#
-#
-#
-#
-# parse_nested("(ij,jk),kl", collect("il"))(a,b,c) ≈ ein"ij,jk,kl -> il"(a,b,c)
-# χ = 100
-# a, b, c = [rand(χ,χ) for _ in 1:3]
-# parse_nested("(ij,jk),kl", collect("il"))(a,b,c) ≈ ein"ij,jk,kl -> il"(a,b,c)
-# @time parse_nested("(ij,jk),kl", collect("il"))(a,b,c)
-# @time ein"ij,jk,kl -> il"(a,b,c)
-#
-# using BenchmarkTools
-# χ = 20
-# a, b, c = [rand(χ,χ) for _ in 1:3]
-# @btime parse_nested("(ij,jk),kl", collect("il"))($a,$b,$c)
-# @btime ein"ij,jk,kl -> il"($a,$b,$c)
-# @btime ein"ij,jk -> ik"($a,$b)
-# @btime $a * $b * $c
+mutable struct NestedEinsumStable{T,S,N}
+    args::S
+    eins::T
+end
+
+function stabilize(nein::OMEinsum.NestedEinsum)
+    ixs = Tuple(map(OMEinsum.extractixs, nein.args))
+    iy = Tuple(nein.iy)
+    eins = EinCode{ixs,iy}()
+    args = Tuple(map(x -> x isa OMEinsum.NestedEinsum ? stabilize(x) : x.n,nein.args))
+    return NestedEinsumStable{typeof(eins), typeof(args), length(iy)}(args, eins)
+end
+
+function (neinsum::NestedEinsumStable{<:Any,<:Any,N})(xs...; size_dict = nothing) where N
+    mxs = map(x -> extractxs(xs, x), neinsum.args)
+    neinsum.eins(mxs...)
+end
+
+extractxs(xs, x::NestedEinsumStable) = x(xs...)
+extractxs(xs, i::Int) = xs[i]
