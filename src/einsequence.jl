@@ -10,7 +10,7 @@ function parse_nested(s::AbstractString, iy = [])
         ArgumentError("Parentheses don't pair up in $s"))
 
     _, out = parse_parens(s, firstindex(s), 1)
-    out.iy = iy
+    append!(out.iy, iy)
     filliys!(out)
     return stabilize(out)
 end
@@ -102,7 +102,7 @@ describes a (potentially) nested einsum. Important fields:
 - `args`, vector of all inputs, either `IndexGroup` objects corresponding to tensors or `NestedEinsum`
 - `iy`, indices of output
 """
-mutable struct NestedEinsum
+struct NestedEinsum
     args::Vector{Union{NestedEinsum, IndexGroup}}
     inds::Vector{Char}
     iy::Vector{Char}
@@ -133,7 +133,7 @@ or evaluate and return the tensor associated with x (if x isa NestedEinsum)
 extractxs(xs, x::NestedEinsum) = x(xs...)
 extractxs(xs, x::IndexGroup) = xs[x.n]
 
-mutable struct NestedEinsumStable{T,S,N}
+struct NestedEinsumStable{T,S,N}
     args::S
     eins::T
 end

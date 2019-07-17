@@ -7,12 +7,6 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested
     @test_throws ArgumentError parse_nested("((ij,jk),km")
     @test_throws ArgumentError parse_nested("((ij,jk),k1)")
 
-    neinsum = parse_nested("(ij,jk),km", collect("im"))
-    @test neinsum.iy == ['i','m']
-
-    neinsum2 = neinsum.args[1]
-    @test neinsum2.iy == ['i','k']
-
     a, b, c = rand(2,2), rand(2,2), rand(2,2)
     abc1 = ein"(ij,jk),km -> im"(a,b,c)
     abc2 = ein"((ij,jk),km) -> im"(a,b,c)
