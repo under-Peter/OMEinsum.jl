@@ -75,3 +75,9 @@ end
     @test bpcheck((a,b,c) -> einsum(ein"ij,jk,kl -> li", (a,b,c)) |> abs ∘ sum ,a,b,c)
     @test bpcheck((a,v) -> einsum(ein"ij,j -> i", (a,v)) |> abs ∘ sum , a, v)
 end
+
+@testset "sequence specification" begin
+    a, b, c = rand(2,2), rand(2,2), rand(2,2)
+    @test all(gradient(sum ∘ ein"ij,jk,kl -> il", a, b, c) .≈
+          gradient(sum ∘ ein"(ij,(jk,kl)) -> il", a, b, c))
+end

@@ -15,5 +15,6 @@ function __init__()
 end
 
 include("interfaces.jl")
+include("einsequence.jl")
 include("autodiff.jl")
 end # module
