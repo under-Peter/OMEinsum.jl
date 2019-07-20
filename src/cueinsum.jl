@@ -37,10 +37,10 @@ function loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, CuArray}, locs_y, y::CuArra
     y
 end
 
-function einsumexp(code::EinCode{ixs, iy},
+function loop_einsum(code::EinCode{ixs, iy},
                 xs::NTuple{N, CuArray{<:Any,M} where M},
                 size_dict) where {N,T, ixs, iy}
     TO = mapreduce(eltype, promote_type, xs)
     out = CuArrays.zeros(TO, getindex.(Ref(size_dict), iy))
-    einsumexp!(code, xs, out, size_dict)
+    loop_einsum!(code, xs, out, size_dict)
 end

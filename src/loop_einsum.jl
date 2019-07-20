@@ -1,28 +1,28 @@
 using TupleTools, Base.Cartesian
-export einsumexp, einsumexp!, EinCode
+export loop_einsum, loop_einsum!, EinCode
 
 struct EinCode{ixs, iy} end
 EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
 
 """
-    einsumexp(::EinCode, xs, size_dict)
+    loop_einsum(::EinCode, xs, size_dict)
 
 The brute-force looping einsum, `xs` is a tuple of input tensors.
 """
-function einsumexp(code::EinCode{ixs, iy},
+function loop_einsum(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 size_dict) where {N,T, ixs, iy}
     TO = promote_type(map(eltype,xs)...)
     out = zeros(TO, getindex.(Ref(size_dict), iy))
-    einsumexp!(code, xs, out, size_dict)
+    loop_einsum!(code, xs, out, size_dict)
 end
 
 """
-    einsumexp!(::EinCode, xs, y, size_dict)
+    loop_einsum!(::EinCode, xs, y, size_dict)
 
 The inplace brute-force looping einsum, `y` is the output tensor.
 """
-@generated function einsumexp!(::EinCode{ixs, iy},
+@generated function loop_einsum!(::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 y::AbstractArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
