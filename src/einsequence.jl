@@ -89,11 +89,11 @@ describes, e.g. in "ij,jk -> ik", indices "ik" belong to tensor `1`, so
 would be described by IndexGroup(['i','k'], 1).
 """
 struct IndexGroup
-    inds::Vector{Char}
+    inds::Vector
     n::Int
 end
 
-Base.push!(ig::IndexGroup, c::Char) = (push!(ig.inds,c); ig)
+Base.push!(ig::IndexGroup, c) = (push!(ig.inds,c); ig)
 Base.isempty(ig::IndexGroup) = isempty(ig.inds)
 
 """
@@ -104,11 +104,49 @@ describes a (potentially) nested einsum. Important fields:
 """
 struct NestedEinsum
     args::Vector{Union{NestedEinsum, IndexGroup}}
-    inds::Vector{Char}
-    iy::Vector{Char}
+    inds::Vector
+    iy::Vector
 end
 
 Base.push!(neinsum::NestedEinsum, x) = (push!(neinsum.args,x); neinsum)
+
+using MacroTools
+
+function _nested_ein_macro(ex; einsum=:einsum)
+    @capture(ex, (left_ := right_)) || throw(ArgumentError("expected A[] := B[]... "))
+    @capture(left, Z_[leftind__] | [leftind__] ) || throw(
+        ArgumentError("can't understand LHS, expected A[i,j] etc."))
+    Z === nothing && @gensym Z
+    primefix!(leftind)
+    allinds = unique(leftind)
+
+    MacroTools.postwalk(right) do x
+        @capture(x, A_[inds__]) && union!(allinds, inds)
+        x
+    end
+    primefix!(allinds)
+
+    tensors = Symbol[]
+    nein = parse_nested_expr(right, tensors, allinds)
+    append!(nein.iy, indexin(leftind,allinds))
+    filliys!(nein)
+    snein = stabilize(nein)
+
+    tensornames = map(esc, tensors)
+    :($(esc(Z)) = $snein(($(tensornames...),)...))
+end
+
+function parse_nested_expr(expr, tensors, allinds)
+    if @capture(expr, *(args__))
+        einargs = map(x -> parse_nested_expr(x,tensors, allinds), args)
+        intinds = union(mapreduce(x -> x.inds, vcat, einargs))
+        return NestedEinsum(einargs, intinds, Int[])
+    elseif @capture(expr, A_[inds__])
+        push!(tensors,A)
+        return IndexGroup(indexin(primefix!(inds), allinds), length(tensors))
+    end
+end
+
 
 """
 apply a NestedEinsum to arguments evaluates the nested einsum
