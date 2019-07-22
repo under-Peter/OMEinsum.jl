@@ -83,7 +83,6 @@ end
 
 """
     @ein A[i,k] := B[i,j] * C[j,k]     # A = B * C
-    @ein A[i,k] = B[i,j] * C[j,k]      # mul!(A, B, C)
 
 Macro interface similar to that of other packages.
 
@@ -101,10 +100,9 @@ using MacroTools
 primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 
 function _ein_macro(ex; einsum=:einsum)
-    @capture(ex, (left_ := right_) | (left_ = right_) ) || error("expected A[] := B[]... or else A[] = B[]...")
+    @capture(ex, (left_ := right_)) || error("expected A[] := B[]... ")
     @capture(left, Z_[leftind__] | [leftind__] ) || error("can't understand LHS, expected A[i,j] etc.")
     if Z===nothing
-        @capture(ex, left_ := right_ ) || error("can't omit output name for in-place operation, only [i,j] := ... is allowed")
         @gensym Z
     end
     primefix!(leftind)
@@ -124,10 +122,5 @@ function _ein_macro(ex; einsum=:einsum)
     righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
-    if @capture(ex, left_ := right_ )
-        return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
-    else
-        einsum! = :einsumexp! # Symbol(einsum, :!)
-        return :( $einsum!( ($(righttuples...),), ($(rightnames...),), $lefttuple, $(esc(Z))) )
-    end
+    return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
 end

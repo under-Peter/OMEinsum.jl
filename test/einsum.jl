@@ -136,8 +136,6 @@ end
 @testset "macro input" begin
     a = randn(3,3)
     @test a * a ≈ @ein [i,k] := a[i,j] * a[j,k]
-    b = similar(a)
-    @test a * a ≈ @ein b[i,k] = a[i,j] * a[j,k]
 end
 
 @testset "argument checks" begin
