@@ -128,8 +128,18 @@ end
     a = randn(3,3)
     @test einsum(ein"ij,jk -> ik", (a,a)) ≈ einsum(EinCode(((1,2),(2,3)), (1,3)), (a,a))
     @test ein"ij,jk -> ik"(a,a) ≈ einsum(EinCode(((1,2),(2,3)), (1,3)), (a,a))
+    @test ein"αβ,βγ -> αγ"(a,a) ≈ a * a
     # Note: the following statement is nolonger testable, since will cause load error now!
     #@test_throws ArgumentError einsum(ein"ij,123 -> k", (a,a))
+end
+
+@testset "macro input" begin
+    a = randn(2,2)
+    @test a * a ≈ @ein [i,k] := a[i,j] * a[j,k]
+    @test sum(a[i,i] for i in 1:2) ≈ (@ein [] := a[i,i])[]
+    @test [a[1,1] 0; 0 a[2,2]] ≈ @ein [i,i] := a[i,i]
+    @test permutedims(a) ≈ @ein [α,a] := a[a,α]
+    @test permutedims(a) ≈ @ein [α,1] := a[1,α]
 end
 
 @testset "argument checks" begin
