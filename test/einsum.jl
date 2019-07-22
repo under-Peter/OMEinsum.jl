@@ -134,8 +134,12 @@ end
 end
 
 @testset "macro input" begin
-    a = randn(3,3)
+    a = randn(2,2)
     @test a * a ≈ @ein [i,k] := a[i,j] * a[j,k]
+    @test sum(a[i,i] for i in 1:2) ≈ (@ein [] := a[i,i])[]
+    @test [a[1,1] 0; 0 a[2,2]] ≈ @ein [i,i] := a[i,i]
+    @test permutedims(a) ≈ @ein [α,a] := a[a,α]
+    @test permutedims(a) ≈ @ein [α,1] := a[1,α]
 end
 
 @testset "argument checks" begin

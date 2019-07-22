@@ -24,7 +24,7 @@ String macro interface which understands `numpy.einsum`'s notation.
 """
 macro ein_str(s::AbstractString)
     s = replace(s, " " => "")
-    m = match(r"([\(\)a-z,]+)->([a-z]*)", s)
+    m = match(r"([\(\)a-z,α-ω]+)->([a-zα-ω]*)", s)
     m == nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
     if '(' in sixs
@@ -100,8 +100,9 @@ using MacroTools
 primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 
 function _ein_macro(ex; einsum=:einsum)
-    @capture(ex, (left_ := right_)) || error("expected A[] := B[]... ")
-    @capture(left, Z_[leftind__] | [leftind__] ) || error("can't understand LHS, expected A[i,j] etc.")
+    @capture(ex, (left_ := right_)) || throw(ArgumentError("expected A[] := B[]... "))
+    @capture(left, Z_[leftind__] | [leftind__] ) || throw(
+        ArgumentError("can't understand LHS, expected A[i,j] etc."))
     if Z===nothing
         @gensym Z
     end
@@ -110,13 +111,15 @@ function _ein_macro(ex; einsum=:einsum)
     rightind, rightpairs = [], []
     @capture(right, *(factors__)) || (factors = Any[right])
     for fact in factors
-        @capture(fact, A_[Aind__]) || error("can't understand RHS, expected A[i,j] * B[k,l] etc.")
+        @capture(fact, A_[Aind__]) || throw(
+            ArgumentError("can't understand RHS, expected A[i,j] * B[k,l] etc."))
         primefix!(Aind)
         append!(rightind, Aind)
         push!(rightpairs, (A, Aind) )
     end
     unique!(rightind)
-    isempty(setdiff(leftind, rightind)) || error("some indices appear only on the left")
+    isempty(setdiff(leftind, rightind)) || throw(
+        ArgumentError("some indices appear only on the left"))
 
     lefttuple = Tuple(indexin(leftind, rightind))
     righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
