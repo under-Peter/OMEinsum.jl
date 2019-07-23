@@ -22,8 +22,8 @@ current group of indices, e.g. "ijk", belongs to.
 Recursively calls itself for each new opening paren that's opened.
 """
 function parse_parens(s::AbstractString, i, narg)
-    out = NestedEinsum([], [], [])
-    g = IndexGroup([],narg)
+    out = NestedEinsum{Char}([], [], [])
+    g = IndexGroup{Char}([],narg)
 
     while i <= lastindex(s)
         c = s[i]
@@ -43,7 +43,7 @@ function parse_parens(s::AbstractString, i, narg)
             if  c === ','
                 # comma implies that a new tensor is parsed for the current contraction
                 narg += 1
-                g = IndexGroup([], narg)
+                g = IndexGroup{Char}([], narg)
             else
                 # parens implies that the current contraction is complete
                 return j, out, narg
@@ -88,8 +88,8 @@ Leaf in a contractiontree, contains the indices and the number of the tensor it
 describes, e.g. in "ij,jk -> ik", indices "ik" belong to tensor `1`, so
 would be described by IndexGroup(['i','k'], 1).
 """
-struct IndexGroup
-    inds::Vector
+struct IndexGroup{T}
+    inds::Vector{T}
     n::Int
 end
 
@@ -102,10 +102,10 @@ describes a (potentially) nested einsum. Important fields:
 - `args`, vector of all inputs, either `IndexGroup` objects corresponding to tensors or `NestedEinsum`
 - `iy`, indices of output
 """
-struct NestedEinsum
-    args::Vector{Union{NestedEinsum, IndexGroup}}
-    inds::Vector
-    iy::Vector
+struct NestedEinsum{T}
+    args::Vector{Union{NestedEinsum{T}, IndexGroup{T}}}
+    inds::Vector{T}
+    iy::Vector{T}
 end
 
 Base.push!(neinsum::NestedEinsum, x) = (push!(neinsum.args,x); neinsum)
@@ -140,10 +140,10 @@ function parse_nested_expr(expr, tensors, allinds)
     if @capture(expr, *(args__))
         einargs = map(x -> parse_nested_expr(x,tensors, allinds), args)
         intinds = union(mapreduce(x -> x.inds, vcat, einargs))
-        return NestedEinsum(einargs, intinds, Int[])
+        return NestedEinsum{Int}(einargs, intinds, Int[])
     elseif @capture(expr, A_[inds__])
         push!(tensors,A)
-        return IndexGroup(indexin(primefix!(inds), allinds), length(tensors))
+        return IndexGroup{Int}(indexin(primefix!(inds), allinds), length(tensors))
     end
 end
 
