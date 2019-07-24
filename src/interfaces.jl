@@ -81,6 +81,7 @@ function check_dimensions(inds::IndexSize)
     return true
 end
 
+using MacroTools
 """
     @ein A[i,k] := B[i,j] * C[j,k]     # A = B * C
 
@@ -95,7 +96,6 @@ macro ein(exs...)
     _ein_macro(exs...)
 end
 
-using MacroTools
 
 primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 
@@ -111,8 +111,7 @@ function _ein_macro(ex; einsum=:einsum)
     rightind, rightpairs = [], []
     @capture(right, *(factors__)) || (factors = Any[right])
     for fact in factors
-        @capture(fact, A_[Aind__]) || throw(
-            ArgumentError("can't understand RHS, expected A[i,j] * B[k,l] etc."))
+        @capture(fact, A_[Aind__]) || return _nested_ein_macro(ex)
         primefix!(Aind)
         append!(rightind, Aind)
         push!(rightpairs, (A, Aind) )

@@ -14,3 +14,10 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested
 
     @test abc1 ≈ abc2 ≈ abc3
 end
+
+@testset "macro" begin
+    b, c, d = rand(2,2), rand(2,2,2), rand(2,2,2,2)
+    @ein a[i,j] := b[i,k] * c[k,k,l] * d[l,m,m,j]
+    @ein a2[i,j] := b[i,k] * (c[k,k,l] * d[l,m,m,j])
+    @test a ≈ a2
+end
