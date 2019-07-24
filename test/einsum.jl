@@ -1,6 +1,27 @@
 using Test
 using OMEinsum
 using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims
+using SymEngine
+
+SymEngine.free_symbols(syms::Union{Real, Complex}) = Basic[]
+SymEngine.free_symbols(syms::AbstractArray{T}) where {T<:Union{Real, Complex}} = Basic[]
+function rand_assign(syms...)
+    fs = union(free_symbols.(syms)...)
+    Dict(zip(fs, randn(length(fs))))
+end
+
+function _basic_approx(x, y; atol=1e-8)
+    diff = x-y
+    assign = rand_assign(x, y)
+    length(assign) > 0 && (diff = subs.(diff, Ref.((assign...,))...))
+    nres = ComplexF64.(diff)
+    all(isapprox.(nres, 0; atol=atol))
+end
+
+Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray; atol=1e-8) = _basic_approx(x, y, atol=atol)
+Base.:≈(x::AbstractArray, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
+Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
+Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
 
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
@@ -25,6 +46,7 @@ end
     v = rand(2)
     t = randn(2,2,2,2)
     @test einsum(ein"ijkl -> ijkl", (t,)) ≈ t
+    @test einsum(ein"αβγδ -> αβγδ", (t,)) ≈ t
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,20),(20,3),(3,4)), (1,4)), (a,b,c)) ≈ a * b * c
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(4,1)), (a,b,c)) ≈ permutedims(a*b*c, (2,1))
@@ -159,7 +181,20 @@ end
     t = rand(5,5,5,5)
     a = rand(5,5)
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
-    ta = einsumexp(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+
+    # index-sum
+    a = Basic.(rand(2,2,5))
+    ixs, xs = ((1,2,3),), (a,)
+    @test einsum(Sum(), EinCode(ixs,(1,2)),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    a = Basic.(rand(5,5))
+    @test isapprox(einsum(Tr(), EinCode(((1,1),),()), (a,), get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
+    t = Basic.(rand(5,5,5,5))
+    a = Basic.(rand(5,5))
+    size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end
