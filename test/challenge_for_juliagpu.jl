@@ -1,40 +1,172 @@
 # `]add OMEinsum#master`
 # `]add TupleTools`
-using OMEinsum, CuArrays
+using OMEinsum
+using CuArrays
+using CUDAdrv
 
 using CUDAnative, TupleTools
-using OMEinsum: cudiv, index_map, map_prod
+using OMEinsum: index_map, map_prod
 using Base.Cartesian
+using GPUArrays
+CuArrays.allowscalar(false)
 
-function OMEinsum.loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, CuArray}, locs_y, y::CuArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
-    function loop_kernel(locs_xs, xs, locs_y, y, outer_ci, inner_ci)
-        i = (blockIdx().x-1) * blockDim().x + threadIdx().x
-        i > length(outer_ci) && return nothing
-        @inbounds ind_y = outer_ci[i]
-        iy = index_map(ind_y, locs_y)
-        for ind_x in inner_ci
-            ind_xy = CartesianIndex(TupleTools.vcat(ind_y.I, ind_x.I))
-            @inbounds y[iy] += map_prod(T, xs, ind_xy, locs_xs)
-        end
-        nothing
-    end
-    X, Y = cudiv(length(outer_ci))
-    @cuda threads=X blocks=Y loop_kernel(locs_xs, xs, locs_y, y, outer_ci, inner_ci)
-    y
+struct EinArray{T, N, NI, TT<:NTuple{NI,AbstractArray{T, M} where M}, LT<:NTuple{NI,Any}, CT<:CartesianIndices{N}} <: AbstractArray{T, N}
+    xs::TT
+    locs_xs::LT
+    size::NTuple{N, Int}
+    CIS::CT
 end
 
-"""get an item from each tensor, and return the product of them"""
-@inline @generated function OMEinsum.map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N,Any}) where {N, T}
+@generated function EinArray(::EinCode{ixs, iy}, xs::NTuple{NI,AbstractArray{T, M} where M}, size_dict) where {T, NI, ixs, iy}
+    inner_indices, outer_indices, locs_xs, locs_y = OMEinsum.indices_and_locs(ixs, iy)
+
     quote
-        p = one(T)
-        @nexprs $N i -> @inbounds p *= xs[i][CartesianIndex(TupleTools.getindices(ind.I, locs_xs[i]))]
+        # find size for each leg
+        outer_sizes = getindex.(Ref(size_dict), $outer_indices)
+        inner_sizes = getindex.(Ref(size_dict), $inner_indices)
+
+        # cartesian indices for outer and inner legs
+        outer_ci = CartesianIndices((outer_sizes...,))
+        inner_ci = CartesianIndices((inner_sizes...,))
+        CIS = CartesianIndices((outer_ci.indices..., inner_ci.indices...))
+
+        EinArray(xs, $locs_xs, (outer_sizes..., inner_sizes...), CIS)
     end
 end
 
-using Test, BenchmarkTools
-a = randn(Float32, 100, 50)
-ca = CuArray(a)
-@test maximum(abs.(Array(ein"ij,ik,il->jkl"(ca, ca, ca)) - ein"ij,ik,il->jkl"(a, a, a))) < 1e-4
+Base.size(A::EinArray) = A.size
+Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(T, A.xs, ind, A.locs_xs)
+Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(T, A.xs, inds, A.locs_xs)
+CUDAnative.cudaconvert(A::EinArray) = EinArray(cudaconvert.(A.xs), A.locs_xs, A.size, A.CIS)
+CuArrays.cu(A::EinArray) = EinArray(cu.(A.xs), A.locs_xs, A.size, A.CIS)
+
+@inline function GPUArrays.thread_blocks_heuristic(x::Int, y::Int)
+    max_threads = 256
+    threads_x = min(max_threads, x)
+    threads_y = min(max_threads ÷ threads_x, y)
+    threads = (threads_x, threads_y)
+    blocks = ceil.(Int, (x, y) ./ threads)
+    threads, blocks
+end
+
+#include("EinArray.jl")
+
+function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
+                             CIS, Rlength, Slength) where {T}
+    for Ri_base in 0:(gridDim().x * blockDim().y):(Rlength-1)
+        Ri = Ri_base + (blockIdx().x - 1) * blockDim().y + threadIdx().y
+        Ri > Rlength && return
+        RI = Tuple(CartesianIndices(R)[Ri])
+        S = @cuStaticSharedMem(T, 512)
+        Si_folded_base = (threadIdx().y - 1) * blockDim().x
+        Si_folded = Si_folded_base + threadIdx().x
+        # serial reduction of A into S by Slength ÷ xthreads
+        for Si_base in 0:blockDim().x:(Slength-1)
+            Si = Si_base + threadIdx().x
+            Si > Slength && break
+            SI = Tuple(CIS[Si])
+            AI = ifelse.(size(R) .== 1, SI, RI)
+            if Si_base == 0
+                S[Si_folded] = f(A[AI...])
+            else
+                S[Si_folded] = op(S[Si_folded], f(A[AI...]))
+            end
+        end
+        # block-parallel reduction of S to S[1] by xthreads
+        CuArrays.reduce_block(view(S, (Si_folded_base + 1):512), op)
+        # reduce S[1] into R
+        threadIdx().x == 1 && (R[Ri] = op(R[Ri], S[Si_folded]))
+    end
+    return
+end
+
+function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
+    # the kernel as generated from `f` and `op` can require lots of registers (eg. #160),
+    # so we need to be careful about how many threads we launch not to run out of them.
+    Rlength = length(R)
+    Ssize = ifelse.(size(R) .== 1, size(A), 1)
+    Slength = prod(Ssize)
+    CIS = CartesianIndices(Ssize)
+
+    parallel_args = (f, op, R, A, CIS, Rlength, Slength)
+    # NOTE: why is GC.@preserve ?
+    GC.@preserve parallel_args begin
+        # NOTE: why not using `@cuda` here?
+        parallel_kargs = cudaconvert.(parallel_args)  # CuArray -> DevicePtr
+        parallel_tt = Tuple{Core.Typeof.(parallel_kargs)...}
+        parallel_kernel = cufunction(CuArrays.mapreducedim_kernel_parallel, parallel_tt)
+
+        # we are limited in how many threads we can launch...
+        ## by the kernel
+        kernel_threads = CUDAnative.maxthreads(parallel_kernel)
+        ## by the device
+        dev = CUDAdrv.device()
+        block_threads = (x=attribute(dev, CUDAdrv.MAX_BLOCK_DIM_X),
+                         y=attribute(dev, CUDAdrv.MAX_BLOCK_DIM_Y),
+                         total=attribute(dev, CUDAdrv.MAX_THREADS_PER_BLOCK))
+
+        # figure out a legal launch configuration
+        y_thr = min(nextpow(2, Rlength ÷ 512 + 1), 512, block_threads.y, kernel_threads)
+        x_thr = min(512 ÷ y_thr, Slength, block_threads.x,
+                    ceil(Int, block_threads.total/y_thr),
+                    ceil(Int, kernel_threads/y_thr))
+        #@show kernel_threads, y_thr, x_thr, Rlength, Slength
+        #@show 512 ÷ y_thr, Slength, block_threads.x,
+                    #block_threads.total/y_thr,
+                    #kernel_threads/y_thr
+
+        if x_thr >= 8
+            blk, thr = (Rlength - 1) ÷ y_thr + 1, (x_thr, y_thr, 1)
+            parallel_kernel(parallel_kargs...; threads=thr, blocks=blk)
+        else
+            # not enough work, fall back to serial reduction
+            range = ifelse.(length.(axes(R)) .== 1, axes(A), nothing)
+            blk, thr = CuArrays.cudims(R)
+            @cuda(blocks=blk, threads=thr, CuArrays.mapreducedim_kernel_serial(f, op, R, A, range))
+        end
+    end
+
+    return R
+end
+
+function OMEinsum.einsumexp!(code::EinCode{ixs, iy},
+                xs::NTuple{N, CuArray{<:Any,M} where M},
+                y::CuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+    Ny = ndims(y)
+    A = EinArray(code, xs, size_dict)
+    y = reshape(y, size(y)..., fill(1, ndims(A)-ndims(y))...)
+    dropdims(Base._mapreducedim!(x->x, +, y, A), dims=(Ny+1:ndims(y)...,))
+end
+
+using Test
+m = randn(100,50)
+cm = m |> CuArray
+ein"ij,ik,il->jkl"(m,m,m)
+ein"ij,ik,il->jkl"(m,m,m) ≈ Array(ein"ij,ik,il->jkl"(cm,cm,cm))
 
 # task: accelerate the following code by a factor of 50 (close to pytorch performance then).
-@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"($ca, $ca, $ca)) seconds=1
+@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"($cm, $cm, $cm)) seconds=1
+
+@testset "cuda array" begin
+    a = randn(Float32, 100, 50)
+    ca = CuArray(a)
+    @test maximum(abs.(Array(ein"ij,ik,il->jkl"(ca, ca, ca)) - ein"ij,ik,il->jkl"(a, a, a))) < 1e-4
+end
+
+b = randn(Float32, 100, 50)
+x1 = randn(100, 50)
+x2 = randn(50, 50)
+locs_xs = ((1,2), (2,3))
+ixs = ((1,2), (2,3))
+iy = (1,3)
+a = EinArray(EinCode(ixs, iy), (x1, x2), OMEinsum.get_size_dict(ixs, (x1, x2)))
+ca = cu(a)
+out = zeros(100, 50, 1) |> cu
+
+#CUDAnative.isghosttype(::Type{T}) where T<:EinArray = true
+#Base.isbitstype(::Type{T}) where T<:Base.OneTo = true
+Matrix(dropdims(Base._mapreducedim!(x->x, +, out, ca), dims=3)) ≈ sum(Array(ca), dims=3)
+
+
+using BenchmarkTools
+@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"(cm,cm,cm)) seconds=1

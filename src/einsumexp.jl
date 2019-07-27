@@ -41,7 +41,7 @@ The inplace brute-force looping einsum, `y` is the output tensor.
 end
 
 """indiex tensors, and return the product of elements"""
-@inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N,Any}) where {N, T}
+@inline @generated function map_prod(::Type{T}, xs::Tuple, ind, locs_xs::NTuple{N,Any}) where {N, T}
     quote
         p = one(T)
         @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
@@ -64,7 +64,8 @@ function loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, locs_y, y::
 end
 
 """take an index subset from `ind`"""
-index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
+index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind.I, locs))
+index_map(ind::Tuple, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind, locs))
 
 # get inner indices, outer indices,
 # locations of input indices in total indices
