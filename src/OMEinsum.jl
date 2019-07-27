@@ -4,7 +4,7 @@ export einsumopt
 
 using TupleTools, Requires, TensorOperations, LinearAlgebra
 
-include("einsumexp.jl")
+include("loop_einsum.jl")
 include("utils.jl")
 include("einsum.jl")
 include("einsumopt.jl")
@@ -17,4 +17,6 @@ end
 include("interfaces.jl")
 include("einsequence.jl")
 include("autodiff.jl")
+
+include("deprecation.jl")
 end # module

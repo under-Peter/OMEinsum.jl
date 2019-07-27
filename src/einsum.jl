@@ -50,7 +50,7 @@ function einsum(::Hadamard, ::EinCode, xs, size_dict)
     broadcast(*, xs...)
 end
 
-@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,Any}, size_dict) where {ixs, iy, NT}
+@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:Union{Complex, Real}}, size_dict) where {ixs, iy, NT}
     if NT > 1
         body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
     else
@@ -81,5 +81,9 @@ end
 
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    einsumexp(code, xs, size_dict)
+    loop_einsum(code, xs, size_dict)
+end
+
+function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    loop_einsum(code, xs, size_dict)
 end
