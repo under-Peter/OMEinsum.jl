@@ -1,5 +1,3 @@
-using ProgressMeter
-pmobj = Progress(205, )
 using OMEinsum
 using Test
 using LinearAlgebra
@@ -14,4 +12,3 @@ using LinearAlgebra
     include("einsumopt.jl")
     include("einsequence.jl")
 end
-println()
