@@ -82,3 +82,7 @@ end
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     loop_einsum(code, xs, size_dict)
 end
+
+function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    loop_einsum(code, xs, size_dict)
+end
