@@ -48,4 +48,3 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
 end
 
 @Zygote.nograd get_size_dict
-# @Zygote.nograd get_size_dict!

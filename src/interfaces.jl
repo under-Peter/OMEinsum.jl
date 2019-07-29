@@ -1,21 +1,4 @@
 export @ein_str, @ein
-
-# TODO: delete this kind of interface completely?
-function loop_einsum!(ixs::NTuple{N, NTuple{M, IT} where M},
-                xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                iy::NTuple{L,IT},
-                y::AbstractArray{T,L}) where {N,L,T,IT <: Union{AbstractChar,Integer}}
-    size_dict = get_size_dict((ixs..., iy), (xs..., y))
-    loop_einsum!(EinCode(ixs, iy), xs, y, size_dict)
-end
-
-function loop_einsum!(code::EinCode{ixs, iy},
-                xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                y::AbstractArray{T,L}) where {N,L,T, ixs, iy}
-    size_dict = get_size_dict((ixs..., iy), (xs..., y))
-    loop_einsum!(code, xs, y, size_dict)
-end
-
 """
     ein"ij,jk -> ik"(A,B)
     einsum(ein"ij,jk -> ik", (A,B))

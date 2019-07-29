@@ -11,10 +11,8 @@ e.g. `nopermute((1,2,3),(1,2))` is true while `nopermute((1,2,3),(2,1))` is fals
 """
 function nopermute(ix::NTuple, iy::NTuple)
     i, j, jold = 1, 1, 0
+    # find each element of iy in ix and check that the order is the same
     for i in 1:length(iy)
-        # find each element of iy in ix
-        # and check that the order is the same
-        # (modulo elements in ix but not in iy)
         j = findfirst(==(iy[i]), ix)
         (j === nothing || j <= jold) && return false
         jold = j

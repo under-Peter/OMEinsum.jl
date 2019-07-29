@@ -6,8 +6,7 @@ include("EinRule.jl")
 
 return the tensor that results from contracting the tensors `xs` according
 to their indices `ixs`, where all indices that do not appear in the output are
-summed over. The indices are contracted in the order implied by their numerical value,
-smaller first.
+summed over.
 The result is permuted according to `out`.
 
 - `ixs` - tuple of tuple of integers that label all indices of a tensor.
@@ -24,10 +23,10 @@ julia> a = rand(2,2);
 
 julia> b = rand(2,2);
 
-julia> einsum(ein\"ij,jk->ij\", (a, b)) ≈ a * b
+julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
 true
 
-julia> einsum(ein\"ij,jk->ki\", (a, b)) ≈ permutedims(a * b, (2,1))
+julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
@@ -81,9 +80,5 @@ end
 
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    loop_einsum(code, xs, size_dict)
-end
-
-function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
