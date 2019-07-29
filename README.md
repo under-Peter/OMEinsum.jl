@@ -59,6 +59,19 @@ true
 Note the use of `[]` to extract the element of a 0-dimensional array.
 `einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
+Instead of the string-literal, we can also use the `@ein` macro,
+which is closer to the standard way of writing einsum-operations in physics
+as
+```julia
+julia> @ein c[i,j] := a[i,k] * b[k,j];
+```
+which will calculate the matrix product between `a` and `b` _and_ assign
+it to a new variable `c`.
+So this is equivalent to writing
+```julia
+julia> c = ein"ik,kj -> ij"(a,b);
+```
+
 `einsumopt` will calculate the cost of each possible sequence of operations and evaluate
 the (possibly nonunique) optimal operations order.
 This is currently associated with a rather large overhead,
