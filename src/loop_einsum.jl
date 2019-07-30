@@ -40,7 +40,7 @@ The inplace brute-force looping einsum, `y` is the output tensor.
     end
 end
 
-"""indiex tensors, and return the product of elements"""
+"""index tensors, and return the product of elements"""
 @inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N,Any}) where {N, T}
     quote
         p = one(T)

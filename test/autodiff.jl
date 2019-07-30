@@ -61,7 +61,7 @@ end
     b = randn(3,3)
     @test array_match(gradient(a->einsum(EinCode(((1,2), (2,1)), ()), (a, b))[] |> abs, a)[1], a)
     b = randn(ComplexF64,3,3)
-    @test_broken array_match(gradient(a->einsum(EinCode(((1,2), (2,1)), ()), (a, b))[] |> abs, a)[1], a)
+    @test array_match(gradient(a->einsum(EinCode(((1,2), (2,1)), ()), (a, b))[] |> abs, a)[1], a)
     a = randn(ComplexF64,3,3)
     @test array_match(gradient(a->einsum(EinCode(((1,2), (2,3)), ()), (a, b))[] |> abs, a)[1], a)
     b = randn(3,3)

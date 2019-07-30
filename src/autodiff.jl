@@ -5,12 +5,13 @@ using Zygote
 return gradient w.r.t the `i`th tensor in `xs`
 "
 function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
-    T = mapreduce(eltype, promote_type, xs)
-    T = promote_type(T, eltype(cdy))
     nixs = TupleTools.insertat(ixs, i, (iy,))
     nxs  = TupleTools.insertat( xs, i, (cdy,))
     niy = ixs[i]
-    conj!(einsum(EinCode(nixs, niy), nxs, size_dict))
+    y = conj!(einsum(EinCode(nixs, niy), nxs, size_dict))
+    typeof(y) == typeof(xs[i]) && return y
+    xs[i] isa Array{<:Real} && return convert(typeof(xs[i]), real(y))
+    convert(typeof(xs[i]), y)
 end
 
 @Zygote.adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
@@ -48,4 +49,3 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
 end
 
 @Zygote.nograd get_size_dict
-# @Zygote.nograd get_size_dict!

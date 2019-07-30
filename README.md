@@ -14,16 +14,15 @@ alt="OMEinsum logo" width="510"></img>
 This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks.
 It is a work in progress and will **change substantially this summer (2019)** - no guarantees can be made.
 
-This package exports two functions, `einsum` and `einsumopt`.
+This package exports one function, `einsum`, with three interfaces.
 `einsum` implements functionality similar to the `einsum` function in `numpy`,
 although some details are different.
-`einsumopt` receives the same arguments as `einsum` but optimizes the order
-of operations that are evaluated internally which might lead to better performance
-in some cases.
 
 `einsum` operations are specified by a tuple of tensors `xs = (x1, x2, x3...)`
 , a tuple of index-labels for the tensors in `xs`, `ixs = (ix1, ix2, ix3...)`,
-and output index-labels `iy` specified as `einsum(ixs, xs, iy)`.
+and output index-labels `iy` specified as `einsum(EinCode(ixs,iy), xs)`.
+Alternatively, operations can be specified using the `@ein`-macro or
+the `@ein_str`- string literal (see examples or help).
 
 Let `l` be the set of all unique labels in the `ixs` without the ones in `iy`.
 `einsum` then calculates an output tensor `y` with indices labelled `iy` according
@@ -33,6 +32,7 @@ to the following specification:
 ```
 where the sum over `l` implies the sum over all possible values of the labels in `l`.
 
+To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
 
 
 [Benchmarks are available here](https://github.com/under-Peter/OMEinsum-Benchmarks)
@@ -42,22 +42,16 @@ Consider multiplying two matrices `a` and `b` which we specify with
 ```julia
 julia> a, b = rand(2,2), rand(2,2);
 
-julia> ein"ik,kl->ij"(a,b)
+julia> einsum(EinCode((('i','k'),('k','j')),('i','j')),(a,b))
 ```
 
-The [string literal](https://docs.julialang.org/en/latest/manual/metaprogramming/#Non-Standard-String-Literals-1) does not introduce any runtime overhead thanks to Julia's powerful meta programming.
+This way of specifying an operation is prone to errors,
+which is why additional interfaces are exported.
 
-To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
-
-If we're interested in the sum of all elements of a matrix product `a*b`
-we can reduce over all indices with the specification `ij,jk -> `
+The [string literal](https://docs.julialang.org/en/latest/manual/metaprogramming/#Non-Standard-String-Literals-1) does not introduce any runtime overhead thanks to Julia's powerful meta programming and simplifies the above operation to
 ```julia
-julia> ein"ij,jk->"(a,b)[] ≈ sum(a * b)
-true
+julia> ein"ik,kj -> ij"(a,b)
 ```
-
-Note the use of `[]` to extract the element of a 0-dimensional array.
-`einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
 Instead of the string-literal, we can also use the `@ein` macro,
 which is closer to the standard way of writing einsum-operations in physics
@@ -72,21 +66,17 @@ So this is equivalent to writing
 julia> c = ein"ik,kj -> ij"(a,b);
 ```
 
-`einsumopt` will calculate the cost of each possible sequence of operations and evaluate
-the (possibly nonunique) optimal operations order.
-This is currently associated with a rather large overhead,
-but an example from physics with unfortunate default evaluation order shows that in some
-cases it might still be worth it:
+
+If we're interested in the sum of all elements of a matrix product `a*b`
+we can reduce over all indices with the specification `ij,jk -> `
 ```julia
-julia> d = 5; χ = 50; a = randn(χ,χ); b= randn(χ,d,χ); c = randn(d,d,d,d);
-
-julia> @btime ein"xy,xkl,ymn,kmop->lnop"($a, $b, $b, $c);
-  1.323 s (473 allocations: 2.33 GiB)
-
-julia> @btime einsumopt((('x','y'), ('x','k','l'), ('y','m','n'), ('k','m','o','p')), ($a, $b, $b, $c), ('l','n','o','p'));
-  2.845 ms (11733 allocations: 2.00 MiB)
-
+julia> ein"ij,jk->"(a,b)[] ≈ sum(a * b)
+true
 ```
+
+Note the use of `[]` to extract the element of a 0-dimensional array.
+`einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
+
 
 ## Contribute
 
