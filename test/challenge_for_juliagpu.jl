@@ -129,7 +129,7 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
     return R
 end
 
-function OMEinsum.einsumexp!(code::EinCode{ixs, iy},
+function OMEinsum.loop_einsum!(code::EinCode{ixs, iy},
                 xs::NTuple{N, CuArray{<:Any,M} where M},
                 y::CuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     Ny = ndims(y)
@@ -141,11 +141,15 @@ end
 using Test
 m = randn(100,50)
 cm = m |> CuArray
+using CUDAdrv
+CUDAdrv.@profile (CuArrays.@sync ein"ij,ik,il->jkl"(cm,cm,cm))
+
+exit()
 ein"ij,ik,il->jkl"(m,m,m)
 ein"ij,ik,il->jkl"(m,m,m) ≈ Array(ein"ij,ik,il->jkl"(cm,cm,cm))
 
 # task: accelerate the following code by a factor of 50 (close to pytorch performance then).
-@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"($cm, $cm, $cm)) seconds=1
+#@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"($cm, $cm, $cm)) seconds=1
 
 @testset "cuda array" begin
     a = randn(Float32, 100, 50)
