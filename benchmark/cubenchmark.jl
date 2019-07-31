@@ -1,3 +1,5 @@
+using CUDAnative: device!
+device!(0)
 using BenchmarkTools, OMEinsum, CuArrays
 CuArrays.allowscalar(false)
 

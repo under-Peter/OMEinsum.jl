@@ -36,20 +36,29 @@ The inplace brute-force looping einsum, `y` is the output tensor.
         outer_ci = CartesianIndices((outer_sizes...,))
         inner_ci = CartesianIndices((inner_sizes...,))
 
-        x_indexers = EinIndexer.(size.(xs), $locs_xs)
-        y_indexer = EinIndexer(size(y), $locs_y)
+        x_indexers = einindexer.(size.(xs), $locs_xs)
+        y_indexer = einindexer(size(y), $locs_y)
 
         loop!(x_indexers, xs, y_indexer, y, outer_ci, inner_ci)
     end
 end
 
+using Base.Cartesian
 """indiex tensors, and return the product of elements"""
-@inline @generated function map_prod(::Type{T}, xs::Tuple, ind, indexers::NTuple{N,Any}) where {N, T}
+@inline @generated function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
+    N = length(IT.parameters)
+    ex = Expr(:call, :*, map(i->:($(Symbol(:xs_, i))[subindex($(IT.parameters[i]()), ind)]), 1:N)...)
     quote
-        p = one(T)
-        @nexprs $N i -> @inbounds p *= xs[i][subindex(indexers[i], ind)]
+        @nextract $N xs xs
+        @inbounds $ex
     end
 end
+
+#@inline function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
+#    N = length(IT.parameters)
+#    ex = Expr(:call, :*, map(i->:(xs[$i][subindex($(IT.parameters[i]()), ind)]), 1:N)...)
+#    :(@inbounds $ex)
+#end
 
 """
 loop and accumulate products to y, the CPU version.
@@ -59,7 +68,7 @@ function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, y_indexe
         iy = subindex(y_indexer,ind_y)
         for ind_x in inner_ci
             ind_xy = TupleTools.vcat(ind_x.I, ind_y.I)
-            @inbounds y[iy] += map_prod(T, xs, ind_xy, x_indexers)
+            @inbounds y[iy] += map_prod(xs, ind_xy, x_indexers)
         end
     end
     y
@@ -70,30 +79,26 @@ index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindic
 index_map(ind::Tuple, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind, locs))
 
 export EinIndexer
-struct EinIndexer{N}
-    locs::NTuple{N,Int}
-    cumsize::NTuple{N,Int}
-    function EinIndexer(size::NTuple{N,Int}, locs::NTuple{N,Int}) where N
-        N==0 && return new{0}((), ())
-        new{N}(locs, (1,cumprod(size[1:end-1])...))
-    end
+struct EinIndexer{locs,cumsize} end
+
+function einindexer(size::NTuple{N,Int}, locs::NTuple{N,Int}) where N
+    N==0 && return EinIndexer{(), ()}()
+    EinIndexer{locs, (1,TupleTools.cumprod(size[1:end-1])...)}()
 end
 
 subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
-subindex(indexer::EinIndexer{0}, ind::Tuple) = 1
-function subindex(indexer::EinIndexer{N}, ind::Tuple) where N
-    @inbounds res = ind[indexer.locs[1]]
-    for i = 2:N
-        @inbounds res += (ind[indexer.locs[i]]-1) * indexer.cumsize[i]
-    end
-    return res
+subindex(indexer::EinIndexer{(),()}, ind::NTuple{N0,Int}) where N0 = 1
+@inline @generated function subindex(indexer::EinIndexer{locs,cumsize}, ind::NTuple{N0,Int}) where {locs,cumsize,N0}
+    N = length(locs)
+    ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * $(cumsize[i])), 1:N)...)
+    :(@inbounds $ex)
 end
 
 using Test
 @testset "indexer" begin
-    si = EinIndexer((), ())
+    si = einindexer((), ())
     @test subindex(si, (1,2,3)) == 1
-    si = EinIndexer((7,6), (3,2))
+    si = einindexer((7,6), (3,2))
     a = randn(7,6)
     @test a[subindex(si, (4,5,2))] == a[2,5]
 end

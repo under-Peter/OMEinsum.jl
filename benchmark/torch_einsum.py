@@ -1,10 +1,12 @@
+# to run: OMP_NUM_THREADS=1 python benchmark/torch_einsum.py
 import torch, time, timeit
+torch.set_num_threads(1)
 import numpy as np
 
 start = torch.cuda.Event(enable_timing=True)
 end = torch.cuda.Event(enable_timing=True)
 ar = torch.rand(100,100)
-ca = ar.cuda()
+ca = ar.cuda(0)
 
 z = torch.einsum('ij,ik,il->jkl', ar, ar, ar)
 z = torch.einsum('ij,jk->ik', ar, ar)

@@ -4,8 +4,11 @@ CuArrays.allowscalar(false)
 
 # NOTE: to excute this profile, run `nvprof --profile-from-start off julia benchmark/profile.jl`
 a = randn(Float32, 100, 100)
-a = a |> CuArray
+ca = a |> CuArray
 CUDAdrv.synchronize()
 CUDAdrv.Profile.start()
-y = CuArrays.@sync ein"ij,ik,il->jkl"(a,a,a)
+CUDAdrv.@profile begin
+    @sync ein"ij,ik,il->jkl"(ca,ca,ca)
+    CUDAdrv.synchronize()
+end
 CUDAdrv.Profile.stop()
