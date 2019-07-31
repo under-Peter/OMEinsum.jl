@@ -28,9 +28,11 @@ end
         # cartesian indices for outer and inner legs
         outer_ci = CartesianIndices((outer_sizes...,))
         inner_ci = CartesianIndices((inner_sizes...,))
-        CIS = CartesianIndices((outer_ci.indices..., inner_ci.indices...))
+        CIS = CartesianIndices((inner_ci.indices...,outer_ci.indices...))
 
-        EinArray(xs, $locs_xs, (outer_sizes..., inner_sizes...), CIS)
+        x_indexers = EinIndexer.(size.(xs), $locs_xs)
+
+        EinArray(xs, x_indexers, (inner_sizes...,outer_sizes...), CIS)
     end
 end
 
@@ -134,8 +136,8 @@ function OMEinsum.loop_einsum!(code::EinCode{ixs, iy},
                 y::CuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     Ny = ndims(y)
     A = EinArray(code, xs, size_dict)
-    y = reshape(y, size(y)..., fill(1, ndims(A)-ndims(y))...)
-    dropdims(Base._mapreducedim!(x->x, +, y, A), dims=(Ny+1:ndims(y)...,))
+    y = reshape(y, fill(1, ndims(A)-Ny)...,size(y)...)
+    dropdims(Base._mapreducedim!(x->x, +, y, A), dims=(1:ndims(A)-Ny...,))
 end
 
 using Test
@@ -144,7 +146,6 @@ cm = m |> CuArray
 using CUDAdrv
 CUDAdrv.@profile (CuArrays.@sync ein"ij,ik,il->jkl"(cm,cm,cm))
 
-exit()
 ein"ij,ik,il->jkl"(m,m,m)
 ein"ij,ik,il->jkl"(m,m,m) ≈ Array(ein"ij,ik,il->jkl"(cm,cm,cm))
 
@@ -164,12 +165,13 @@ locs_xs = ((1,2), (2,3))
 ixs = ((1,2), (2,3))
 iy = (1,3)
 a = EinArray(EinCode(ixs, iy), (x1, x2), OMEinsum.get_size_dict(ixs, (x1, x2)))
-ca = cu(a)
-out = zeros(100, 50, 1) |> cu
+@test size(a) == (50,100,50) # inner, outer
+ca = cu(a);
+out = zeros(1,100, 50) |> cu
 
 #CUDAnative.isghosttype(::Type{T}) where T<:EinArray = true
 #Base.isbitstype(::Type{T}) where T<:Base.OneTo = true
-Matrix(dropdims(Base._mapreducedim!(x->x, +, out, ca), dims=3)) ≈ sum(Array(ca), dims=3)
+Matrix(dropdims(Base._mapreducedim!(x->x, +, out, ca), dims=1)) ≈ dropdims(sum(Array(a), dims=1), dims=1)
 
 
 using BenchmarkTools

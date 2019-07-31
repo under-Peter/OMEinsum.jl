@@ -39,13 +39,13 @@ end
 
 using Test
 @testset "EinArray" begin
-    locs_xs = ((1,2), (2,3))
+    locs_xs = (EinIndexer((8,8), (1,2)), EinIndexer((8,8),(2,3)))
     ixs = ((1,2), (2,3))
     iy = (1,3)
     x1 = randn(8, 8)
     x2 = randn(8, 8)
     arr = EinArray(EinCode(ixs, iy), (x1, x2), OMEinsum.get_size_dict(ixs, (x1, x2)))
     # outer first, then inner
-    @test arr[CartesianIndex((4,2,3))] == x1[4,3]*x2[3,2]
-    @test arr[4,2,3] == x1[4,3]*x2[3,2]
+    @test arr[CartesianIndex((3,4,2))] == x1[4,3]*x2[3,2]
+    @test arr[3,4,2] == x1[4,3]*x2[3,2]
 end
