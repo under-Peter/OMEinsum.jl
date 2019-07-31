@@ -118,9 +118,11 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
                     #kernel_threads/y_thr
 
         if x_thr >= 8
+            @show "P"
             blk, thr = (Rlength - 1) ÷ y_thr + 1, (x_thr, y_thr, 1)
             parallel_kernel(parallel_kargs...; threads=thr, blocks=blk)
         else
+            @show "S"
             # not enough work, fall back to serial reduction
             range = ifelse.(length.(axes(R)) .== 1, axes(A), nothing)
             blk, thr = CuArrays.cudims(R)
