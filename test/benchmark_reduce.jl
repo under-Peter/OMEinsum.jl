@@ -3,6 +3,8 @@ device!(4)
 using BenchmarkTools, OMEinsum, CuArrays
 CuArrays.allowscalar(false)
 
+include("reduce_einsum.jl")
+
 function bfunc(N::Int)
     a = randn(Float32, N, N)
     ca = a |> CuArray
