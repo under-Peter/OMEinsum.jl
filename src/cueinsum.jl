@@ -24,12 +24,10 @@ function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, CuArray{T}}, y_indexer, 
 end
 
 function loop_kernel(x_indexers::IT, xs::NTuple{NX, AbstractArray{T}}, y_indexer, y::AbstractArray{T}, outer_ci, inner_ci) where {IT, NX, T}
-    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
-    i > length(outer_ci) && return nothing
-    @inbounds ind_y = outer_ci[i]
-    @inbounds iy = subindex(y_indexer, ind_y)
-    for ind_x = inner_ci
-        ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
+    ind_y = CuArrays.@cuindex y
+    iy = subindex(y_indexer, ind_y)
+    @inbounds for ind_x = inner_ci
+        ind_xy = TupleTools.vcat(ind_x.I,ind_y)
         y[iy] += map_prod(xs, ind_xy, x_indexers)
     end
     nothing
