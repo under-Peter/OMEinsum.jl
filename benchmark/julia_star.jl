@@ -5,7 +5,8 @@ CuArrays.allowscalar(false)
 
 function bfunc_star(N::Int)
     ca = CuArrays.curandn(Float32, N, N)
-    CuArrays.@sync ein"ji,kl,li->jkl"(ca,ca,ca)
+    res = CuArrays.@sync ein"ji,kl,li->jkl"(ca,ca,ca)
+    #res ≈ ein"ji,kl,li->jkl"(Matrix(ca),Matrix(ca), Matrix(ca))
 end
 
 function bfunc_t3(N::Int)

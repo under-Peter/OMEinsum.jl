@@ -5,16 +5,19 @@ using CuArrays
 using CUDAdrv
 
 using CUDAnative, TupleTools
-using OMEinsum: index_map, map_prod, einindexer
+using OMEinsum: index_map, map_prod, einindexer, subindex
 using Base.Cartesian
 using GPUArrays
+import CuArrays: @cuindex
 CuArrays.allowscalar(false)
 
-struct EinArray{T, N, NI, TT<:NTuple{NI,AbstractArray{T, M} where M}, LT<:NTuple{NI,Any}, CT<:CartesianIndices{N}} <: AbstractArray{T, N}
+struct EinArray{T, N, NI, TT<:NTuple{NI,AbstractArray{T, M} where M}, LX<:NTuple{NI,Any}, LY, ICT, OCT} <: AbstractArray{T, N}
     xs::TT
-    locs_xs::LT
+    locs_xs::LX
+    locs_y::LY
     size::NTuple{N, Int}
-    CIS::CT
+    ICIS::ICT
+    OCIS::OCT
 end
 
 @generated function EinArray(::EinCode{ixs, iy}, xs::NTuple{NI,AbstractArray{T, M} where M}, size_dict) where {T, NI, ixs, iy}
@@ -28,19 +31,20 @@ end
         # cartesian indices for outer and inner legs
         outer_ci = CartesianIndices((outer_sizes...,))
         inner_ci = CartesianIndices((inner_sizes...,))
-        CIS = CartesianIndices((inner_ci.indices...,outer_ci.indices...))
 
         x_indexers = einindexer.(size.(xs), $locs_xs)
+        y_size = getindex.(Ref(size_dict), iy)
+        y_indexer = einindexer(y_size, $locs_y)
 
-        EinArray(xs, x_indexers, (inner_sizes...,outer_sizes...), CIS)
+        EinArray(xs, x_indexers, y_indexer, (inner_sizes...,outer_sizes...), inner_ci, outer_ci)
     end
 end
 
 Base.size(A::EinArray) = A.size
 Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.locs_xs)
 Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.locs_xs)
-CUDAnative.cudaconvert(A::EinArray) = EinArray(cudaconvert.(A.xs), A.locs_xs, A.size, A.CIS)
-CuArrays.cu(A::EinArray) = EinArray(cu.(A.xs), A.locs_xs, A.size, A.CIS)
+CUDAnative.cudaconvert(A::EinArray) = EinArray(cudaconvert.(A.xs), A.locs_xs, A.locs_y, A.size, A.ICIS, A.OCIS)
+CuArrays.cu(A::EinArray) = EinArray(cu.(A.xs), A.locs_xs, A.locs_y, A.size, A.ICIS, A.OCIS)
 
 @inline function GPUArrays.thread_blocks_heuristic(x::Int, y::Int)
     max_threads = 256
@@ -127,6 +131,19 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
     end
 
     return R
+end
+
+function CuArrays.mapreducedim_kernel_serial(f, op, R, A::EinArray, range)
+    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
+    i > length(A.OCIS) && return nothing
+    @inbounds ind_y = A.OCIS[i]
+    iy = subindex(A.locs_y, ind_y.I)
+    #invoke(CuArrays.mapreducedim_kernel_serial, Tuple{Any,Any,Any,Any,Any}, f, op, R, A, range)
+    @inbounds for ind_x in A.ICIS
+        ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
+        R[iy] = op(R[iy], f(map_prod(A.xs, ind_xy, A.locs_xs)))
+    end
+    return nothing
 end
 
 function OMEinsum.loop_einsum!(code::EinCode{ixs, iy},
