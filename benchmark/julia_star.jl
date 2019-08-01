@@ -8,6 +8,8 @@ function bfunc(N::Int)
     t = randn(Float32, N, N, N)
     ca = a |> CuArray
     ct = t |> CuArray
-    res = CuArrays.@sync ein"ji,kil,li->jkl"(ca,ct,ca)
+    res = CuArrays.@sync ein"ji,kl,li->jkl"(ca,ca,ca)
 end
+
+include("reduce_einsum.jl")
 @benchmark bfunc(100) seconds = 1
