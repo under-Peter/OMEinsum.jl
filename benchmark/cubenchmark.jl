@@ -3,12 +3,30 @@ device!(0)
 using BenchmarkTools, OMEinsum, CuArrays
 CuArrays.allowscalar(false)
 
-a = randn(Float32, 100, 100)
-@benchmark ein"ij,jk->ik"($a,$a) seconds = 1
-@benchmark ein"ij,ik,il->jkl"($a,$a,$a) seconds = 1
-@benchmark a*a seconds = 1
+function bfunc_cpu_matmul(N::Int)
+    a = randn(Float32, N, N)
+    ein"ij,jk->ik"(a,a)
+end
 
-a = a |> CuArray
-@benchmark (CuArrays.@sync ein"ij,jk->ik"($a,$a)) seconds = 1
-@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"($a,$a,$a)) seconds = 1
-@benchmark (CuArrays.@sync $a*$a) seconds = 1
+function bfunc_cpu_star(N::Int)
+    a = randn(Float32, N, N)
+    ein"ij,lk,il->jkl"(a,a,a)
+end
+
+function bfunc_gpu_matmul(N::Int)
+    a = randn(Float32, N, N)
+    a = a |> CuArray
+    @CuArrays.sync ein"ij,jk->ik"(a,a)
+end
+
+function bfunc_gpu_star(N::Int)
+    a = randn(Float32, N, N)
+    a = a |> CuArray
+    @CuArrays.sync ein"ij,lk,il->jkl"(a,a,a)
+end
+
+@benchmark bfunc_cpu_matmul(100)
+@benchmark bfunc_cpu_star(100)
+
+@benchmark bfunc_gpu_matmul(100)
+@benchmark bfunc_gpu_star(100)
