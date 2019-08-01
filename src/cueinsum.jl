@@ -28,7 +28,7 @@ function loop_kernel(x_indexers::IT, xs::NTuple{NX, AbstractArray{T}}, y_indexer
     i > length(outer_ci) && return nothing
     @inbounds ind_y = outer_ci[i]
     @inbounds iy = subindex(y_indexer, ind_y)
-    for ind_x = inner_ci
+    @inbounds for ind_x = inner_ci
         ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
         y[iy] += map_prod(xs, ind_xy, x_indexers)
     end
