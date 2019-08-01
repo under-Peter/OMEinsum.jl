@@ -5,7 +5,9 @@ CuArrays.allowscalar(false)
 
 function bfunc(N::Int)
     a = randn(Float32, N, N)
+    t = randn(Float32, N, N, N)
     ca = a |> CuArray
-    res = CuArrays.@sync ein"ji,ki,li->jkl"(ca,ca,ca)
+    ct = t |> CuArray
+    res = CuArrays.@sync ein"ji,kil,li->jkl"(ca,ct,ca)
 end
 @benchmark bfunc(100) seconds = 1

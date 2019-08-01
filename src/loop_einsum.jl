@@ -45,22 +45,11 @@ The inplace brute-force looping einsum, `y` is the output tensor.
     end
 end
 
-using Base.Cartesian
-"""indiex tensors, and return the product of elements"""
 @inline @generated function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
     N = length(IT.parameters)
-    ex = Expr(:call, :*, map(i->:($(Symbol(:xs_, i))[subindex($(IT.parameters[i]()), ind)]), 1:N)...)
-    quote
-        @nextract $N xs xs
-        @inbounds $ex
-    end
+    ex = Expr(:call, :*, map(i->:(xs[$i][subindex($(IT.parameters[i]()), ind)]), 1:N)...)
+    :(@inbounds $ex)
 end
-
-#@inline function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
-#    N = length(IT.parameters)
-#    ex = Expr(:call, :*, map(i->:(xs[$i][subindex($(IT.parameters[i]()), ind)]), 1:N)...)
-#    :(@inbounds $ex)
-#end
 
 """
 loop and accumulate products to y, the CPU version.
