@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims
+using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims, einindexer, subindex
 using SymEngine
 
 SymEngine.free_symbols(syms::Union{Real, Complex}) = Basic[]
@@ -38,6 +38,14 @@ end
     sizedict = get_size_dict((('i','j'), ('k','j')), (a, a))
     @test (sizedict['i'], sizedict['j'], sizedict['k']) == (3,2,3)
     @test_throws DimensionMismatch get_size_dict((('i','j'), ('j','k')), (a, a))
+end
+
+@testset "indexer" begin
+    si = einindexer((), ())
+    @test subindex(si, (1,2,3)) == 1
+    si = einindexer((7,6), (3,2))
+    a = randn(7,6)
+    @test a[subindex(si, (4,5,2))] == a[2,5]
 end
 
 @testset "einsum" begin

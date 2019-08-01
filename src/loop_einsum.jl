@@ -3,6 +3,8 @@ export loop_einsum, loop_einsum!, EinCode
 
 struct EinCode{ixs, iy} end
 EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
+getixs(code::EinCode{ixs,iy}) where {ixs, iy} = ixs
+getiy(code::EinCode{ixs,iy}) where {ixs, iy} = iy
 
 """
     loop_einsum(::EinCode, xs, size_dict)
@@ -36,35 +38,63 @@ The inplace brute-force looping einsum, `y` is the output tensor.
         outer_ci = CartesianIndices((outer_sizes...,))
         inner_ci = CartesianIndices((inner_sizes...,))
 
-        loop!($locs_xs, xs, $locs_y, y, outer_ci, inner_ci)
+        x_indexers = einindexer.(size.(xs), $locs_xs)
+        y_indexer = einindexer(size(y), $locs_y)
+
+        loop!(x_indexers, xs, y_indexer, y, outer_ci, inner_ci)
     end
 end
 
-"""index tensors, and return the product of elements"""
-@inline @generated function map_prod(::Type{T}, xs::Tuple, ind::CartesianIndex, locs_xs::NTuple{N,Any}) where {N, T}
+using Base.Cartesian
+"""indiex tensors, and return the product of elements"""
+@inline @generated function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
+    N = length(IT.parameters)
+    ex = Expr(:call, :*, map(i->:($(Symbol(:xs_, i))[subindex($(IT.parameters[i]()), ind)]), 1:N)...)
     quote
-        p = one(T)
-        @nexprs $N i -> @inbounds p *= xs[i][index_map(ind, locs_xs[i])]
+        @nextract $N xs xs
+        @inbounds $ex
     end
 end
+
+#@inline function map_prod(xs::Tuple, ind, indexers::IT) where {IT}
+#    N = length(IT.parameters)
+#    ex = Expr(:call, :*, map(i->:(xs[$i][subindex($(IT.parameters[i]()), ind)]), 1:N)...)
+#    :(@inbounds $ex)
+#end
 
 """
 loop and accumulate products to y, the CPU version.
 """
-function loop!(locs_xs::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, locs_y, y::AbstractArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
-    @simd for i in outer_ci
-        @inbounds ind_y = outer_ci[i]
-        iy = index_map(ind_y, locs_y)
+function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, y_indexer, y::AbstractArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
+    for ind_y in outer_ci
+        iy = subindex(y_indexer,ind_y)
         for ind_x in inner_ci
-            ind_xy = CartesianIndex(TupleTools.vcat(ind_y.I, ind_x.I))
-            @inbounds y[iy] += map_prod(T, xs, ind_xy, locs_xs)
+            ind_xy = TupleTools.vcat(ind_x.I, ind_y.I)
+            @inbounds y[iy] += map_prod(xs, ind_xy, x_indexers)
         end
     end
     y
 end
 
 """take an index subset from `ind`"""
-index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(Tuple(ind), locs))
+index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind.I, locs))
+index_map(ind::Tuple, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind, locs))
+
+export EinIndexer
+struct EinIndexer{locs,cumsize} end
+
+function einindexer(size::NTuple{N,Int}, locs::NTuple{N,Int}) where N
+    N==0 && return EinIndexer{(), ()}()
+    EinIndexer{locs, (1,TupleTools.cumprod(size[1:end-1])...)}()
+end
+
+subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
+subindex(indexer::EinIndexer{(),()}, ind::NTuple{N0,Int}) where N0 = 1
+@inline @generated function subindex(indexer::EinIndexer{locs,cumsize}, ind::NTuple{N0,Int}) where {locs,cumsize,N0}
+    N = length(locs)
+    ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * $(cumsize[i])), 1:N)...)
+    :(@inbounds $ex)
+end
 
 # get inner indices, outer indices,
 # locations of input indices in total indices
@@ -75,7 +105,7 @@ function indices_and_locs(ixs, iy)
     inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
 
     # for indexing tensors (leg binding)
-    indices = (outer_indices..., inner_indices...)
+    indices = (inner_indices...,outer_indices...)
     locs_xs = map(ixs) do ix
         map(i->findfirst(isequal(i), indices), ix)
     end
