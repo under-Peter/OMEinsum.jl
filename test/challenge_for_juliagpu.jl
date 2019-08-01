@@ -32,8 +32,3 @@ out = zeros(1,100, 50) |> cu
 #CUDAnative.isghosttype(::Type{T}) where T<:EinArray = true
 #Base.isbitstype(::Type{T}) where T<:Base.OneTo = true
 Matrix(dropdims(Base._mapreducedim!(x->x, +, out, ca), dims=1)) ≈ dropdims(sum(Array(a), dims=1), dims=1)
-
-using BenchmarkTools
-m = randn(100,100)
-cm = m |> CuArray
-@benchmark (CuArrays.@sync ein"ij,ik,il->jkl"(cm,cm,cm)) seconds=1

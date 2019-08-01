@@ -1,4 +1,4 @@
-using CuArrays, CUDAnative
+using CuArrays, CUDAnative, GPUArrays
 
 println("CUDA: YOU FIND ME!")
 
@@ -16,24 +16,21 @@ loop and accumulate products to y, the GPU version.
     * CUDAnative.jl: https://github.com/JuliaGPU/CUDAnative.jl
 """
 function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, CuArray{T}}, y_indexer, y::CuArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
-    X, Y = cudiv(length(outer_ci))
-    @cuda threads=X blocks=Y loop_kernel(x_indexers, xs, y_indexer, y, outer_ci, inner_ci)
+    X, Y = GPUArrays.thread_blocks_heuristic(length(outer_ci))
+    @cuda threads=Y blocks=X loop_kernel(x_indexers, xs, y_indexer, y, outer_ci, inner_ci)
     y
 end
 
-@generated function loop_kernel(x_indexers::IT, xs, y_indexer, y, outer_ci, inner_ci) where IT
-    quote
+function loop_kernel(x_indexers::IT, xs::NTuple{NX, AbstractArray{T}}, y_indexer, y::AbstractArray{T}, outer_ci, inner_ci) where {IT, NX, T}
     i = (blockIdx().x-1) * blockDim().x + threadIdx().x
     i > length(outer_ci) && return nothing
     @inbounds ind_y = outer_ci[i]
     @inbounds iy = subindex(y_indexer, ind_y)
-    @inbounds for ind_x in inner_ci
+    for ind_x = inner_ci
         ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
-        #y[iy] += 1f1#map_prod(xs, ind_xy, x_indexers)
         y[iy] += map_prod(xs, ind_xy, x_indexers)
     end
     nothing
-    end
 end
 
 """indiex tensors, and return the product of elements"""

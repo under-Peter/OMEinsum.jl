@@ -14,3 +14,4 @@ TitanV 800: 1.53s/-/71ms
 ## fake star 100: torch/numpy
 * CPU -> 174ms/202ms/164ms
 * GPU -> 48ms/37ms/-
+* GPU (Titan) -> 1.2ms/13ms/-
