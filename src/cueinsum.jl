@@ -2,15 +2,16 @@ using CuArrays, CUDAnative, GPUArrays
 
 println("CUDA: YOU FIND ME!")
 
-asarray(x::Number, arr::CuArray) where T = CuArray(fill(x, ()))
-
-"""decide the number of threads and blocks to be launched."""
-@inline function cudiv(x::Int)
+@inline function GPUArrays.thread_blocks_heuristic(x::Int, y::Int)
     max_threads = 256
-    num_threads = min(max_threads, x)
-    num_blocks = ceil(Int, x/num_threads)
-    num_threads, num_blocks
+    threads_x = min(max_threads, x)
+    threads_y = min(max_threads ÷ threads_x, y)
+    threads = (threads_x, threads_y)
+    blocks = ceil.(Int, (x, y) ./ threads)
+    threads, blocks
 end
+
+asarray(x::Number, arr::CuArray) where T = CuArray(fill(x, ()))
 
 """
 loop and accumulate products to y, the GPU version.

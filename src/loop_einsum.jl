@@ -40,11 +40,6 @@ The inplace brute-force looping einsum, `y` is the output tensor.
     end
 end
 
-@inline @generated function map_prod(xs::Tuple, ind, indexers::NTuple{N,Any}) where {N}
-    ex = Expr(:call, :*, map(i->:(xs[$i][subindex(indexers[$i], ind)]), 1:N)...)
-    :(@inbounds $ex)
-end
-
 """
 loop and accumulate products to y, the CPU version.
 """
@@ -57,42 +52,4 @@ function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, AbstractArray}, y_indexe
         end
     end
     y
-end
-
-"""take an index subset from `ind`"""
-index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind.I, locs))
-index_map(ind::Tuple, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind, locs))
-
-export EinIndexer
-struct EinIndexer{N, locs}
-    cumsize::NTuple{N, Int}
-end
-
-function einindexer(size::NTuple{N,Int}, locs::NTuple{N,Int}) where N
-    N==0 && return EinIndexer{0,()}(())
-    EinIndexer{N, locs}((1,TupleTools.cumprod(size[1:end-1])...))
-end
-
-subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
-subindex(indexer::EinIndexer{0}, ind::NTuple{N0,Int}) where N0 = 1
-@inline @generated function subindex(indexer::EinIndexer{N,locs}, ind::NTuple{N0,Int}) where {N,N0,locs}
-    ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * indexer.cumsize[$i]), 1:N)...)
-    :(@inbounds $ex)
-end
-
-# get inner indices, outer indices,
-# locations of input indices in total indices
-# and locations of output indices in outer indices.
-function indices_and_locs(ixs, iy)
-    # outer legs and inner legs
-    outer_indices = tunique(iy)
-    inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
-
-    # for indexing tensors (leg binding)
-    indices = (inner_indices...,outer_indices...)
-    locs_xs = map(ixs) do ix
-        map(i->findfirst(isequal(i), indices), ix)
-    end
-    locs_y = map(i->findfirst(isequal(i), outer_indices), iy)
-    return inner_indices, outer_indices, locs_xs, locs_y
 end

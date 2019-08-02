@@ -11,49 +11,8 @@ using GPUArrays
 import CuArrays: @cuindex
 CuArrays.allowscalar(false)
 
-struct EinArray{T, N, NI, TT<:NTuple{NI,AbstractArray{T, M} where M}, LX<:NTuple{NI,Any}, LY, ICT, OCT} <: AbstractArray{T, N}
-    xs::TT
-    locs_xs::LX
-    locs_y::LY
-    size::NTuple{N, Int}
-    ICIS::ICT
-    OCIS::OCT
-end
-
-@generated function EinArray(::EinCode{ixs, iy}, xs::NTuple{NI,AbstractArray{T, M} where M}, size_dict) where {T, NI, ixs, iy}
-    inner_indices, outer_indices, locs_xs, locs_y = OMEinsum.indices_and_locs(ixs, iy)
-
-    quote
-        # find size for each leg
-        outer_sizes = getindex.(Ref(size_dict), $outer_indices)
-        inner_sizes = getindex.(Ref(size_dict), $inner_indices)
-
-        # cartesian indices for outer and inner legs
-        outer_ci = CartesianIndices((outer_sizes...,))
-        inner_ci = CartesianIndices((inner_sizes...,))
-
-        x_indexers = einindexer.(size.(xs), $locs_xs)
-        y_size = getindex.(Ref(size_dict), iy)
-        y_indexer = einindexer(y_size, $locs_y)
-
-        EinArray(xs, x_indexers, y_indexer, (inner_sizes...,outer_sizes...), inner_ci, outer_ci)
-    end
-end
-
-Base.size(A::EinArray) = A.size
-Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.locs_xs)
-Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.locs_xs)
-CUDAnative.cudaconvert(A::EinArray) = EinArray(cudaconvert.(A.xs), A.locs_xs, A.locs_y, A.size, A.ICIS, A.OCIS)
-CuArrays.cu(A::EinArray) = EinArray(cu.(A.xs), A.locs_xs, A.locs_y, A.size, A.ICIS, A.OCIS)
-
-@inline function GPUArrays.thread_blocks_heuristic(x::Int, y::Int)
-    max_threads = 256
-    threads_x = min(max_threads, x)
-    threads_y = min(max_threads ÷ threads_x, y)
-    threads = (threads_x, threads_y)
-    blocks = ceil.(Int, (x, y) ./ threads)
-    threads, blocks
-end
+CUDAnative.cudaconvert(A::EinArray) = EinArray(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
+CuArrays.cu(A::EinArray) = EinArray(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
 function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
                              CIS, Rlength, Slength) where {T}

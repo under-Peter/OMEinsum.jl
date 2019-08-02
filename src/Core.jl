@@ -1,5 +1,4 @@
-export EinCode
-export EinIndexer
+export EinCode, EinIndexer, EinArray
 
 """
     EinCode{ixs, iy}
@@ -46,13 +45,14 @@ Type parameters are
 
     * T: element type,
     * N: array dimension,
+    * NI: number of input tensors,
     * TT: type of "tuple of input arrays",
     * LX: type of "tuple of input indexers",
     * LX: type of output indexer,
     * ICT: typeof inner CartesianIndices,
     * OCT: typeof outer CartesianIndices,
 """
-struct EinArray{T, N, TT<:NTuple{NI,AbstractArray{T, M} where M}, LX, LY, ICT, OCT} <: AbstractArray{T, N}
+struct EinArray{T, N, NI, TT<:NTuple{NI,AbstractArray{T, M} where M}, LX, LY, ICT, OCT} <: AbstractArray{T, N}
     xs::TT
     x_indexers::LX
     y_indexer::LY
@@ -82,5 +82,27 @@ end
 end
 
 Base.size(A::EinArray) = A.size
-Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.locs_xs)
-Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.locs_xs)
+Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.x_indexers)
+Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.x_indexers)
+
+@inline @generated function map_prod(xs::Tuple, ind, indexers::NTuple{N,Any}) where {N}
+    ex = Expr(:call, :*, map(i->:(xs[$i][subindex(indexers[$i], ind)]), 1:N)...)
+    :(@inbounds $ex)
+end
+
+# get inner indices, outer indices,
+# locations of input indices in total indices
+# and locations of output indices in outer indices.
+function indices_and_locs(ixs, iy)
+    # outer legs and inner legs
+    outer_indices = tunique(iy)
+    inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
+
+    # for indexing tensors (leg binding)
+    indices = (inner_indices...,outer_indices...)
+    locs_xs = map(ixs) do ix
+        map(i->findfirst(isequal(i), indices), ix)
+    end
+    locs_y = map(i->findfirst(isequal(i), outer_indices), iy)
+    return inner_indices, outer_indices, locs_xs, locs_y
+end
