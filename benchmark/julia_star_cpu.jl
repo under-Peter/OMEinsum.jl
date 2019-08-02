@@ -18,6 +18,6 @@ function bfunc_psum_cpu()
 end
 
 using BenchmarkTools
-display(@benchmark bfunc_star_cpu(100) seconds = 1)
-display(@benchmark bfunc_t3_cpu(100) seconds = 1)
-display(@benchmark bfunc_psum_cpu(100) seconds = 1)
+display(@benchmark bfunc_star_cpu() seconds = 1)
+display(@benchmark bfunc_t3_cpu() seconds = 1)
+display(@benchmark bfunc_psum_cpu() seconds = 1)
