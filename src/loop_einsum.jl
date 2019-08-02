@@ -69,20 +69,19 @@ index_map(ind::CartesianIndex, locs::Tuple) = CartesianIndex(TupleTools.getindic
 index_map(ind::Tuple, locs::Tuple) = CartesianIndex(TupleTools.getindices(ind, locs))
 
 export EinIndexer
-struct EinIndexer{N}
-    locs::NTuple{N, Int}
+struct EinIndexer{N, locs}
     cumsize::NTuple{N, Int}
 end
 
 function einindexer(size::NTuple{N,Int}, locs::NTuple{N,Int}) where N
-    N==0 && return EinIndexer((), ())
-    EinIndexer(locs, (1,TupleTools.cumprod(size[1:end-1])...))
+    N==0 && return EinIndexer{0,()}(())
+    EinIndexer{N, locs}((1,TupleTools.cumprod(size[1:end-1])...))
 end
 
 subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
 subindex(indexer::EinIndexer{0}, ind::NTuple{N0,Int}) where N0 = 1
-@inline @generated function subindex(indexer::EinIndexer{N}, ind::NTuple{N0,Int}) where {N,N0}
-    ex = Expr(:call, :+, map(i->i==1 ? :(ind[indexer.locs[$i]]) : :((ind[indexer.locs[$i]]-1) * indexer.cumsize[$i]), 1:N)...)
+@inline @generated function subindex(indexer::EinIndexer{N,locs}, ind::NTuple{N0,Int}) where {N,N0,locs}
+    ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * indexer.cumsize[$i]), 1:N)...)
     :(@inbounds $ex)
 end
 
