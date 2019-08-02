@@ -1,10 +1,5 @@
 using TupleTools, Base.Cartesian
-export loop_einsum, loop_einsum!, EinCode
-
-struct EinCode{ixs, iy} end
-EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
-getixs(code::EinCode{ixs,iy}) where {ixs, iy} = ixs
-getiy(code::EinCode{ixs,iy}) where {ixs, iy} = iy
+export loop_einsum, loop_einsum!
 
 """
     loop_einsum(::EinCode, xs, size_dict)

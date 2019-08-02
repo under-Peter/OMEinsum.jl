@@ -4,6 +4,7 @@ using LinearAlgebra
 
 
 @testset "OMEinsum.jl" begin
+    include("Core.jl")
     include("EinRule.jl")
     include("utils.jl")
     include("einsum.jl")
