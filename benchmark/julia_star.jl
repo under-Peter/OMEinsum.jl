@@ -23,7 +23,3 @@ end
 display(@benchmark bfunc_star(300) seconds = 1)
 display(@benchmark bfunc_t3(300) seconds = 1)
 display(@benchmark bfunc_psum(100) seconds = 1)
-include("reduce_einsum.jl")
-display(@benchmark bfunc_star(300) seconds = 1)
-display(@benchmark bfunc_t3(300) seconds = 1)
-display(@benchmark bfunc_psum(100) seconds = 1)

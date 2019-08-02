@@ -1,3 +1,11 @@
+using CuArrays
+using CUDAdrv
+
+using CUDAnative, TupleTools
+using Base.Cartesian
+using GPUArrays
+import CuArrays: @cuindex
+
 # patch file for CUDAnative and CuArrays.
 function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
                              CIS, Rlength, Slength) where {T}
@@ -58,10 +66,6 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
         x_thr = min(512 ÷ y_thr, Slength, block_threads.x,
                     ceil(Int, block_threads.total/y_thr),
                     ceil(Int, kernel_threads/y_thr))
-        #@show kernel_threads, y_thr, x_thr, Rlength, Slength
-        #@show 512 ÷ y_thr, Slength, block_threads.x,
-                    #block_threads.total/y_thr,
-                    #kernel_threads/y_thr
 
         if x_thr >= 8
             blk, thr = (Rlength - 1) ÷ y_thr + 1, (x_thr, y_thr, 1)

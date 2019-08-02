@@ -2,47 +2,42 @@ using CuArrays, CUDAnative, GPUArrays
 
 println("CUDA: YOU FIND ME!")
 
-@inline function GPUArrays.thread_blocks_heuristic(x::Int, y::Int)
-    max_threads = 256
-    threads_x = min(max_threads, x)
-    threads_y = min(max_threads ÷ threads_x, y)
-    threads = (threads_x, threads_y)
-    blocks = ceil.(Int, (x, y) ./ threads)
-    threads, blocks
-end
+include("cudapatch.jl")
 
 asarray(x::Number, arr::CuArray) where T = CuArray(fill(x, ()))
 
-"""
-loop and accumulate products to y, the GPU version.
-## References
-    * CUDAnative.jl: https://github.com/JuliaGPU/CUDAnative.jl
-"""
-function loop!(x_indexers::NTuple{N,Any}, xs::NTuple{N, CuArray{T}}, y_indexer, y::CuArray{T}, outer_ci::CartesianIndices, inner_ci::CartesianIndices) where {N, T}
-    X, Y = GPUArrays.thread_blocks_heuristic(length(outer_ci))
-    @cuda threads=Y blocks=X loop_kernel(x_indexers, xs, y_indexer, y, outer_ci, inner_ci)
-    y
+function get_output_array(xs::NTuple{N, CuArray{<:Any,M} where M}, size) where N
+    out = CuArrays.zeros(promote_type(map(eltype,xs)...), size)
 end
 
-function loop_kernel(x_indexers::IT, xs::NTuple{NX, AbstractArray{T}}, y_indexer, y::AbstractArray{T}, outer_ci, inner_ci) where {IT, NX, T}
-    ind_y = CuArrays.@cuindex y
-    iy = subindex(y_indexer, ind_y)
-    @inbounds for ind_x = inner_ci
-        ind_xy = TupleTools.vcat(ind_x.I,ind_y)
-        y[iy] += map_prod(xs, ind_xy, x_indexers)
+CUDAnative.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
+CuArrays.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
+
+function CuArrays.mapreducedim_kernel_serial(f, op, R, A::EinArray, range)
+    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
+    i > length(A.OCIS) && return nothing
+    @inbounds ind_y = A.OCIS[i]
+    iy = subindex(A.y_indexer, ind_y.I)
+    #invoke(CuArrays.mapreducedim_kernel_serial, Tuple{Any,Any,Any,Any,Any}, f, op, R, A, range)
+    @inbounds for ind_x in A.ICIS
+        ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
+        R[iy] = op(R[iy], f(map_prod(A.xs, ind_xy, A.x_indexers)))
     end
-    nothing
+    return nothing
 end
 
-function loop_einsum(code::EinCode{ixs, iy},
+function loop_einsum!(code::EinCode{ixs, iy},
                 xs::NTuple{N, CuArray{<:Any,M} where M},
-                size_dict) where {N,T, ixs, iy}
-    TO = mapreduce(eltype, promote_type, xs)
-    out = CuArrays.zeros(TO, getindex.(Ref(size_dict), iy))
-    loop_einsum!(code, xs, out, size_dict)
+                y::CuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+    NO = length(tunique(iy))
+    A = einarray(code, xs, size_dict)
+    y = reshape(y, fill(1, ndims(A)-NO)...,size(y)...)
+    dropdims(Base._mapreducedim!(x->x, +, y, A), dims=(1:ndims(A)-NO...,))
 end
 
 # unfortunately, TensorOperations does not support CUDA at the moment.
-function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}}, size_dict) where {ixs, iy, NT}
+function einsum(::PairWise, code::EinCode{ixs, iy},
+            xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}},
+            size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end

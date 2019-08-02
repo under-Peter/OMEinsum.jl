@@ -29,6 +29,6 @@ function reduce_einarray(A::EinArray, y)
     y
 end
 
-function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size_dict)
+function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size) where N
     zeros(promote_type(map(eltype,xs)...), size)
 end
