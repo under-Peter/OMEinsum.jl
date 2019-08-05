@@ -10,9 +10,12 @@ include("einsum.jl")
 include("einsumopt.jl")
 include("einorder.jl")
 include("einevaluate.jl")
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" include("cueinsum.jl")
+if Base.find_package("CuArrays") != nothing
+    include("cueinsum.jl")
 end
+# function __init__()
+#     @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" include("cueinsum.jl")
+# end
 
 include("interfaces.jl")
 include("einsequence.jl")
