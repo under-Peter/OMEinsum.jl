@@ -25,7 +25,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test match_rule(ixs, iy) == Sum()
 
     ixs = ((1,2,3),)
-    iy = (2,1)
+    iy = (2,1,3)
     @test match_rule(ixs, iy) != Sum()
 
     ixs = ((1,2),(1,2),(1,2))
@@ -60,19 +60,20 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test match_rule(Sum, ((1,2,3,4),), (1,2))
     @test match_rule(Sum, ((1,2,3,4),), (1,2))
     @test match_rule(Sum, ((1,2,3,4),), (1,2,3,4))
-    @test !match_rule(Sum, ((1,2,3,4),), (2,1))
+    @test match_rule(Sum, ((1,2,3,4),), (2,1))
+    @test !match_rule(Sum, ((1,2,3,4),), (2,1,1))
 
     @test match_rule(Permutedims, ((1,2),), (2,1))
     @test !match_rule(Permutedims, ((1,2,3),), (2,1))
     @test !match_rule(Permutedims, ((3,3),), (1,3))
 
     @test match_rule(Hadamard, ((1,2),(1,2)), (1,2))
-    @test !match_rule(Hadamard, ((1,2),(2,1)), (1,2))
+    @test match_rule(Hadamard, ((1,2),(2,1)), (1,2))
     @test !match_rule(Hadamard, ((1,2),(1,2)), (1,2,1))
 
     @test match_rule(PTrace, ((1,1,2),), (2,))
     @test match_rule(PTrace, ((1,1,2,3),), (2,3))
-    @test !match_rule(PTrace, ((1,1,2,3),), (3,2))
+    @test match_rule(PTrace, ((1,1,2,3),), (3,2))
     @test !match_rule(PTrace, ((1,1,2),), (1,2,))
 
     @test match_rule(MatMul, ((1,2),(2,3)), (1,3))
