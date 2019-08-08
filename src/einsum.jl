@@ -61,7 +61,9 @@ end
 
 function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     dims = (findall(i -> i ∉ iy, ixs[1])...,)
-    perm = map(i -> findfirst(==(i), ixs[1]), iy)
+    (ix1,) = ixs
+    ix1f = filter!(i -> i in iy, collect(ix1))
+    perm = map(i -> findfirst(==(i), ix1f), iy)
     permutedims(dropdims(sum(xs[1], dims=dims), dims=dims), perm)
 end
 
