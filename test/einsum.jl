@@ -62,6 +62,8 @@ end
 
     # partial trace
     @test einsum(EinCode(((1,2,2,3),), (1,3)), (aa,)) ≈ sum(aa[:,i,i,:] for i in 1:4)
+    # with permutation
+    @test einsum(EinCode(((1,2,2,3),), (3,1)), (aa,)) ≈ transpose(sum(aa[:,i,i,:] for i in 1:4))
 
     # diag
     @test einsum(EinCode(((1,2,2,3),), (1,2,3)), (aa,)) ≈ aa[:,[CartesianIndex(i,i) for i in 1:4],:]
@@ -100,6 +102,8 @@ end
     # index-sum
     a = rand(2,2,5)
     @test einsum(EinCode(((1,2,3),),(1,2)),(a,)) ≈ sum(a, dims=3)
+    # with permutation
+    ein"ijk -> ki"(a) ≈ transpose(dropdims(sum(a,dims=2),dims=2))
 
     # Hadamard product
     a = rand(2,3)

@@ -45,7 +45,7 @@ function einsum(::PTrace, ::EinCode{ixs,iy}, xs, size_dict) where {ixs, iy}
     tensortrace(xs[1], ixs[1], iy)
 end
 
-function einsum(::Hadamard, ::EinCode, xs, size_dict)
+function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     broadcast(*, xs...)
 end
 
@@ -60,7 +60,10 @@ end
 
 function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     dims = (findall(i -> i ∉ iy, ixs[1])...,)
-    dropdims(sum(xs[1], dims=dims), dims=dims)
+    (ix1,) = ixs
+    ix1f = filter!(i -> i in iy, collect(ix1))
+    perm = map(i -> findfirst(==(i), ix1f), iy)
+    permutedims(dropdims(sum(xs[1], dims=dims), dims=dims), perm)
 end
 
 function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
