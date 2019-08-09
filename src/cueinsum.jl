@@ -41,3 +41,9 @@ function einsum(::PairWise, code::EinCode{ixs, iy},
             size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
+
+function einsum(::PTrace, code::EinCode{ixs, iy},
+            xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}},
+            size_dict) where {ixs, iy, NT}
+    loop_einsum(code, xs, size_dict)
+end
