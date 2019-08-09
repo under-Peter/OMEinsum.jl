@@ -74,9 +74,9 @@ function match_rule(::Type{PTrace}, ixs, iy)
 end
 
 function match_rule(::Type{MatMul}, ixs, iy)
-    length.(ixs) == (2,2) && length(iy) == 2 &&
-    iy[1] == ixs[1][1] && iy[2] == ixs[2][2] &&
-    ixs[1][2] == ixs[2][1]
+    length.(ixs) == (2,2) && length(iy) == 2 || return false
+    ix1, ix2 = ixs
+    length(intersect(ix1,ix2)) == 1 && Set(symdiff(ix1,ix2)) == Set(iy)
 end
 
 function match_rule(::Type{Identity}, ixs, iy)

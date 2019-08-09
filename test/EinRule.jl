@@ -77,7 +77,9 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test !match_rule(PTrace, ((1,1,2),), (1,2,))
 
     @test match_rule(MatMul, ((1,2),(2,3)), (1,3))
-    @test !match_rule(MatMul, ((1,2),(2,3)), (3,1))
+    @test match_rule(MatMul, ((1,2),(2,3)), (3,1))
+    @test match_rule(MatMul, ((2,1),(2,3)), (3,1))
+    @test match_rule(MatMul, ((2,1),(3,2)), (3,1))
     @test !match_rule(MatMul, ((1,2,3),(2,3,4)), (1,4))
 
     @test match_rule(Identity, ((1,2,3),), (1,2,3))

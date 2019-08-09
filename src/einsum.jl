@@ -66,8 +66,42 @@ function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     permutedims(dropdims(sum(xs[1], dims=dims), dims=dims), perm)
 end
 
-function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    xs[1] * xs[2]
+@generated function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    ix1, ix2 = ixs
+    l = ifelse(ix1[1] in ix2, ix1[1], ix1[2])
+    if ix1[2] == l && ix2[1] == l
+        if iy == (ix1[1], ix2[2])
+            #"ij,jk -> ik"
+            return :(xs[1] * xs[2])
+        else
+            #"ij,jk -> ki"
+            return :(permutedims(xs[1] * xs[2]))
+        end
+    elseif ix1[1] == l && ix2[1] == l
+        if iy == (ix1[2], ix2[2])
+            #"ji,jk -> ik"
+            return :(transpose(xs[1]) * xs[2])
+        else
+            #"ji,jk -> ki"
+            return :(transpose(xs[2]) * xs[1])
+        end
+    elseif ix1[2] == l && ix2[2] == l
+        if iy == (ix1[1], ix2[1])
+            #"ij,kj -> ik"
+            return :(xs[1] * transpose(xs[2]))
+        else
+            #"ij,kj -> ki"
+            return :(xs[2] * transpose(xs[1]))
+        end
+    else #ix1[1] == l && ix2[2] == l
+        if iy == (ix1[2], ix2[1])
+            #"ji,kj -> ik"
+            return :(permutedims(xs[2] * xs[1]))
+        else
+            #"ji,kj -> ki"
+            return :(xs[2] * xs[1])
+        end
+    end
 end
 
 function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
