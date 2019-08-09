@@ -18,3 +18,9 @@ CuArrays.allowscalar(false)
         @test f(ins...) ≈ f(cins...)
     end
 end
+
+@testset "fallback - getindex IR error" begin
+    a = rand(ComplexF64,2,2,2)
+    ca = CuArray(a);
+    @test Array(ein"npu,por,dom,lmn -> urdl"(ca,ca,ca,ca)) ≈ ein"npu,por,dom,lmn -> urdl"(a,a,a,a)
+end

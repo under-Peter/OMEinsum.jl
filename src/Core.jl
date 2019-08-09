@@ -98,8 +98,8 @@ Get an `EinArray` from code and input tensor/index information.
 end
 
 Base.size(A::EinArray) = A.size
-Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.x_indexers)
-Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.x_indexers)
+@inline Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.x_indexers)
+@inline Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.x_indexers)
 
 # get one element from each tensor, and multiple them
 @inline @generated function map_prod(xs::Tuple, ind, indexers::NTuple{N,Any}) where {N}
