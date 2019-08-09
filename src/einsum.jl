@@ -46,8 +46,7 @@ function einsum(::PTrace, ::EinCode{ixs,iy}, xs, size_dict) where {ixs, iy}
 end
 
 function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    perms = [map(i -> findfirst(==(i), ix), iy) for ix in ixs]
-    broadcast(*, map((x,perm) -> permutedims(x,perm),xs,perms)...)
+    broadcast(*, xs...)
 end
 
 @generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:Union{Complex, Real}}, size_dict) where {ixs, iy, NT}

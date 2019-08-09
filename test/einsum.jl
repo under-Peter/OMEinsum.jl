@@ -109,9 +109,6 @@ end
     a = rand(2,3)
     b = rand(2,3)
     @test einsum(EinCode(((1,2),(1,2)), (1,2)), (a,b)) ≈ a .* b
-    # with permutation
-    c = rand(3,2)
-    ein"ij,ji,ij -> ij"(a,c,b) ≈ a .* transpose(c) .* b
 
     # Outer
     a = rand(2,3)

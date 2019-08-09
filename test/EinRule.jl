@@ -68,7 +68,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test !match_rule(Permutedims, ((3,3),), (1,3))
 
     @test match_rule(Hadamard, ((1,2),(1,2)), (1,2))
-    @test match_rule(Hadamard, ((1,2),(2,1)), (1,2))
+    @test !match_rule(Hadamard, ((1,2),(2,1)), (1,2))
     @test !match_rule(Hadamard, ((1,2),(1,2)), (1,2,1))
 
     @test match_rule(PTrace, ((1,1,2),), (2,))

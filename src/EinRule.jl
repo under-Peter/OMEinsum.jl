@@ -52,7 +52,7 @@ end
 Hadamard
 """
 function match_rule(::Type{Hadamard}, ixs, iy)
-    allunique(iy) && all(allunique, ixs) &&  all(ix -> Set(ix) == Set(iy), ixs)
+    allunique(iy) && all(allunique, ixs) &&  all(==(iy), ixs)
 end
 
 """
