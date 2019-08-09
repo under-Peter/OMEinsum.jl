@@ -52,6 +52,16 @@ end
     @test einsum(EinCode(((1,2),(2,3),(3,4)),(4,1)), (a,b,c)) ≈ permutedims(a*b*c, (2,1))
     @test einsum(EinCode(((1,2),(2,)), (1,)), (a,v)) ≈ a * v
 
+    # more matmul
+    @test ein"ij,jk -> ik"(a,a) ≈ a * a
+    @test ein"ij,jk -> ki"(a,a) ≈ transpose(a * a)
+    @test ein"ij,kj -> ik"(a,a) ≈ a * transpose(a)
+    @test ein"ij,kj -> ki"(a,a) ≈ transpose(a * transpose(a))
+    @test ein"ji,jk -> ik"(a,a) ≈ transpose(a) * a
+    @test ein"ji,jk -> ki"(a,a) ≈ transpose(transpose(a) * a)
+    @test ein"ji,kj -> ik"(a,a) ≈ transpose(a) * transpose(a)
+    @test ein"ji,kj -> ki"(a,a) ≈ transpose(transpose(a) * transpose(a))
+
     # contract to 0-dim array
     @test einsum(EinCode(((1,2),(1,2)), ()), (a,a))[] ≈ sum(a .* a)
 
