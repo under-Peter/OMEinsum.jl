@@ -21,6 +21,7 @@ include:
                           Pkg.add("CuArrays");
                           Pkg.add("CUDAnative");
                           Pkg.add("CUDAdrv");
+                          Pkg.add("GPUArrays");
                           Pkg.instantiate();
                           Pkg.build();
                           Pkg.test(; coverage=true);'
