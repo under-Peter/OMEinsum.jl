@@ -36,7 +36,7 @@ true
 end
 
 function einsum(::Tr, ::EinCode, xs, size_dict)
-    asarray(tr(xs[1]))  # should be dispatched to tensortrace too.
+    asarray(tr(xs[1]), xs[1])  # should be dispatched to tensortrace too.
 end
 
 using TensorOperations
@@ -121,5 +121,9 @@ function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
 end
 
 function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    loop_einsum(code, xs, size_dict)
+end
+
+function einsum(::PTrace, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end

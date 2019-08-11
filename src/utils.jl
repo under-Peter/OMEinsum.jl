@@ -1,5 +1,11 @@
+"""
+    asarray(x::Number[, parent::AbstractArray]) -> AbstactArray
+
+Return a 0-dimensional array with item `x`.
+If a `parent` is supplied, it will try to match the parent array type.
+"""
 asarray(x::Number) = fill(x, ())
-asarray(x::AbstractArray) = x
+asarray(x::Number, arr::Array) = fill(x, ())
 
 tsetdiff(t::Tuple, b) = setdiff!(collect(t), b)
 tunique(t::Tuple) = unique!(collect(t))
