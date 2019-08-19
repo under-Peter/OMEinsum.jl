@@ -41,7 +41,6 @@ function einsum(code::EinCode{ixs, iy}, xs, ::Nothing) where {ixs, iy}
     einsum(code, xs, get_size_dict(ixs, xs))
 end
 
-"""get the dictionary of `index=>size`, error if there are conflicts"""
 @doc raw"
     get_size_dict(ixs, xs)
 
