@@ -3,7 +3,6 @@
 *.jl.mem
 *.json
 .DS_Store
-/Manifest.toml
 /docs/build/
 /docs/site/
 local/
