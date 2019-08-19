@@ -1,9 +1,23 @@
 export @ein_str, @ein
 """
     ein"ij,jk -> ik"(A,B)
-    einsum(ein"ij,jk -> ik", (A,B))
 
 String macro interface which understands `numpy.einsum`'s notation.
+Translates strings into `EinCode`-structs that can be called to evaluate
+an `einsum`.
+To control evaluation order, use parentheses - instead of an `EinCode`,
+a `NestedEinsumStable` is returned which evaluates the expression
+according to parens.
+The valid character ranges for index-labels are `a-z` and `α-ω`.
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> a, b, c = rand(10,10), rand(10,10), rand(10,1);
+
+julia> ein"ij,jk,kl -> il"(a,b,c) ≈ ein"(ij,jk),kl -> il"(a,b,c) ≈ a * b * c
+true
+```
 """
 macro ein_str(s::AbstractString)
     s = replace(s, " " => "")
@@ -28,6 +42,13 @@ function einsum(code::EinCode{ixs, iy}, xs, ::Nothing) where {ixs, iy}
 end
 
 """get the dictionary of `index=>size`, error if there are conflicts"""
+@doc raw"
+    get_size_dict(ixs, xs)
+
+return the `IndexSize` struct that is used to get the size of an index-label
+in the einsum-specification with input-indices `ixs` and tensors `xs` after
+consistency within `ixs` and between `ixs` and `xs` has been verified.
+"
 function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
     # check size of input tuples
     N != X && throw(ArgumentError("$X tensors labelled by $N indices"))
@@ -42,6 +63,13 @@ function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, Abstr
     return sd
 end
 
+@doc raw"
+    IndexSize{N,T}(k::NTuple{N,T},v::NTuple{N,Int})
+struct to hold the size of indices specified by their labels.
+Note that while a dict would work, for the small sizes we usually
+have, a tuple of keys and values is much faster to construct
+and competitive for lookup.
+"
 struct IndexSize{N,T}
     k::NTuple{N,T}
     v::NTuple{N,Int}
@@ -55,11 +83,16 @@ end
 
 Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), inds.k)]
 
+@doc raw"
+    check_dimensions(inds::IndexSize)
+check whether all non-unique indexlabels point to the same
+dimension - otherwise throw an error.
+"
 function check_dimensions(inds::IndexSize)
     for (c,i) in enumerate(inds.k)
         j = findnext(==(i), inds.k, c+1)
         j != nothing && inds.v[c] != inds.v[j] && return throw(
-            DimensionMismatch("index $i has incosistent sizes"))
+            DimensionMismatch("index $i has inconsistent sizes"))
     end
     return true
 end
@@ -74,6 +107,20 @@ You may use numbers in place of letters for dummy indices, as in `@tensor`,
 and need not name the output array. Thus `A = @ein [1,2] := B[1,ξ] * C[ξ,2]`
 is equivalent to the above. This can also be written `A = ein"ij,jk -> ik"(B,C)`
 using the numpy-style string macro.
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> a, b = rand(2,2), rand(2,2);
+
+julia> @ein c[i,k] := a[i,j] * b[j,k];
+
+julia> c ≈ a * b
+true
+
+julia> c ≈ ein"ij,jk -> ik"(a,b)
+true
+```
 """
 macro ein(exs...)
     _ein_macro(exs...)

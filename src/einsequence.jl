@@ -176,6 +176,11 @@ struct NestedEinsumStable{T,S,N}
     eins::T
 end
 
+@doc raw"
+    stabilize(nein::NestedEinsum)
+turn the nested einsum into a `NestedEinsumStable` which is type-stable and
+more performant.
+"
 function stabilize(nein::OMEinsum.NestedEinsum)
     ixs = Tuple(map(OMEinsum.extractixs, nein.args))
     iy = Tuple(nein.iy)
