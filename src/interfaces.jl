@@ -1,4 +1,4 @@
-export @ein_str, @ein
+export @ein_str, @ein, IndexSize
 """
     ein"ij,jk -> ik"(A,B)
     einsum(ein"ij,jk -> ik", (A,B))
@@ -19,7 +19,13 @@ macro ein_str(s::AbstractString)
     end
 end
 
-(code::EinCode)(xs...; size_dict=nothing) where {T, N} = einsum(code, xs, size_dict)
+function (code::EinCode)(xs...; size_info=nothing) where {T, N}
+    size_dict = get_size_dict(getixs(code), xs)
+    if !(size_info isa Nothing)
+        size_dict += size_info
+    end
+    einsum(code, xs, size_dict)
+end
 
 einsum(code::EinCode{ixs, iy}, xs) where {ixs, iy} = einsum(code, xs, nothing)
 
@@ -46,6 +52,9 @@ struct IndexSize{N,T}
     k::NTuple{N,T}
     v::NTuple{N,Int}
 end
+
+IndexSize(sizes::Pair...) = IndexSize(first.(sizes), last.(sizes))
+Base.:+(x::IndexSize, y::IndexSize) = IndexSize((x.k..., y.k...), (x.v..., y.v...))
 
 function getindexsize(ixs, xs)
     k = TupleTools.flatten(ixs)
