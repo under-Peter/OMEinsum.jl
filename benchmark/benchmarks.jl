@@ -18,7 +18,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T, 10^3,10^3)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ij,jk -> ik", ($m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ij,jk -> ik"($m,$m)
     end
 end
 
@@ -35,7 +35,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T, 10^3,10^3,3)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijk,jlk -> ilk", ($m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ijk,jlk -> ilk"($m,$m)
     end
 end
 
@@ -50,7 +50,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(50,3)...)
     "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijk,ijk -> ", ($m, $m))
+        suite[string(T)][k] = @benchmarkable ein"ijk,ijk -> "($m, $m)
     end
 end
 
@@ -64,7 +64,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "medium" => rand(T,fill(10^2,2)...)
     "large"  => rand(T,fill(10^3,2)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ii -> ",($m,))
+        suite[string(T)][k] = @benchmarkable ein"ii -> "($m)
     end
 end
 
@@ -79,7 +79,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(50,3)...)
     "huge"   => rand(T,fill(10^2,3)...)]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"iij -> j", ($m,))
+        suite[string(T)][k] = @benchmarkable ein"iij -> j"($m)
     end
 end
 
@@ -97,7 +97,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "huge" => rand(T,fill(100,3)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijj -> ij", ($m,))
+        suite[string(T)][k] = @benchmarkable ein"ijj -> ij"($m)
     end
 end
 
@@ -113,7 +113,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(30,4)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijkl -> ljki",($m,))
+        suite[string(T)][k] = @benchmarkable ein"ijkl -> ljki"($m)
     end
 end
 
@@ -131,7 +131,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     ]
 
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijk, jlk -> il",($m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ijk, jlk -> il"($m,$m)
     end
 end
 
@@ -148,7 +148,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(100,2)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ij,ik,il -> jkl",($m,$m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ij,ik,il -> jkl"($m,$m,$m)
     end
 end
 
@@ -165,7 +165,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(100,2)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ij,ik,ik -> j",($m,$m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ij,ik,ik -> j"($m,$m,$m)
     end
 end
 
@@ -181,7 +181,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(100,3)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijk -> ik", ($m,))
+        suite[string(T)][k] = @benchmarkable ein"ijk -> ik"($m)
     end
 end
 # Hadamard
@@ -196,7 +196,7 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(100,3)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ijk,ijk -> ijk", ($m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ijk,ijk -> ijk"($m,$m)
     end
 end
 
@@ -213,6 +213,6 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     "large"  => rand(T,fill(100,2)...)
     ]
     for (k,m) in args
-        suite[string(T)][k] = @benchmarkable einsum(ein"ij,kl -> ijkl", ($m,$m))
+        suite[string(T)][k] = @benchmarkable ein"ij,kl -> ijkl"($m,$m)
     end
 end
