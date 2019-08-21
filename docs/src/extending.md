@@ -1,4 +1,4 @@
-## Extending OMEinsum
+# Extending OMEinsum
 
 Adding a new subtype of `EinRule` is bothersome - the list of rules
 that's considered needs to be fix and thus one has to change the code before

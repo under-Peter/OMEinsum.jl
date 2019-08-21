@@ -1,4 +1,4 @@
-## Input (flat)
+# Input (flat)
 
 An einsum specification should be given via the `ein_str` string-literal
 or with the `@ein`-macro as e.g.
@@ -49,7 +49,7 @@ dispatches on the `EinRule` and the type of `xs` - the latter enables us to disp
 In the case of the matrix-multiplication above, `einsum` calls `*` which can dispatch
 to efficient routines for most `Array`-types including `CuArray`.
 
-## Input (Nested)
+# Input (Nested)
 
 Whether with the `ein_str` string-literal or the `@ein` macro, nested expressions are mapped to a nested struct.
 Consider the example
