@@ -1,4 +1,4 @@
-export @ein_str, @ein
+export @ein_str, @ein, IndexSize
 """
     ein"ij,jk -> ik"(A,B)
     einsum(ein"ij,jk -> ik", (A,B))
@@ -19,7 +19,13 @@ macro ein_str(s::AbstractString)
     end
 end
 
-(code::EinCode)(xs...; size_dict=nothing) where {T, N} = einsum(code, xs, size_dict)
+function (code::EinCode)(xs...; size_info=nothing) where {T, N}
+    size_dict = get_size_dict(getixs(code), xs)
+    if !(size_info isa Nothing)
+        size_dict += size_info
+    end
+    einsum(code, xs, size_dict)
+end
 
 einsum(code::EinCode{ixs, iy}, xs) where {ixs, iy} = einsum(code, xs, nothing)
 
@@ -43,22 +49,25 @@ function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, Abstr
 end
 
 struct IndexSize{N,T}
-    k::NTuple{N,T}
-    v::NTuple{N,Int}
+    indices::NTuple{N,T}
+    sizes::NTuple{N,Int}
 end
+
+IndexSize(sizes::Pair...) = IndexSize(first.(sizes), last.(sizes))
+Base.:+(x::IndexSize, y::IndexSize) = IndexSize((x.indices..., y.indices...), (x.sizes..., y.sizes...))
 
 function getindexsize(ixs, xs)
-    k = TupleTools.flatten(ixs)
-    v = TupleTools.flatten(map(size,xs))
-    IndexSize(k,v)
+    indices = TupleTools.flatten(ixs)
+    sizes = TupleTools.flatten(map(size,xs))
+    IndexSize(indices,sizes)
 end
 
-Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), inds.k)]
+Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.sizes[findfirst(==(i), inds.indices)]
 
 function check_dimensions(inds::IndexSize)
-    for (c,i) in enumerate(inds.k)
-        j = findnext(==(i), inds.k, c+1)
-        j != nothing && inds.v[c] != inds.v[j] && return throw(
+    for (c,i) in enumerate(inds.indices)
+        j = findnext(==(i), inds.indices, c+1)
+        j != nothing && inds.sizes[c] != inds.sizes[j] && return throw(
             DimensionMismatch("index $i has incosistent sizes"))
     end
     return true
