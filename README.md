@@ -82,7 +82,8 @@ Note the use of `[]` to extract the element of a 0-dimensional array.
 For an application in tensor network algorithms, check out the `TensorNetworkAD`
 package, where `OMEinsum` is used to evaluate complicated tensor-contractions.
 
-A toy application the counting of graph colouring. Let us focus on graphs
+A toy application is the counting of graph colourings.
+ Let us focus on graphs
 with vertices with three edges each. A question one might ask is:
 How many different ways are there to colour the edges of the graph with
 three different colours such that no vertex has a duplicate colour on its edges?
