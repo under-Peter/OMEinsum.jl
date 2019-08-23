@@ -12,8 +12,6 @@ using LinearAlgebra
         include("cueinsum.jl")
     end
     include("autodiff.jl")
-    include("einorder.jl")
-    include("einsumopt.jl")
     include("einsequence.jl")
     include("interfaces.jl")
 end
