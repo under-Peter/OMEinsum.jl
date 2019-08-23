@@ -17,3 +17,7 @@ to the following specification:
 ∀ iy : y[iy] = ∑ₗ x1[ix1] * x2[ix2] * x3[ix3] ...
 ```
 where the sum over `l` implies the sum over all possible values of the labels in `l`.
+
+The structure of an `einsum` evaluation with the string-literal is depicted
+in the flowchart below:
+![](ome-flowchart.png)
