@@ -1,5 +1,5 @@
 module OMEinsum
-export einsum, expandall!
+export einsum
 export einsumopt
 
 using TupleTools, Requires, TensorOperations, LinearAlgebra

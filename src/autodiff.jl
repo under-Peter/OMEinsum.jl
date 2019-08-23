@@ -1,8 +1,25 @@
 using Zygote
 
 @doc raw"
-    einsum_grad(ixs, xs, iy, y, i)
-return gradient w.r.t the `i`th tensor in `xs`
+    einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i)
+
+return the gradient of the result of evaluating the `EinCode` w.r.t
+the `i`th tensor in `xs`. `cdy` is the result of applying the `EinCode`
+to the `xs`.
+
+# example
+```jldoctest; setup = :(using OMEinsum)
+julia> using OMEinsum: einsum_grad, get_size_dict
+
+julia> a, b = rand(2,2), rand(2,2);
+
+julia> c = einsum(EinCode((('i','j'),('j','k')), ('i','k')), (a,b));
+
+julia> sd = get_size_dict((('i','j'),('j','k')), (a,b));
+
+julia> einsum_grad(EinCode((('i','j'),('j','k')), ('i','k')), (a,b), sd, c, 1) ≈ c * transpose(b)
+true
+```
 "
 function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     nixs = TupleTools.insertat(ixs, i, (iy,))
@@ -28,8 +45,20 @@ end
 @doc raw"
     bpcheck(f, args...; η = 1e-5, verbose=false)
 returns a `Bool` indicating whether Zygote calculates the gradient of `f(args...) -> scalar`
-correctly using the relation `f(x - ηg) ≈ f(x) - η|g|²`.
+correctly using the relation `f(x - ηg) ≈ f(x) - η|g|²` with a relative tolerance
+of 1e-2 and an absolute tolerance of 1e-8.
 If `verbose=true`, print `f(x) - f(x - ηg)`and `η|g|²`.
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> using OMEinsum: bpcheck
+
+julia> a, b = rand(2,2), rand(2,2);
+
+julia> bpcheck(sum ∘ ein\"ij,jk -> ik\", a, b)
+true
+```
 "
 function bpcheck(f, args...; η = 1e-5, verbose = false)
     g = gradient(f, args...)
