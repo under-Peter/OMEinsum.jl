@@ -35,7 +35,8 @@ function loop_einsum!(code::EinCode{ixs, iy},
     dropdims(Base._mapreducedim!(x->x, +, y, A), dims=(1:ndims(A)-NO...,))
 end
 
-# unfortunately, TensorOperations does not support CUDA at the moment.
+# define einsum for both PairWise and PTrace with CuArray to have those operations
+# dispatch to loop_einsum, since the default dispatch does not support CuArray yet
 function einsum(::PairWise, code::EinCode{ixs, iy},
             xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}},
             size_dict) where {ixs, iy, NT}

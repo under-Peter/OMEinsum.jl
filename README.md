@@ -11,8 +11,7 @@ alt="OMEinsum logo" width="510"></img>
 [![pipeline status](https://gitlab.com/JuliaGPU/OMEinsum-jl/badges/master/pipeline.svg)](https://gitlab.com/user/JuliaGPU/OMEinsum-jl/master)
 [![Codecov](https://codecov.io/gh/under-Peter/OMEinsum.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/under-Peter/OMEinsum.jl)
 
-This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks.
-It is a work in progress and will **change substantially this summer (2019)** - no guarantees can be made.
+This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks. Note that **the code coverage is misleading** - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
 
 This package exports one function, `einsum`, with three interfaces.
 `einsum` implements functionality similar to the `einsum` function in `numpy`,

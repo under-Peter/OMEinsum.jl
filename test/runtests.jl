@@ -15,4 +15,5 @@ using LinearAlgebra
     include("einorder.jl")
     include("einsumopt.jl")
     include("einsequence.jl")
+    include("interfaces.jl")
 end
