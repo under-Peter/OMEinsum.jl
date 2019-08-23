@@ -76,6 +76,49 @@ true
 Note the use of `[]` to extract the element of a 0-dimensional array.
 `einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
+## Application
+
+For an application in tensor network algorithms, check out the `TensorNetworkAD`
+package, where `OMEinsum` is used to evaluate complicated tensor-contractions.
+
+A toy application is the counting of graph colourings.
+ Let us focus on graphs
+with vertices with three edges each. A question one might ask is:
+How many different ways are there to colour the edges of the graph with
+three different colours such that no vertex has a duplicate colour on its edges?
+
+The counting problem can be transformed into a contraction of rank-3 tensors
+representing the edges. Consider the tensor `s` defined as
+```julia
+julia> s = map(x->Int(length(unique(x.I)) == 3), CartesianIndices((3,3,3)))
+```
+
+Then we can simply contract `s` tensors to get the number of 3 colourings satisfying the above condition!
+E.g. for two vertices, we get 6 distinct colourings:
+```julia
+julia> ein"ijk,ijk->"(s,s)[]
+6
+```
+
+Using that method, it's easy to find that e.g. the peterson graph allows no 3 colouring, since
+```julia
+julia> ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"(fill(s, 10)...)[]
+0
+```
+
+The peterson graph consists of 10 vertices and 15 edges and looks like a pentagram
+embedded in a pentagon as depicted here:
+
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Petersen_graph.svg/252px-Petersen_graph.svg.png)
+
+Confronted with the above result, we can ask whether the peterson graph allows a relaxed variation of 3 colouring, having one vertex that might accept duplicate colours. The answer to that can be found using the gradient w.r.t a vertex:
+```julia
+julia> using Zygote: gradient
+
+julia> gradient(x->ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"(x,s,s,s,s,s,s,s,s,s)[], s)[1] |> sum
+0
+```
+This tells us that even if we allow duplicates on one vertex, there are no 3-colourings for the peterson graph.
 
 ## Contribute
 
