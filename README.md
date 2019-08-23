@@ -76,6 +76,9 @@ true
 Note the use of `[]` to extract the element of a 0-dimensional array.
 `einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
+To see more examples using the GPU and autodiff, check out our asciinema-demo here:
+[![asciicast](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb.svg)](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb)
+
 ## Application
 
 For an application in tensor network algorithms, check out the `TensorNetworkAD`
