@@ -64,6 +64,7 @@ end
 
 @doc raw"
     IndexSize{N,T}(k::NTuple{N,T},v::NTuple{N,Int})
+
 struct to hold the size of indices specified by their labels.
 Note that while a dict would work, for the small sizes we usually
 have, a tuple of keys and values is much faster to construct
@@ -84,6 +85,7 @@ Base.getindex(inds::IndexSize{N,T},i::T) where {N,T} = inds.v[findfirst(==(i), i
 
 @doc raw"
     check_dimensions(inds::IndexSize)
+    
 check whether all non-unique indexlabels point to the same
 dimension - otherwise throw an error.
 "

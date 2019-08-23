@@ -34,7 +34,7 @@ true
 end
 
 function einsum(::Tr, ::EinCode, xs, size_dict)
-    asarray(tr(xs[1]), xs[1])  # should be dispatched to tensortrace too.
+    asarray(tr(xs[1]), xs[1])  
 end
 
 using TensorOperations

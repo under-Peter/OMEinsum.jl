@@ -12,6 +12,7 @@ tunique(t::Tuple) = unique!(collect(t))
 
 """
     nopermute(ix,iy)
+
 check that all values in `iy` that are also in `ix` have the same relative order,
 
 # example
@@ -40,6 +41,7 @@ end
 
 """
     allunique(ix::Tuple)
+
 return true if all elements of `ix` appear only once in `ix`.
 
 # example

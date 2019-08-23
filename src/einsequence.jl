@@ -1,5 +1,6 @@
 """
     parse_nested(s::AbstractString (, iy = []))
+
 return a contraction-tree consisting of `NestedEinsum`
 objects as nodes and `IndexGroup` as leaves.
 `s` should only contain the `ixs` part
@@ -17,6 +18,7 @@ end
 
 """
     parse_parens(s::AbstractString, i, narg)
+
 parse one level of parens starting at index `i` where `narg` counts which tensor the
 current group of indices, e.g. "ijk", belongs to.
 Recursively calls itself for each new opening paren that's opened.
@@ -64,6 +66,7 @@ end
 
 """
     filliys!(neinsum::NestedEinsum)
+
 goes through all `NestedEinsum` objects in the tree and saves the correct `iy` in them.
 """
 function filliys!(neinsum)
@@ -84,6 +87,7 @@ end
 
 """
     IndexGroup
+
 Leaf in a contractiontree, contains the indices and the number of the tensor it
 describes, e.g. in "ij,jk -> ik", indices "ik" belong to tensor `1`, so
 would be described by IndexGroup(['i','k'], 1).
@@ -98,6 +102,7 @@ Base.isempty(ig::IndexGroup) = isempty(ig.inds)
 
 """
     NestedEinsum
+
 describes a (potentially) nested einsum. Important fields:
 - `args`, vector of all inputs, either `IndexGroup` objects corresponding to tensors or `NestedEinsum`
 - `iy`, indices of output
@@ -178,6 +183,7 @@ end
 
 @doc raw"
     stabilize(nein::NestedEinsum)
+    
 turn the nested einsum into a `NestedEinsumStable` which is type-stable and
 more performant.
 "
