@@ -1,7 +1,7 @@
 name = "OMEinsum"
 uuid = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
