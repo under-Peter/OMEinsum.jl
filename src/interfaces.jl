@@ -21,7 +21,7 @@ true
 """
 macro ein_str(s::AbstractString)
     s = replace(s, " " => "")
-    m = match(r"([\(\)a-z,α-ω]+)->([a-zα-ω]*)", s)
+    m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
     m == nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
     if '(' in sixs
@@ -82,6 +82,8 @@ struct IndexSize{N,T}
 end
 
 IndexSize(sizes::Pair...) = IndexSize(first.(sizes), last.(sizes))
+IndexSize(indices::Tuple{}, sizes::Tuple{}) = IndexSize{0,Any}(indices, sizes)
+
 Base.:+(x::IndexSize, y::IndexSize) = IndexSize((x.indices..., y.indices...), (x.sizes..., y.sizes...))
 
 function getindexsize(ixs, xs)

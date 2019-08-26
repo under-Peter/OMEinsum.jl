@@ -18,6 +18,9 @@ using OMEinsum: IndexSize, get_size_dict
     @test is['k'] == 4
 
     @test IndexSize('i'=>2) == IndexSize(('i',), (2,))
+    noindex = IndexSize((), ())
+    @test noindex isa IndexSize
+    @test noindex + is == is
 end
 
 @testset "unspecified index sizes" begin

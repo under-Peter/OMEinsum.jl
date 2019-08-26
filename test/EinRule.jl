@@ -7,6 +7,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     ixs = ((1,2), (2,3))
     iy = (1,3)
     @test match_rule(ixs, iy) == MatMul()
+    @test match_rule(EinCode(ixs, iy)) == MatMul()
 
     ixs = ((1,2), (2,3), (3,4))
     iy = (1,4)
