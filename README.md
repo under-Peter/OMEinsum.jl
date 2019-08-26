@@ -20,7 +20,7 @@ To find out the details about einsum, please check out my [nextjournal-article](
 
 Einstein summation can be implemented in no more than 20 lines of Julia code, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` on both CPU and GPU without suffering from runtime overhead.
 
-*Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, the actual coverage is at about _98%_.
+*Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, the actual coverage is at about _97%_.
 
 ## Install
 
@@ -55,18 +55,18 @@ julia> @ein c[i,j] := a[i,k] * b[k,j];
 #### A table for reference
 | code             | meaning         |
 | ---------------- | --------------- |
-| ein"ij,jk->ik"   | matrix matrix multiplication |
-| ein"ijl,jkl->ikl"   | batched - matrix matrix multiplication |
-| ein"ij,j->i"   | matrix vector multiplication |
-| ein"ij,ik,il->jkl"   | star contraction |
-| ein"ii->"   | trace |
-| ein"ij->i" | sum |
-| ein"ii->i" | take the diagonal part of a matrix |
-| ein"ijkl->ilkj" | permute the dimensions of a tensor |
-| ein"i->ii" | construct a diagonal matrix |
-| ein"->ii"  | broadcast a scalar to the diagonal part of a matrix |
-| ein"ij,ij->ij"  | element wise product |
-| ein"ij,kl->ijkl"  | outer product |
+| `ein"ij,jk->ik"`   | matrix matrix multiplication |
+| `ein"ijl,jkl->ikl"`   | batched - matrix matrix multiplication |
+| `ein"ij,j->i"`   | matrix vector multiplication |
+| `ein"ij,ik,il->jkl"`   | star contraction |
+| `ein"ii->"`   | trace |
+| `ein"ij->i"` | sum |
+| `ein"ii->i"` | take the diagonal part of a matrix |
+| `ein"ijkl->ilkj"` | permute the dimensions of a tensor |
+| `ein"i->ii"` | construct a diagonal matrix |
+| `ein"->ii"`  | broadcast a scalar to the diagonal part of a matrix |
+| `ein"ij,ij->ij"`  | element wise product |
+| `ein"ij,kl->ijkl"`  | outer product |
 
 
 To see more examples using the GPU and autodiff, check out our asciinema-demo here:
