@@ -13,9 +13,10 @@ the `@ein_str`- string literal (see examples or help).
 Let `l` be the set of all unique labels in the `ixs` without the ones in `iy`.
 `einsum` then calculates an output tensor `y` with indices labelled `iy` according
 to the following specification:
+```math
+\forall iy : y[iy] = \sum_l x_1[ix_1] * x_2[ix_2] * x_3[ix_3] \ldots
 ```
-∀ iy : y[iy] = ∑ₗ x1[ix1] * x2[ix2] * x3[ix3] ...
-```
+
 where the sum over `l` implies the sum over all possible values of the labels in `l`.
 
 The structure of an `einsum` evaluation with the string-literal is depicted

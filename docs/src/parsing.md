@@ -9,9 +9,9 @@ julia> @ein c[i,k] := a[i,j] * b[j,k]
 where both specifications encode the same operation - a matrix multiplication.
 The `ein_str`-literal is parsed directly into an `EinCode` struct that holds
 the indices of the input `ixs = (('i','j'),('j','k'))` and output `iy = ('i','k')`
-as type parameters, thus making them accessible at compile time.
+as type parameters, making them accessible at compile time.
 
-The string-literal form thus gets turned into
+The string-literal form gets turned into
 ```julia
 julia> c = EinCode((('i','j'),('j','k')),('i','k'))(a,b)
 ```

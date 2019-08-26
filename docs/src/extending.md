@@ -48,4 +48,4 @@ julia> ein"ij -> j"(Diagonal([1,2,3]))
 julia> ein"ij -> "(Diagonal([1,2,3]))
 6
 ```
-(To make sure, you can add a print-statement to the implementation)
+(To make sure the custom implementation is called, you can add a `print`-statement to the method for `Diagonal`)
