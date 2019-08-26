@@ -20,7 +20,7 @@ To find out the details about einsum, please check out my [nextjournal-article](
 
 Einstein summation can be implemented in no more than 20 lines of Julia code, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` on both CPU and GPU without suffering from runtime overhead.
 
-*Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
+*Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, the actual coverage is at about _98%_.
 
 ## Install
 
@@ -39,7 +39,7 @@ julia> ein"ik,kj -> ij"(a,b) # multiply two matrices `a` and `b`
 
 julia> ein"ij -> "(a)[] # sum a matrix, `[]` is used to index the output 0-dimensional array
 
-julia> ein"->ii"(OMEinsum.asarray(1), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
+julia> ein"->ii"(asarray(1), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
 ```
 
 Alternatively, people can specify the contraction with a construction approach
