@@ -14,9 +14,10 @@ alt="OMEinsum logo" width="510"></img>
 This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks.
 It implements one function that both computer scientists and physicists, the *Einstein summation*
 <img alt="einsum definition" src="https://github.com/under-Peter/OMEinsum.jl/blob/master/docs/einsum_define.png?raw=true" width=500/>
+
 To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
 
-This simple definition can implemented in no more than 20 lines in Julialang, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` without suffering from runtime overhead.
+Einstein summation can implemented in no more than 20 lines of Julia code, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` without suffering from runtime overhead.
 
 To install, type `]` in a julia REPL and then input
 ```julia pkg
@@ -68,11 +69,11 @@ To see more examples using the GPU and autodiff, check out our asciinema-demo he
 
 ## Application
 
-For an application in tensor network algorithms, check out the `TensorNetworkAD`
-package, where `OMEinsum` is used to evaluate complicated tensor-contractions.
+For an application in tensor network algorithms, check out the [TensorNetworkAD](https://github.com/under-Peter/TensorNetworkAD.jl)
+package, where `OMEinsum` is used to evaluate tensor-contractions, permutations and summations.
 
-A toy application is the counting of graph colourings.
- Let us focus on graphs
+#### Toy Application: solving 3-coloring problem
+Let us focus on graphs
 with vertices with three edges each. A question one might ask is:
 How many different ways are there to colour the edges of the graph with
 three different colours such that no vertex has a duplicate colour on its edges?
