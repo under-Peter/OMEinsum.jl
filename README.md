@@ -13,13 +13,14 @@ alt="OMEinsum logo" width="510"></img>
 
 This is a repository for the _Google Summer of Code_ project on *Differentiable Tensor Networks*.
 It implements one function that both computer scientists and physicists love, the *Einstein summation*
+
 <img alt="einsum definition" src="https://github.com/under-Peter/OMEinsum.jl/blob/master/docs/einsum_define.png?raw=true" width=300/>
 
 To find out the details about einsum, please check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
 
 Einstein summation can be implemented in no more than 20 lines of Julia code, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` on both CPU and GPU without suffering from runtime overhead.
 
-*Note: why the test coverage is not 100* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
+*Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
 
 ## Install
 
