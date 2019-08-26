@@ -39,7 +39,7 @@ end
 
 using TensorOperations
 
-function einsum(::PTrace, ::EinCode{ixs,iy}, xs, size_dict) where {ixs, iy}
+function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
     asarray(tensortrace(xs[1], ixs[1], iy), xs[1])
 end
 
