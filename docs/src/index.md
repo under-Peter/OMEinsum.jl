@@ -19,6 +19,20 @@ to the following specification:
 
 where the sum over `l` implies the sum over all possible values of the labels in `l`.
 
+As an example, consider the _matrix multiplication_ of two random 2×2 tensors, where we have:
+```julia
+xs = (rand(2,2), rand(2,2))
+ixs = (('i','j'),('j','k'))
+iy = ('i','k')
+```
+Now `l = ('j',)` since all unique indices are `('i','j','k')`
+but both `'i'` and `'k'` are in `iy`.
+The output `y` is then defined by
+```math
+\forall i,k : y[i,k] = \sum_j x_1[i,j] * x_2[j,k]
+```
+which is just the regular definition of matrix multiplication. Alternatively it could've been specified with a custom string-literal as `ein"ij,jk -> ik"(rand(2,2),rand(2,2))`, see [Input (flat)](@ref).
+
 The structure of an `einsum` evaluation with the string-literal is depicted
 in the flowchart below:
 ![](ome-flowchart.png)
