@@ -2,6 +2,7 @@ using Test
 using OMEinsum
 using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims
 using SymEngine
+using LinearAlgebra: I
 
 SymEngine.free_symbols(syms::Union{Real, Complex}) = Basic[]
 SymEngine.free_symbols(syms::AbstractArray{T}) where {T<:Union{Real, Complex}} = Basic[]
@@ -67,6 +68,7 @@ end
 
     # trace
     @test einsum(EinCode(((1,1),),()), (a,))[] ≈ sum(a[i,i] for i in 1:2)
+    @test einsum(EinCode(((1,1),),()), (a,)) isa Array
     aa = rand(2,4,4,2)
     @test einsum(EinCode(((1,2,2,1),), ()), (aa,))[] ≈ sum(aa[i,j,j,i] for i in 1:2, j in 1:4)
 
@@ -113,7 +115,8 @@ end
     a = rand(2,2,5)
     @test einsum(EinCode(((1,2,3),),(1,2)),(a,)) ≈ sum(a, dims=3)
     # with permutation
-    ein"ijk -> ki"(a) ≈ transpose(dropdims(sum(a,dims=2),dims=2))
+    @test ein"ijk -> ki"(a) ≈ transpose(dropdims(sum(a,dims=2),dims=2))
+    @test ein"ijk -> "(a)[] ≈ sum(a)
 
     # Hadamard product
     a = rand(2,3)
@@ -124,6 +127,18 @@ end
     a = rand(2,3)
     b = rand(2,3)
     @test einsum(EinCode(((1,2),(3,4)),(1,2,3,4)),(a,b)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
+
+    # Broadcasting
+    @test ein"->ii"(OMEinsum.asarray(1); size_info=IndexSize('i'=>5)) == Matrix(I, 5, 5)
+
+    # trivil
+    @test ein"->ii"(asarray(1); size_info=IndexSize('i'=>5)) == Matrix(I, 5, 5)
+    res = ein"->"(asarray(3))
+    @test res isa Array
+    @test res[] === 3
+    res = ein",->"(asarray(3), asarray(4))
+    @test res isa Array
+    @test res[] === 12
 
     # Projecting to diag
     a = rand(2,2)
