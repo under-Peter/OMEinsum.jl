@@ -11,70 +11,57 @@ alt="OMEinsum logo" width="510"></img>
 [![pipeline status](https://gitlab.com/JuliaGPU/OMEinsum-jl/badges/master/pipeline.svg)](https://gitlab.com/user/JuliaGPU/OMEinsum-jl/master)
 [![Codecov](https://codecov.io/gh/under-Peter/OMEinsum.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/under-Peter/OMEinsum.jl)
 
-This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks. Note that **the code coverage is misleading** - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
-
-This package exports one function, `einsum`, with three interfaces.
-`einsum` implements functionality similar to the `einsum` function in `numpy`,
-although some details are different.
-
-`einsum` operations are specified by a tuple of tensors `xs = (x1, x2, x3...)`
-, a tuple of index-labels for the tensors in `xs`, `ixs = (ix1, ix2, ix3...)`,
-and output index-labels `iy` specified as `einsum(EinCode(ixs,iy), xs)`.
-Alternatively, operations can be specified using the `@ein`-macro or
-the `@ein_str`- string literal (see examples or help).
-
-Let `l` be the set of all unique labels in the `ixs` without the ones in `iy`.
-`einsum` then calculates an output tensor `y` with indices labelled `iy` according
-to the following specification:
-```
-∀ iy : y[iy] = ∑ₗ x1[ix1] * x2[ix2] * x3[ix3] ...
-```
-where the sum over `l` implies the sum over all possible values of the labels in `l`.
-
+This is a repository for the _Google Summer of Code_ project on Differentiable Tensor Networks.
+It implements one function that both computer scientists and physicists, the *Einstein summation*
+<img alt="einsum definition" src="https://github.com/under-Peter/OMEinsum.jl/blob/master/docs/einsum_define.png?raw=true" width=500/>
 To find out the details about einsum, check out my [nextjournal-article](https://nextjournal.com/under-Peter/julia-summer-of-einsum) or the [numpy-manual](https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html).
 
+This simple definition can implemented in no more than 20 lines in Julialang, the automatic differentiation is also [straightforward](https://giggleliu.github.io/2019/04/02/einsumbp.html). The main effort of this package is improving the [performance](https://github.com/under-Peter/OMEinsum-Benchmarks) utilizing Julia [multiple dispatch on traits](https://white.ucc.asn.au/2018/10/03/Dispatch,-Traits-and-Metaprogramming-Over-Reflection.html). So that people can enjoy the speed of faster specific implementations like BLAS functions, `sum` and `permutedims` without suffering from runtime overhead.
 
-[Benchmarks are available here](https://github.com/under-Peter/OMEinsum-Benchmarks)
+To install, type `]` in a julia REPL and then input
+```julia pkg
+pkg> add OMEinsum
+```
 
-## Examples
-Consider multiplying two matrices `a` and `b` which we specify with
+## Learn by Examples
+To avoid runtime overhead, we recommend users to use [non-standard string literal](https://docs.julialang.org/en/v1/manual/metaprogramming/#Non-Standard-String-Literals-1) `@ein_str`.
+For example
 ```julia
 julia> a, b = rand(2,2), rand(2,2);
 
+julia> ein"ik,kj -> ij"(a,b) # multiply two matrices `a` and `b`
+
+julia> ein"ij -> "(a)[] # sum a matrix, `[]` is used to index the output 0-dimensional array
+
+julia> ein"->ii"(OMEinsum.asarray(1), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
+```
+
+Alternatively, people can specify the contraction with a construction approach
+```julia
 julia> einsum(EinCode((('i','k'),('k','j')),('i','j')),(a,b))
 ```
-
-This way of specifying an operation is prone to errors,
-which is why additional interfaces are exported.
-
-The [string literal](https://docs.julialang.org/en/latest/manual/metaprogramming/#Non-Standard-String-Literals-1) does not introduce any runtime overhead thanks to Julia's powerful meta programming and simplifies the above operation to
-```julia
-julia> ein"ik,kj -> ij"(a,b)
-```
-
-Instead of the string-literal, we can also use the `@ein` macro,
+or a macro based interface, `@ein` macro,
 which is closer to the standard way of writing einsum-operations in physics
-as
 ```julia
 julia> @ein c[i,j] := a[i,k] * b[k,j];
 ```
-which will calculate the matrix product between `a` and `b` _and_ assign
-it to a new variable `c`.
-So this is equivalent to writing
-```julia
-julia> c = ein"ik,kj -> ij"(a,b);
-```
 
+#### A table of reference
+| code             | meaning         |
+| ---------------- | --------------- |
+| ein"ij,jk->ik"   | matrix matrix multiplication |
+| ein"ijl,jkl->ikl"   | batched - matrix matrix multiplication |
+| ein"ij,j->i"   | matrix vector multiplication |
+| ein"ij,ik,il->jkl"   | star contraction |
+| ein"ii->"   | trace |
+| ein"ij->i" | sum |
+| ein"ii->i" | take the diagonal part of a matrix |
+| ein"ijkl->ilkj" | permute the dimensions of a tensor |
+| ein"i->ii" | construct a diagonal matrix |
+| ein"->ii"  | broadcast a scalar to the diagonal part of a matrix |
+| ein"ij,ij->ij"  | element wise product |
+| ein"ij,kl->ijkl"  | outer product |
 
-If we're interested in the sum of all elements of a matrix product `a*b`
-we can reduce over all indices with the specification `ij,jk -> `
-```julia
-julia> ein"ij,jk->"(a,b)[] ≈ sum(a * b)
-true
-```
-
-Note the use of `[]` to extract the element of a 0-dimensional array.
-`einsum` always returns arrays so scalars are wrapped in 0-dimensional arrays.
 
 To see more examples using the GPU and autodiff, check out our asciinema-demo here:
 [![asciicast](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb.svg)](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb)
@@ -129,3 +116,6 @@ Suggestions and Comments in the _Issues_ are welcome.
 
 ## License
 MIT License
+
+## Notes
+*why the code coverage is low?* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, coverage is at about _98%_.
