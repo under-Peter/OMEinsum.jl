@@ -30,19 +30,56 @@ pkg> add OMEinsum
 ```
 
 ## Learn by Examples
-To avoid runtime overhead, we recommend users to use [non-standard string literal](https://docs.julialang.org/en/v1/manual/metaprogramming/#Non-Standard-String-Literals-1) `@ein_str`.
-For example
+To avoid runtime overhead, we recommend users to use [non-standard string literal](https://docs.julialang.org/en/v1/manual/metaprogramming/#Non-Standard-String-Literals-1) `@ein_str`. The following examples illustrates how `einsum` works
+
 ```julia
-julia> a, b = rand(2,2), rand(2,2);
+julia> using OMEinsum, SymEngine
 
-julia> ein"ik,kj -> ij"(a,b) # multiply two matrices `a` and `b`
+julia> catty = fill(Basic(:🐱), 2, 2)
+2×2 Array{Basic,2}:
+ 🐱  🐱
+ 🐱  🐱
 
-julia> ein"ij -> "(a)[] # sum a matrix, `[]` is used to index the output 0-dimensional array
+julia> fish = fill(Basic(:🐟), 2, 3, 2)
+2×3×2 Array{Basic,3}:
+[:, :, 1] =
+ 🐟  🐟  🐟
+ 🐟  🐟  🐟
 
-julia> ein"->ii"(asarray(1), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
+[:, :, 2] =
+ 🐟  🐟  🐟
+ 🐟  🐟  🐟
+
+julia> snake = fill(Basic(:🐍), 3, 3)
+3×3 Array{Basic,2}:
+ 🐍  🐍  🐍
+ 🐍  🐍  🐍
+ 🐍  🐍  🐍
+
+julia> medicine = ein"ij,jki,kk->k"(catty, fish, snake)
+3-element Array{Basic,1}:
+ 4*🐱*🐍*🐟
+ 4*🐱*🐍*🐟
+ 4*🐱*🐍*🐟
+
+julia> ein"ik,kj -> ij"(catty, catty) # multiply two matrices `a` and `b`
+2×2 Array{Basic,2}:
+ 2*🐱^2  2*🐱^2
+ 2*🐱^2  2*🐱^2
+
+julia> ein"ij -> "(catty)[] # sum a matrix, output 0-dimensional array
+4*🐱
+
+julia> ein"->ii"(asarray(snake[1,1]), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
+5×5 Array{Basic,2}:
+ 🐍  0  0  0  0
+ 0  🐍  0  0  0
+ 0  0  🐍  0  0
+ 0  0  0  🐍  0
+ 0  0  0  0  🐍
 ```
 
-Alternatively, people can specify the contraction with a construction approach
+Alternatively, people can specify the contraction with a construction approach, which is useful when the contraction code can only be obtained at run time
 ```julia
 julia> einsum(EinCode((('i','k'),('k','j')),('i','j')),(a,b))
 ```
