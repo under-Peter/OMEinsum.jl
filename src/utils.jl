@@ -59,4 +59,20 @@ julia> allunique((1,2,3,1))
 false
 ```
 """
-allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
+function allunique(ix::NTuple{N,T}) where {N,T}
+    for i=1:N
+        for j=i+1:N
+            @inbounds ix[i] == ix[j] && return false
+        end
+    end
+    return true
+end
+
+function conditioned_permutedims(A::AbstractArray{T,N}, pA) where {T,N}
+    any(i-> (@inbounds pA[i]!=i), 1:N) ? permutedims(A, pA) : A
+end
+
+function align_eltypes(xs::AbstractArray...)
+    T = promote_type(eltype.(xs)...)
+    return map(x->eltype(x)==T ? x : T.(x), xs)
+end

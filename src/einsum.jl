@@ -128,3 +128,11 @@ end
 function einsum(::PTrace, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
+
+function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    loop_einsum(code, xs, size_dict)
+end
+
+function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
+    batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy)
+end

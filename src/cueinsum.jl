@@ -48,3 +48,7 @@ function einsum(::PTrace, code::EinCode{ixs, iy},
             size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
+
+function _batched_gemm(C1::Char, C2::Char, A::CuArray{T1, 3}, B::CuArray{T2,3}) where {T1<:Number, T2<:Number}
+    CuArrays.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
+end

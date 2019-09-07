@@ -9,6 +9,7 @@ struct Hadamard <: EinRule{Any} end
 struct PTrace <: EinRule{1} end
 struct MatMul <: EinRule{2} end
 struct Identity <: EinRule{Any} end
+struct BatchedContract <: EinRule{2} end
 struct DefaultRule <: EinRule{Any} end
 
 
@@ -83,6 +84,17 @@ function match_rule(::Type{Identity}, ixs, iy)
     ixs === (iy,) && allunique(iy)
 end
 
+function match_rule(::Type{BatchedContract}, ixs::NTuple{X, NTuple{N,T} where N}, iy::NTuple{M,T}) where {T,X,M}
+    length(ixs) == 2 || return false
+    iA, iB = ixs
+    length(tunique(iA)) == length(iA) && length(tunique(iB)) == length(iB) && length(tunique(iy)) == length(iy)|| return false
+    allsyms = Dict{T,Int}()
+    for s in Iterators.flatten((iA, iB, iy))
+        allsyms[s] = get(allsyms, s, 0) + 1
+    end
+    return all(v->v>1, values(allsyms))
+end
+
 const einsum_rules = [
     Identity,
     MatMul,
@@ -91,6 +103,7 @@ const einsum_rules = [
     Tr,
     PTrace,
     Sum,
+    BatchedContract,
     PairWise,
     ]
 

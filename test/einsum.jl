@@ -227,3 +227,14 @@ end
     @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end
+
+@testset "isbatchmul" begin
+    for (ixs, iy) in [(((1,2), (2,3)), (1,3)), (((1,2,3), (2,3)), (1,3)),
+                        (((7,1,2,3), (2,4,3,7)), (1,4,3)),
+                        (((3,), (3,)), (3,)), (((3,1), (3,)), (3,1))
+                        ]
+        xs = ([randn(ComplexF64, fill(4,length(ix))...) for ix in ixs]...,)
+        @test EinCode(ixs, iy)(xs...) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+        @test OMEinsum.batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+    end
+end
