@@ -124,9 +124,3 @@ function match_rule(ixs, iy)
 end
 
 match_rule(code::EinCode{ixs, iy}) where {ixs, iy} = match_rule(ixs, iy)
-
-function match_rule(code::NestedEinsumStable)
-    return (match_rule(code.eins), match_rule.(code.args))
-end
-
-match_rule(code::Int64) = code
