@@ -85,14 +85,11 @@ function match_rule(::Type{Identity}, ixs, iy)
 end
 
 function match_rule(::Type{BatchedContract}, ixs::NTuple{X, NTuple{N,T} where N}, iy::NTuple{M,T}) where {T,X,M}
-    length(ixs) == 2 || return false
+    X == 2 || return false
     iA, iB = ixs
-    length(tunique(iA)) == length(iA) && length(tunique(iB)) == length(iB) && length(tunique(iy)) == length(iy)|| return false
-    allsyms = Dict{T,Int}()
-    for s in Iterators.flatten((iA, iB, iy))
-        allsyms[s] = get(allsyms, s, 0) + 1
-    end
-    return all(v->v>1, values(allsyms))
+    all(allunique, (iA, iB, iy)) || return false
+    allinds = (iA..., iB..., iy...)
+    all(x -> count(==(x), allinds) > 1, allinds)
 end
 
 const einsum_rules = [

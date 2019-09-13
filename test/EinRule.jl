@@ -98,3 +98,8 @@ end
     @test !match_rule(BatchedContract,((2,1), (2,3)), (1,1))
     @test !match_rule(BatchedContract,((1,2,3), (2,4,3)), (1,3))
 end
+
+@testset "match_rule eye candies" begin
+    @test match_rule(ein"ij,jk,kl->il") == PairWise()
+    @test match_rule(ein"(ij,jk),kl->il") == (OMEinsum.MatMul(), ((OMEinsum.MatMul(), (1, 2)), 3))
+end
