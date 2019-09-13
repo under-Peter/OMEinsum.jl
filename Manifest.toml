@@ -12,8 +12,6 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 [[BatchedRoutines]]
 deps = ["LinearAlgebra"]
 git-tree-sha1 = "8ee75390ba4bbfaf9aa48c121857b0da9a914265"
-repo-rev = "master"
-repo-url = "https://github.com/Roger-luo/BatchedRoutines.jl.git"
 uuid = "a9ab73d0-e05c-5df1-8fde-d6a4645b8d8e"
 version = "0.2.1"
 
@@ -103,9 +101,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[FFTW]]
 deps = ["AbstractFFTs", "BinaryProvider", "Conda", "Libdl", "LinearAlgebra", "Reexport", "Test"]
-git-tree-sha1 = "e1a479d3c972f20c9a70563eec740bbfc786f515"
+git-tree-sha1 = "03f8776fbdae28c20c0d1d2ae4e090cd1dfcd247"
 uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "0.3.0"
+version = "1.0.0"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
@@ -272,9 +270,9 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[Strided]]
 deps = ["LinearAlgebra", "TupleTools"]
-git-tree-sha1 = "1013add5a55fc7c48c19a54486869c7ff9240363"
+git-tree-sha1 = "7bc504102ef0e49b19727ea45b54f611bee4320e"
 uuid = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
-version = "0.3.2"
+version = "0.3.3"
 
 [[TensorOperations]]
 deps = ["LRUCache", "LinearAlgebra", "Strided", "TupleTools"]
