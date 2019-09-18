@@ -202,3 +202,10 @@ end
 
 extractxs(xs, x::NestedEinsumStable) = x(xs...)
 extractxs(xs, i::Int) = xs[i]
+
+
+function match_rule(code::NestedEinsumStable)
+    return (match_rule(code.eins), match_rule.(code.args))
+end
+
+match_rule(code::Int64) = code

@@ -1,7 +1,7 @@
 using Test, OMEinsum
 using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
                 Permutedims, PTrace, Hadamard, MatMul, nopermute,
-                Identity
+                Identity, BatchedContract
 
 @testset "match rule" begin
     ixs = ((1,2), (2,3))
@@ -86,4 +86,20 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test match_rule(Identity, ((1,2,3),), (1,2,3))
     @test !match_rule(Identity, ((1,2,3),), (1,3,2))
 
+end
+
+@testset "isbatchmul" begin
+    @test match_rule(BatchedContract,((1,2), (2,3)), (1,3)) # matmul
+    @test match_rule(BatchedContract,((1,2,3), (2,3)), (1,3)) # matvec-batched
+    @test match_rule(BatchedContract,((7,1,2,3), (2,4,3,7)), (1,4,3)) # matmat-batched
+    @test match_rule(BatchedContract,((3,), (3,)), (3,))  # pure batch
+    @test match_rule(BatchedContract,((3,1), (3,)), (3,1))  # batched vector-vector
+    @test !match_rule(BatchedContract,((2,2), (2,3)), (1,3))
+    @test !match_rule(BatchedContract,((2,1), (2,3)), (1,1))
+    @test !match_rule(BatchedContract,((1,2,3), (2,4,3)), (1,3))
+end
+
+@testset "match_rule eye candies" begin
+    @test match_rule(ein"ij,jk,kl->il") == PairWise()
+    @test match_rule(ein"(ij,jk),kl->il") == (OMEinsum.MatMul(), ((OMEinsum.MatMul(), (1, 2)), 3))
 end

@@ -9,6 +9,7 @@ struct Hadamard <: EinRule{Any} end
 struct PTrace <: EinRule{1} end
 struct MatMul <: EinRule{2} end
 struct Identity <: EinRule{Any} end
+struct BatchedContract <: EinRule{2} end
 struct DefaultRule <: EinRule{Any} end
 
 
@@ -83,6 +84,14 @@ function match_rule(::Type{Identity}, ixs, iy)
     ixs === (iy,) && allunique(iy)
 end
 
+function match_rule(::Type{BatchedContract}, ixs::NTuple{X, NTuple{N,T} where N}, iy::NTuple{M,T}) where {T,X,M}
+    X == 2 || return false
+    iA, iB = ixs
+    all(allunique, (iA, iB, iy)) || return false
+    allinds = (iA..., iB..., iy...)
+    all(x -> count(==(x), allinds) > 1, allinds)
+end
+
 const einsum_rules = [
     Identity,
     MatMul,
@@ -91,12 +100,14 @@ const einsum_rules = [
     Tr,
     PTrace,
     Sum,
+    BatchedContract,
     PairWise,
     ]
 
 @doc raw"
     match_rule(ixs, iy)
     match_rule(code::EinCode{ixs, iy})
+    match_rule(code::NestedEinCode)
 
 go through all operations specified in the `einsum_rules`-vector and return
 the first `T` for which `match_rule(T, ixs, iy)` returns true.

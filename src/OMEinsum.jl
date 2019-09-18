@@ -3,10 +3,12 @@ export einsum
 export einsumopt
 
 using TupleTools, Requires, TensorOperations, LinearAlgebra
+using BatchedRoutines
 
 include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
+include("batched_contract.jl")
 include("einsum.jl")
 function __init__()
     @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" include("cueinsum.jl")

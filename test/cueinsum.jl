@@ -24,3 +24,14 @@ end
     ca = CuArray(a);
     @test Array(ein"npu,por,dom,lmn -> urdl"(ca,ca,ca,ca)) ≈ ein"npu,por,dom,lmn -> urdl"(a,a,a,a)
 end
+
+@testset "isbatchmul" begin
+    for (ixs, iy) in [(((1,2), (2,3)), (1,3)), (((1,2,3), (2,3)), (1,3)),
+                        (((7,1,2,3), (2,4,3,7)), (1,4,3)),
+                        (((3,), (3,)), (3,)), (((3,1), (3,)), (3,1))
+                        ]
+        xs = ([randn(ComplexF64, fill(4,length(ix))...) |> CuArray for ix in ixs]...,)
+        @test OMEinsum.batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+        @test EinCode(ixs, iy)(xs...) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+    end
+end
