@@ -1,10 +1,10 @@
-using CuArrays
-using CUDAdrv
+using .CuArrays
+using .CuArrays.CUDAnative
+using .CuArrays.CUDAdrv
 
-using CUDAnative, TupleTools
+using TupleTools
 using Base.Cartesian
-using GPUArrays
-import CuArrays: @cuindex
+import .CuArrays: @cuindex
 
 # patch file for CUDAnative and CuArrays.
 function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
