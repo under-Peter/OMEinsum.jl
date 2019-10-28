@@ -1,4 +1,5 @@
-using CuArrays, CUDAnative, GPUArrays
+using .CuArrays
+using .CuArrays.CUDAnative
 
 println("CUDA: YOU FIND ME!")
 
