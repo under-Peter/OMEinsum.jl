@@ -1,5 +1,3 @@
-include("EinRule.jl")
-
 @doc raw"
     einsum(::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
 
@@ -39,7 +37,7 @@ end
 
 using TensorOperations
 
-function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
+function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
     asarray(tensortrace(xs[1], ixs[1], iy), xs[1])
 end
 
@@ -49,13 +47,8 @@ function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     asarray(broadcast(*, xs...), xs[1])
 end
 
-@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:Union{Complex, Real}}, size_dict) where {ixs, iy, NT}
-    if NT > 1
-        body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
-    else
-        body = :(xs[1][$(Symbol.(ixs[1])...)])
-    end
-    :(@tensoropt res[$(Symbol.(iy)...)] := $body)
+function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:BlasFloat}, size_dict) where {ixs, iy, NT}
+    optcontract(ixs, xs, iy)
 end
 
 function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
@@ -133,6 +126,6 @@ function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, 
     loop_einsum(code, xs, size_dict)
 end
 
-function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
+function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
     batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy)
 end
