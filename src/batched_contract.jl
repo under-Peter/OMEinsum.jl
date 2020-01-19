@@ -42,10 +42,10 @@ function batched_contract(iAs, A::AbstractArray, iBs, B::AbstractArray, iOuts::N
 end
 
 # reload this function for GPU support!
-function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:Number, T2<:Number}
+function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
     batched_gemm(C1, C2, A, B)
 end
 
-function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:Number, T2<:Number}
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
     batched_gemm(C1, C2, Array(A), Array(B))
 end

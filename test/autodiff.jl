@@ -29,7 +29,7 @@ using Zygote
             @test bpcheck(aa -> einsum(EinCode(((1,2,2,3),), (1,2,3)), (aa,)) |> abs ∘ sum, aa)
 
             # permutation
-            @test_broken bpcheck(a -> einsum(EinCode(((1,2),), (2,1)), (a,)) |> abs ∘ sum, a)
+            @test bpcheck(a -> einsum(EinCode(((1,2),), (2,1)), (a,)) |> abs ∘ sum, a)
             @test bpcheck(t -> einsum(EinCode(((1,2,3,4),),(2,3,1,4)), (t,)) |> abs ∘ sum, t)
 
             # tensor contraction

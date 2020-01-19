@@ -47,7 +47,7 @@ function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     asarray(broadcast(*, xs...), xs[1])
 end
 
-function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:BlasFloat}, size_dict) where {ixs, iy, NT}
+function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray}, size_dict) where {ixs, iy, NT}
     optcontract(ixs, xs, iy)
 end
 
@@ -111,10 +111,6 @@ end
 
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    loop_einsum(code, xs, size_dict)
-end
-
-function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
 
