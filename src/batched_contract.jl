@@ -45,3 +45,7 @@ end
 function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:Number, T2<:Number}
     batched_gemm(C1, C2, A, B)
 end
+
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:Number, T2<:Number}
+    batched_gemm(C1, C2, Array(A), Array(B))
+end

@@ -126,6 +126,17 @@ function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, 
     loop_einsum(code, xs, size_dict)
 end
 
+function _preprocess_dupindices(ix::NTuple{N,T}, x) where {N,T}
+    if tunique(ix) != N
+        iy = [l for l in ix if count(==(l), ix) == 1]
+        iy, einsum(EinCode((ix,), (iy...,)), (x,), get_size_dict((ix,), (x,)))
+    else
+        ix, x
+    end
+end
+
 function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
-    batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy)
+    ixs1, xs1 = _preprocess_dupindices(ixs[1], xs[1])
+    ixs2, xs2 = _preprocess_dupindices(ixs[2], xs[2])
+    batched_contract(ixs1, xs1, ixs2, xs2, iy)
 end
