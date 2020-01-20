@@ -3,7 +3,7 @@ export optcontract, treecontract
 """
 find the optimal contraction tree.
 """
-function TensorOperations.optimaltree(network, size_dict::Dict{Int, Int}=Dict{Int, Int}())
+function TensorOperations.optimaltree(network, size_dict::Dict{<:Any,Int}=Dict{Int, Int}())
     unique_tokens = union(network...)
     optimaltree(network, Dict(token=>Power{:χ}(get(size_dict, token, 1),1) for token in unique_tokens))
 end
@@ -53,7 +53,7 @@ end
 
 function optcontract(ixs, xs, iy)
     size_dict = get_size_dict(ixs, xs)
-    tree, cost = optimaltree(ixs, Dict(size_dict))
+    tree, cost = optimaltree([[ix...] for ix in ixs], Dict(size_dict))
     treecontract(tree, ixs, xs, iy)
 end
 
