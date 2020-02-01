@@ -14,7 +14,7 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
-Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 BatchedRoutines = "~0.2.0"
@@ -26,6 +26,7 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "LinearAlgebra", "ProgressMeter", "SymEngine", "Random"]
+test = ["Test", "LinearAlgebra", "ProgressMeter", "SymEngine", "Random", "Zygote"]

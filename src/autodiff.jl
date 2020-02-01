@@ -1,4 +1,4 @@
-using Zygote
+using ZygoteRules: @adjoint
 
 @doc raw"
     einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i)
@@ -31,7 +31,7 @@ function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     convert(typeof(xs[i]), y)
 end
 
-@Zygote.adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
+@adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
     y = einsum(code, xs, size_dict)
     return y, dy -> let cdy = map(conj,dy)
                 (
@@ -77,4 +77,5 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
     isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8)
 end
 
-@Zygote.nograd get_size_dict
+# @Zygote.nograd get_size_dict
+@adjoint get_size_dict(arg...) = get_size_dict(arg...), Δ -> map(_->nothing, arg)
