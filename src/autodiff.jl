@@ -25,7 +25,12 @@ function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     nixs = TupleTools.insertat(ixs, i, (iy,))
     nxs  = TupleTools.insertat( xs, i, (cdy,))
     niy = ixs[i]
-    y = conj!(einsum(EinCode(nixs, niy), nxs, size_dict))
+    y = einsum(EinCode(nixs, niy), nxs, size_dict)
+    try
+        conj!(y)
+    catch e
+        y = conj(y)
+    end
     typeof(y) == typeof(xs[i]) && return y
     xs[i] isa Array{<:Real} && return convert(typeof(xs[i]), real(y))
     convert(typeof(xs[i]), y)
