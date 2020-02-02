@@ -42,40 +42,5 @@ end
             end
 end
 
-@doc raw"
-    bpcheck(f, args...; η = 1e-5, verbose=false)
-returns a `Bool` indicating whether Zygote calculates the gradient of `f(args...) -> scalar`
-correctly using the relation `f(x - ηg) ≈ f(x) - η|g|²` with a relative tolerance
-of 1e-2 and an absolute tolerance of 1e-8.
-If `verbose=true`, print `f(x) - f(x - ηg)`and `η|g|²`.
-
-# example
-
-```jldoctest; setup = :(using OMEinsum)
-julia> using OMEinsum: bpcheck
-
-julia> a, b = rand(2,2), rand(2,2);
-
-julia> bpcheck(sum ∘ ein\"ij,jk -> ik\", a, b)
-true
-```
-"
-function bpcheck(f, args...; η = 1e-5, verbose = false)
-    g = gradient(f, args...)
-    all(==(nothing), g) && error()
-    dy_ref = 0
-    for x in g
-        x === nothing && continue
-        x isa Tuple && (dy_ref += η * mapreduce(y -> y == nothing ? 0 : sum(abs2,y), +, x))
-        x isa AbstractArray && (dy_ref += η * sum(abs2,x))
-    end
-    dy = f(args...) - f([gi == nothing ? arg : arg .- η .* gi for (arg, gi) in zip(args,g)]...)
-
-    verbose && @show dy
-    verbose && @show dy_ref
-
-    isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8)
-end
-
 # @Zygote.nograd get_size_dict
 @adjoint get_size_dict(arg...) = get_size_dict(arg...), Δ -> map(_->nothing, arg)
