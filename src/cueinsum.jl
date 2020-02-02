@@ -1,7 +1,7 @@
 using .CuArrays
 using .CuArrays.CUDAnative
 
-println("CUDA: YOU FIND ME!")
+println("OMEinsum: YOU FIND CUDA!")
 
 include("cudapatch.jl")
 
@@ -37,19 +37,18 @@ function loop_einsum!(code::EinCode{ixs, iy},
 end
 
 # define einsum for both PairWise and PTrace with CuArray to have those operations
-# dispatch to loop_einsum, since the default dispatch does not support CuArray yet
-function einsum(::PairWise, code::EinCode{ixs, iy},
-            xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}},
-            size_dict) where {ixs, iy, NT}
-    loop_einsum(code, xs, size_dict)
-end
-
 function einsum(::PTrace, code::EinCode{ixs, iy},
-            xs::NTuple{NT,CuArray{T} where T<:Union{Complex, Real}},
+            xs::NTuple{NT,CuArray{T} where T<:CuBlasFloat},
             size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
 
 function _batched_gemm(C1::Char, C2::Char, A::CuArray{T1, 3}, B::CuArray{T2,3}) where {T1<:Number, T2<:Number}
     CuArrays.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
+end
+
+function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, CuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
+    ixs1, xs1 = _preprocess_dupindices(ixs[1], xs[1])
+    ixs2, xs2 = _preprocess_dupindices(ixs[2], xs[2])
+    batched_contract(ixs1, xs1, ixs2, xs2, iy)
 end

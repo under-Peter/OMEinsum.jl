@@ -3,12 +3,18 @@ export einsum
 export einsumopt
 
 using TupleTools, Requires, TensorOperations, LinearAlgebra
+using TensorOperations: optimaltree, Power
 using BatchedRoutines
+import LinearAlgebra: BlasFloat
+const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 
 include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
 include("batched_contract.jl")
+
+include("EinRule.jl")
+include("optcontract.jl")
 include("einsum.jl")
 function __init__()
     @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" include("cueinsum.jl")

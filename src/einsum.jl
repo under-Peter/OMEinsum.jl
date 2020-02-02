@@ -1,5 +1,3 @@
-include("EinRule.jl")
-
 @doc raw"
     einsum(::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
 
@@ -39,7 +37,7 @@ end
 
 using TensorOperations
 
-function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
+function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
     asarray(tensortrace(xs[1], ixs[1], iy), xs[1])
 end
 
@@ -49,13 +47,8 @@ function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     asarray(broadcast(*, xs...), xs[1])
 end
 
-@generated function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray{T} where T<:Union{Complex, Real}}, size_dict) where {ixs, iy, NT}
-    if NT > 1
-        body = Expr(:call, :*, (:(xs[$i][$(Symbol.(ixs[i])...)]) for i in 1:NT)...)
-    else
-        body = :(xs[1][$(Symbol.(ixs[1])...)])
-    end
-    :(@tensoropt res[$(Symbol.(iy)...)] := $body)
+function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray}, size_dict) where {ixs, iy, NT}
+    optcontract(ixs, xs, iy)
 end
 
 function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
@@ -121,10 +114,6 @@ function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
     loop_einsum(code, xs, size_dict)
 end
 
-function einsum(::PairWise, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
-    loop_einsum(code, xs, size_dict)
-end
-
 function einsum(::PTrace, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
@@ -133,6 +122,17 @@ function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, 
     loop_einsum(code, xs, size_dict)
 end
 
-function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:Union{Complex,Real}}}, size_dict) where {ixs, iy}
-    batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy)
+function _preprocess_dupindices(ix::NTuple{N,T}, x) where {N,T}
+    if tunique(ix) != N
+        iy = [l for l in ix if count(==(l), ix) == 1]
+        iy, einsum(EinCode((ix,), (iy...,)), (x,), get_size_dict((ix,), (x,)))
+    else
+        ix, x
+    end
+end
+
+function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
+    ixs1, xs1 = _preprocess_dupindices(ixs[1], xs[1])
+    ixs2, xs2 = _preprocess_dupindices(ixs[2], xs[2])
+    batched_contract(ixs1, xs1, ixs2, xs2, iy)
 end

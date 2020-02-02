@@ -1,6 +1,7 @@
 using Test
 using OMEinsum
 using CuArrays
+using DoubleFloats
 
 CuArrays.allowscalar(false)
 
@@ -34,4 +35,22 @@ end
         @test OMEinsum.batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
         @test EinCode(ixs, iy)(xs...) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
+end
+
+
+@testset "doublefloats" begin
+    D = 4 
+    T = CuArray(rand(Double64, D, D, D, D, D, D))
+    U = CuArray(rand(Double64, D, D, D))
+
+    code = ein"abewcd,bfixgh,ajeycd,jfizgh->wxyz"
+    xs = (T,T,T,T)
+    M = code(xs...)
+    @test M ≈ loop_einsum(code, xs, OMEinsum.get_size_dict(OMEinsum.getixs(code), xs))
+
+    code = ein"(ubcdef,fjz),dhx,(bvghij,eiy),cgw->uvwxyz"
+    _code = ein"ubcdef,fjz,dhx,bvghij,eiy,cgw->uvwxyz"
+    xs = (T,U,U,T,U,U)
+    M = code(xs...)
+    @test M ≈ loop_einsum(_code, xs, OMEinsum.get_size_dict(OMEinsum.getixs(_code), xs))
 end

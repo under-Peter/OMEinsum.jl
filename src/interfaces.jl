@@ -83,6 +83,7 @@ end
 
 IndexSize(sizes::Pair...) = IndexSize(first.(sizes), last.(sizes))
 IndexSize(indices::Tuple{}, sizes::Tuple{}) = IndexSize{0,Any}(indices, sizes)
+Base.Dict(x::IndexSize) = Dict(zip(x.indices, x.sizes))
 
 Base.:+(x::IndexSize, y::IndexSize) = IndexSize((x.indices..., y.indices...), (x.sizes..., y.sizes...))
 
