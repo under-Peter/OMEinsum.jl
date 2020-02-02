@@ -1,5 +1,5 @@
 using TupleTools, Base.Cartesian
-export loop_einsum, loop_einsum!
+export loop_einsum, loop_einsum!, allow_loops
 
 """
     loop_einsum(::EinCode, xs, size_dict)
@@ -23,6 +23,7 @@ of correct size `y`.
 function loop_einsum!(code::EinCode{ixs, iy},
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 y::AbstractArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+    ALLOW_LOOPS[] || @error "using `loop_einsum` to evaluate" code size.(xs) size(y)
     A = einarray(code, xs, size_dict)
     reduce_einarray!(A, y)
 end
@@ -39,4 +40,16 @@ end
 
 function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size) where N
     zeros(promote_type(map(eltype,xs)...), size)
+end
+
+const ALLOW_LOOPS = Ref(true)
+
+"""
+    allow_loops(flag::Bool)
+
+Setting this to `false` will cause OMEinsum to log an error if it falls back to
+`loop_einsum` evaluation, instead of calling specialised kernels. The default is `true`.
+"""
+function allow_loops(flag::Bool)
+    ALLOW_LOOPS[] = flag
 end
