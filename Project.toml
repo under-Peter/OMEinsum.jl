@@ -1,7 +1,7 @@
 name = "OMEinsum"
 uuid = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
-version = "0.3.2"
+version = "0.3.1"
 
 [deps]
 BatchedRoutines = "a9ab73d0-e05c-5df1-8fde-d6a4645b8d8e"
