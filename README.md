@@ -106,6 +106,40 @@ julia> @ein c[i,j] := a[i,k] * b[k,j];
 | `ein"ij,kl->ijkl"`  | outer product |
 
 
+Many of these are handled by special kernels 
+([listed in the docs](https://under-peter.github.io/OMEinsum.jl/stable/implementation/)),
+but there is also a fallback which handles other cases 
+(more like what [Einsum.jl](https://github.com/ahwillia/Einsum.jl) does, plus a GPU version).
+
+It is sometimes helpful to specify the order of operations, by inserting brackets,
+either because you know this will be more efficient, 
+or to help the computer see what kernels can be used. 
+For example:
+```julia
+julia> @ein Z[o,s] := x[i,s] * (W[o,i,j] * y[j,s]);   # macro style
+
+julia> Z = ein"is, (oij, js) -> os"(x, W, y);         # string style
+```
+This performs matrix multiplication (summing over `j`) 
+followed by batched matrix multiplication (summing over `i`, batch label `s`). 
+Without the brackets, instead it uses the fallback `loop_einsum`, which is slower.
+Calling `allow_loops(false)` will print an error to help you spot such cases:
+```julia
+julia> @ein Zl[o,s] := x[i,s] * W[o,i,j] * y[j,s];
+
+julia> Z ≈ Zl
+true
+
+julia> allow_loops(false);
+
+julia> Zl = ein"is, oij, js -> os"(x, W, y);
+┌ Error: using `loop_einsum` to evaluate
+│   code = EinCode{((1, 2), (3, 1, 4), (4, 2)),(3, 2)}()
+│   size.(xs) = ((10, 50), (20, 10, 10), (10, 50))
+│   size(y) = (20, 50)
+└ @ OMEinsum ~/.julia/dev/OMEinsum/src/loop_einsum.jl:26
+```
+
 To see more examples using the GPU and autodiff, check out our asciinema-demo here:
 [![asciicast](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb.svg)](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb)
 
