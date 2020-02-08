@@ -102,3 +102,11 @@ two piece: `einarr = ein"ij,ik,il -> ijkl"(a,b,c)` and `ein"ijkl -> jkl"(einarr)
 but treat the first operation as a lazy one - this way we can use `mapreduce(identity, +)`
 over the dimensions we want to remove which is implemented efficiently for both
 regular `Array`s and `CuArray`s.
+
+## Debugging
+
+Calling `allow_loops(false)` will cause an error to be pinted when if the 
+fallback `loop_einsum` is used. This is an `@error` which does not interrupt execution. 
+
+Alternatively, a log of all methods used can be saved using `@debug` logging macro. 
+This is switched off by default, but can be printed by setting `ENV["JULIA_DEBUG"] = "all"`.
