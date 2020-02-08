@@ -61,9 +61,9 @@ false
 """
 allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
 
-function conditioned_permutedims(A::AbstractArray{T,N}, perm) where {T,N}
+function conditioned_permutedims(A::AbstractArray{T,N}, perm, ind=()) where {T,N}
     if any(i-> (@inbounds perm[i]!=i), 1:N)
-        @debug "conditioned_permutedims" size(A) Tuple(perm)
+        @debug "conditioned_permutedims" size(A) Tuple(perm) Tuple(ind)
         return permutedims(A, perm)
     else
         return A
