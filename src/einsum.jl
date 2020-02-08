@@ -85,7 +85,7 @@ end
         end
     elseif ix1[1] == l && ix2[1] == l
         if iy == (ix1[2], ix2[2])
-            return :(@debug "MatMul3 (ji,jk -> ik) transpose(ij)" ixs => iy size.(xs);
+            return :(@debug "MatMul3 (ji,jk -> ik) transpose(ji)" ixs => iy size.(xs);
                 transpose(xs[1]) * xs[2]
             )
         else
@@ -95,7 +95,7 @@ end
         end
     elseif ix1[2] == l && ix2[2] == l
         if iy == (ix1[1], ix2[1])
-            return :(@debug "MatMul5 (ij,kj -> ik) transpose(jk)" ixs => iy size.(xs);
+            return :(@debug "MatMul5 (ij,kj -> ik) transpose(kj)" ixs => iy size.(xs);
                 xs[1] * transpose(xs[2])
             )
         else
@@ -125,7 +125,6 @@ function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
 end
 
 function einsum(::Identity, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    # @debug "Identity" ixs => iy size(xs[1])
     xs[1]
 end
 
