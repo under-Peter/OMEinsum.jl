@@ -123,7 +123,7 @@ function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, 
 end
 
 function _preprocess_dupindices(ix::NTuple{N,T}, x) where {N,T}
-    if tunique(ix) != N
+    if length(tunique(ix)) != N
         iy = [l for l in ix if count(==(l), ix) == 1]
         iy, einsum(EinCode((ix,), (iy...,)), (x,), get_size_dict((ix,), (x,)))
     else
