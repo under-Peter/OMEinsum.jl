@@ -2,7 +2,7 @@
 @inline indexpos(iAs, i)::Int = findfirst(==(i), iAs)
 
 # can be used in either static or dynamic invoke
-function analyse_batched(iAs, sA, iBs, sB, iOuts)
+function analyse_batched_dim(iAs, iBs, iOuts)
     iABs = iAs ∩ iBs
     pres   = iABs ∩ iOuts
     broad  = setdiff((iAs ∩ iOuts) ∪ (iBs ∩ iOuts), pres)
@@ -15,7 +15,10 @@ function analyse_batched(iAs, sA, iBs, sB, iOuts)
     pB   = indexpos.(Ref(iBs), vcat(iBss, iBbs, iBps))
     iABs = vcat(iAbs, iBbs, iAps)
     pOut = indexpos.(Ref(iABs), iOuts)
+    return (pA...,), (iAps...,), (iAbs...,), (iAss...,), (pB...,), (iBps...,), (iBbs...,), (iBss...,), pOut
+end
 
+function analyse_batched_size(iAs, iAps, iAbs, iAss, sA, iBs, iBps, iBbs, iBss, sB)
     sAbs = getindex.(Ref(sA), indexpos.(Ref(iAs), iAbs))
     sAb = reduce(*, sAbs, init=1)
     sAs = mapreduce(i->sA[indexpos(iAs,i)], *, iAss, init=1)
@@ -26,19 +29,22 @@ function analyse_batched(iAs, sA, iBs, sB, iOuts)
     sBb = reduce(*, sBbs, init=1)
     sBs = mapreduce(i->sB[indexpos(iBs, i)], *, iBss, init=1)
     sBp = mapreduce(i->sB[indexpos(iBs, i)], *, iBps, init=1)
-    sAB = vcat(sAbs, sBbs, sAps)
-    return pA, sAb, sAs, sAp, pB, sBs, sBb, sBp, sAB, pOut
+    sAB = (sAbs..., sBbs..., sAps...)
+    return sAb, sAs, sAp, sBs, sBb, sBp, sAB
 end
 
 # batched, dynamic version
-function batched_contract(iAs, A::AbstractArray, iBs, B::AbstractArray, iOuts::NTuple{NO,T}) where {NO,T}
-    pA, sAb, sAs, sAp, pB, sBs, sBb, sBp, sAB, pOut = analyse_batched(iAs, size(A), iBs, size(B), iOuts)
+@generated function batched_contract(::Val{iAs}, A::AbstractArray, ::Val{iBs}, B::AbstractArray, ::Val{iOuts}) where {iAs, iBs, iOuts, NO,T}
+    pA, iAps, iAbs, iAss, pB, iBps, iBbs, iBss, pOut = analyse_batched_dim(iAs, iBs, iOuts)
+    quote
+        sAb, sAs, sAp, sBs, sBb, sBp, sAB = analyse_batched_size($iAs, $iAps, $iAbs, $iAss, size(A), $iBs, $iBps, $iBbs, $iBss, size(B))
 
-    A, B = align_eltypes(A, B)
-    Apr = reshape(conditioned_permutedims(A, pA, iAs), sAb, sAs, sAp)
-    Bpr = reshape(conditioned_permutedims(B, pB, iBs), sBs, sBb, sBp)
-    AB = _batched_gemm('N','N', Apr, Bpr)
-    AB = conditioned_permutedims(reshape(AB, sAB...), pOut, iOuts)
+        A, B = align_eltypes(A, B)
+        Apr = reshape(conditioned_permutedims(A, $pA, $iAs), sAb, sAs, sAp)
+        Bpr = reshape(conditioned_permutedims(B, $pB, $iBs), sBs, sBb, sBp)
+        AB = _batched_gemm('N','N', Apr, Bpr)
+        AB = conditioned_permutedims(reshape(AB, sAB...), $((pOut...,)), $iOuts)
+    end
 end
 
 # reload this function for GPU support!

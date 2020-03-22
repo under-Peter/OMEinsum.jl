@@ -74,3 +74,7 @@ function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
     return map(x->eltype(x)==T ? x : T.(x), xs)
 end
+
+function align_eltypes(xs::AbstractArray{T}...) where T
+    xs
+end
