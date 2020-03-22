@@ -61,8 +61,13 @@ false
 """
 allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
 
-function conditioned_permutedims(A::AbstractArray{T,N}, pA) where {T,N}
-    any(i-> (@inbounds pA[i]!=i), 1:N) ? permutedims(A, pA) : A
+function conditioned_permutedims(A::AbstractArray{T,N}, perm, ind=()) where {T,N}
+    if any(i-> (@inbounds perm[i]!=i), 1:N)
+        @debug "conditioned_permutedims" size(A) Tuple(perm) Tuple(ind)
+        return permutedims(A, perm)
+    else
+        return A
+    end
 end
 
 function align_eltypes(xs::AbstractArray...)

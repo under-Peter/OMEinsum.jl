@@ -35,10 +35,10 @@ function batched_contract(iAs, A::AbstractArray, iBs, B::AbstractArray, iOuts::N
     pA, sAb, sAs, sAp, pB, sBs, sBb, sBp, sAB, pOut = analyse_batched(iAs, size(A), iBs, size(B), iOuts)
 
     A, B = align_eltypes(A, B)
-    Apr = reshape(conditioned_permutedims(A, pA), sAb, sAs, sAp)
-    Bpr = reshape(conditioned_permutedims(B, pB), sBs, sBb, sBp)
+    Apr = reshape(conditioned_permutedims(A, pA, iAs), sAb, sAs, sAp)
+    Bpr = reshape(conditioned_permutedims(B, pB, iBs), sBs, sBb, sBp)
     AB = _batched_gemm('N','N', Apr, Bpr)
-    AB = conditioned_permutedims(reshape(AB, sAB...), [pOut...])
+    AB = conditioned_permutedims(reshape(AB, sAB...), pOut, iOuts)
 end
 
 # reload this function for GPU support!

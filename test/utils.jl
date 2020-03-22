@@ -17,7 +17,8 @@ end
 
 @testset "conditioned_permutedims" begin
     a = randn(100, 100)
-    OMEinsum.conditioned_permutedims(a, [1,2])
+    @test OMEinsum.conditioned_permutedims(a, [1,2]) == a
+    @test OMEinsum.conditioned_permutedims(a, (2,1)) == transpose(a)
     @test (@allocated OMEinsum.conditioned_permutedims(a, (1,2))) < 100
 end
 
