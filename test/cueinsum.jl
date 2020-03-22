@@ -32,14 +32,14 @@ end
                         (((3,), (3,)), (3,)), (((3,1), (3,)), (3,1))
                         ]
         xs = ([randn(ComplexF64, fill(4,length(ix))...) |> CuArray for ix in ixs]...,)
-        @test OMEinsum.batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+        @test OMEinsum.batched_contract(Val(ixs[1]), xs[1], Val(ixs[2]), xs[2], Val(iy)) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
         @test EinCode(ixs, iy)(xs...) |> Array ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
 end
 
 
 @testset "doublefloats" begin
-    D = 4 
+    D = 4
     T = CuArray(rand(Double64, D, D, D, D, D, D))
     U = CuArray(rand(Double64, D, D, D))
 

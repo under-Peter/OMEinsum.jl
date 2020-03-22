@@ -32,22 +32,26 @@ true
 end
 
 function einsum(::Tr, ::EinCode, xs, size_dict)
+    @debug "Tr" size.(xs)
     asarray(tr(xs[1]), xs[1])
 end
 
 using TensorOperations
 
 function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
+    @debug "PTrace tensortrace" ixs => iy size.(xs)
     asarray(tensortrace(xs[1], ixs[1], iy), xs[1])
 end
 
 # note that dispatching to Hadamard if some `ixs` are permuted has inferior
 # performance compared to the fallback
 function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    @debug "Hadamard" ixs => iy size.(xs)
     asarray(broadcast(*, xs...), xs[1])
 end
 
 function einsum(::PairWise, ::EinCode{ixs, iy}, xs::NTuple{NT,AbstractArray}, size_dict) where {ixs, iy, NT}
+    @debug "PairWise optcontract" ixs => iy size.(xs)
     optcontract(ixs, xs, iy)
 end
 
@@ -57,7 +61,13 @@ function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     ix1f = filter!(i -> i in iy, collect(ix1))
     perm = map(i -> findfirst(==(i), ix1f), iy)
     res = dropdims(sum(xs[1], dims=dims), dims=dims)
-    perm == iy ? res : permutedims(res, perm)
+    if perm == iy
+        @debug "Sum" ixs => iy size.(xs)
+        res
+    else
+        @debug "Sum permutedims" ixs => iy size.(xs) perm
+        permutedims(res, perm)
+    end
 end
 
 @generated function einsum(sm::MatMul, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
@@ -65,35 +75,43 @@ end
     l = ifelse(ix1[1] in ix2, ix1[1], ix1[2])
     if ix1[2] == l && ix2[1] == l
         if iy == (ix1[1], ix2[2])
-            #"ij,jk -> ik"
-            return :(xs[1] * xs[2])
+            return :(@debug "MatMul1 (ij,jk -> ik)" ixs => iy size.(xs);
+                xs[1] * xs[2]
+            )
         else
-            #"ij,jk -> ki"
-            return :(permutedims(xs[1] * xs[2]))
+            return :(@debug "MatMul2 (ij,jk -> ki) permutedims(ik)" ixs => iy size.(xs);
+                permutedims(xs[1] * xs[2])
+            )
         end
     elseif ix1[1] == l && ix2[1] == l
         if iy == (ix1[2], ix2[2])
-            #"ji,jk -> ik"
-            return :(transpose(xs[1]) * xs[2])
+            return :(@debug "MatMul3 (ji,jk -> ik) transpose(ji)" ixs => iy size.(xs);
+                transpose(xs[1]) * xs[2]
+            )
         else
-            #"ji,jk -> ki"
-            return :(transpose(xs[2]) * xs[1])
+            return :(@debug "MatMul4 (ji,jk -> ki) transpose(jk)" ixs => iy size.(xs);
+                transpose(xs[2]) * xs[1]
+            )
         end
     elseif ix1[2] == l && ix2[2] == l
         if iy == (ix1[1], ix2[1])
-            #"ij,kj -> ik"
-            return :(xs[1] * transpose(xs[2]))
+            return :(@debug "MatMul5 (ij,kj -> ik) transpose(kj)" ixs => iy size.(xs);
+                xs[1] * transpose(xs[2])
+            )
         else
-            #"ij,kj -> ki"
-            return :(xs[2] * transpose(xs[1]))
+            return :(@debug "MatMul6 (ij,kj -> ki) transpose(ij)" ixs => iy size.(xs);
+                xs[2] * transpose(xs[1])
+            )
         end
     else #ix1[1] == l && ix2[2] == l
         if iy == (ix1[2], ix2[1])
-            #"ji,kj -> ik"
-            return :(permutedims(xs[2] * xs[1]))
+            return :(@debug "MatMul7 (ji,kj -> ik) permutedims(ki)" ixs => iy size.(xs);
+                permutedims(xs[2] * xs[1])
+            )
         else
-            #"ji,kj -> ki"
-            return :(xs[2] * xs[1])
+            return :(@debug "MatMul8 (ji,kj -> ki)" ixs => iy size.(xs);
+                xs[2] * xs[1]
+            )
         end
     end
 end
@@ -102,6 +120,7 @@ function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
     (ix,) = ixs
     (x,) = xs
     perm = map(i -> findfirst(==(i), ix), iy)
+    @debug "Permutedims" ix => iy size(xs[1]) perm
     return permutedims(x, perm)
 end
 
@@ -111,14 +130,17 @@ end
 
 # the fallback
 function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
     loop_einsum(code, xs, size_dict)
 end
 
 function einsum(::PTrace, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    @debug "PTrace loop_einsum" ixs => iy size.(xs)
     loop_einsum(code, xs, size_dict)
 end
 
 function einsum(::BatchedContract, code::EinCode{ixs, iy}, xs::NTuple{NT, Any}, size_dict) where {ixs, iy, NT}
+    @debug "BatchedContract loop_einsum" ixs => iy size.(xs)
     loop_einsum(code, xs, size_dict)
 end
 
@@ -135,6 +157,7 @@ end
     quote
         ixs1, xs1 = _preprocess_dupindices($(Val(ixs[1])), xs[1])
         ixs2, xs2 = _preprocess_dupindices($(Val(ixs[2])), xs[2])
+        @debug "BatchedContract" ixs => iy Tuple(ixs1) Tuple(ixs2) size.((xs1, xs2))
         batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
     end
 end

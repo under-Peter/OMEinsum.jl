@@ -47,8 +47,11 @@ function _batched_gemm(C1::Char, C2::Char, A::CuArray{T1, 3}, B::CuArray{T2,3}) 
     CuArrays.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, CuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
-    ixs1, xs1 = _preprocess_dupindices(ixs[1], xs[1])
-    ixs2, xs2 = _preprocess_dupindices(ixs[2], xs[2])
-    batched_contract(ixs1, xs1, ixs2, xs2, iy)
+@generated function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, CuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
+    quote
+        ixs1, xs1 = _preprocess_dupindices($(Val(ixs[1])), xs[1])
+        ixs2, xs2 = _preprocess_dupindices($(Val(ixs[2])), xs[2])
+        @debug "BatchedContract" ixs => iy Tuple(ixs1) Tuple(ixs2) size.((xs1, xs2))
+        batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
+    end
 end

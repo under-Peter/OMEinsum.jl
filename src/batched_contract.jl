@@ -40,10 +40,10 @@ end
         sAb, sAs, sAp, sBs, sBb, sBp, sAB = analyse_batched_size($iAs, $iAps, $iAbs, $iAss, size(A), $iBs, $iBps, $iBbs, $iBss, size(B))
 
         A, B = align_eltypes(A, B)
-        Apr = reshape(conditioned_permutedims(A, $pA), sAb, sAs, sAp)
-        Bpr = reshape(conditioned_permutedims(B, $pB), sBs, sBb, sBp)
+        Apr = reshape(conditioned_permutedims(A, $pA, $iAs), sAb, sAs, sAp)
+        Bpr = reshape(conditioned_permutedims(B, $pB, $iBs), sBs, sBb, sBp)
         AB = _batched_gemm('N','N', Apr, Bpr)
-        AB = conditioned_permutedims(reshape(AB, sAB...), $((pOut...,)))
+        AB = conditioned_permutedims(reshape(AB, sAB...), $((pOut...,)), $iOuts)
     end
 end
 
