@@ -235,6 +235,6 @@ end
                         ]
         xs = ([randn(ComplexF64, fill(4,length(ix))...) for ix in ixs]...,)
         @test EinCode(ixs, iy)(xs...) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
-        @test OMEinsum.batched_contract(ixs[1], xs[1], ixs[2], xs[2], iy) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
+        @test OMEinsum.batched_contract(Val(ixs[1]), xs[1], Val(ixs[2]), xs[2], Val(iy)) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
 end
