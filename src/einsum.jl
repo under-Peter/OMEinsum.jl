@@ -66,7 +66,7 @@ function einsum(sm::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
         res
     else
         @debug "Sum permutedims" ixs => iy size.(xs) perm
-        permutedims(res, perm)
+        tensorpermute(res, perm)
     end
 end
 
@@ -121,7 +121,7 @@ function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
     (x,) = xs
     perm = map(i -> findfirst(==(i), ix), iy)
     @debug "Permutedims" ix => iy size(xs[1]) perm
-    return permutedims(x, perm)
+    return tensorpermute(x, perm)
 end
 
 function einsum(::Identity, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
