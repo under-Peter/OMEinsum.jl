@@ -55,3 +55,5 @@ end
         batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
     end
 end
+
+tensorpermute(A::CuArray, perm) = permutedims(A, perm)
