@@ -56,5 +56,3 @@ function optcontract(ixs, xs, iy)
     tree, cost = optimaltree([[ix...] for ix in ixs], Dict(size_dict))
     treecontract(tree, ixs, xs, iy)
 end
-
-
