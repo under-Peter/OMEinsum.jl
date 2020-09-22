@@ -1,5 +1,5 @@
-using BenchmarkTools, OMEinsum, CuArrays
-CuArrays.allowscalar(false)
+using BenchmarkTools, OMEinsum, CUDA
+CUDA.allowscalar(false)
 
 a = randn(Float32, 50, 50)
 @benchmark ein"ij,jk->ik"($a,$a) seconds = 1

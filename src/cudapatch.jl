@@ -1,13 +1,11 @@
-using .CuArrays
-using .CuArrays.CUDAnative
-using .CuArrays.CUDAdrv
+using .CUDA
 
 using TupleTools
 using Base.Cartesian
-import .CuArrays: @cuindex
+import .CUDA: @cuindex
 
-# patch file for CUDAnative and CuArrays.
-function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
+# patch file for CUDA.
+function CUDA.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
                              CIS, Rlength, Slength) where {T}
     for Ri_base in 0:(gridDim().x * blockDim().y):(Rlength-1)
         Ri = Ri_base + (blockIdx().x - 1) * blockDim().y + threadIdx().y
@@ -29,7 +27,7 @@ function CuArrays.mapreducedim_kernel_parallel(f, op, R::CuDeviceArray{T}, A,
             end
         end
         # block-parallel reduction of S to S[1] by xthreads
-        CuArrays.reduce_block(view(S, (Si_folded_base + 1):512), op)
+        CUDA.reduce_block(view(S, (Si_folded_base + 1):512), op)
         # reduce S[1] into R
         threadIdx().x == 1 && (R[Ri] = op(R[Ri], S[Si_folded]))
     end
@@ -50,11 +48,11 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
         # NOTE: why not using `@cuda` here?
         parallel_kargs = cudaconvert.(parallel_args)  # CuArray -> DevicePtr
         parallel_tt = Tuple{Core.Typeof.(parallel_kargs)...}
-        parallel_kernel = cufunction(CuArrays.mapreducedim_kernel_parallel, parallel_tt)
+        parallel_kernel = cufunction(CUDA.mapreducedim_kernel_parallel, parallel_tt)
 
         # we are limited in how many threads we can launch...
         ## by the kernel
-        kernel_threads = CUDAnative.maxthreads(parallel_kernel)
+        kernel_threads = CUDA.maxthreads(parallel_kernel)
         ## by the device
         dev = CUDAdrv.device()
         block_threads = (x=attribute(dev, CUDAdrv.DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X),
@@ -73,8 +71,8 @@ function Base._mapreducedim!(f, op, R::CuArray{T}, A::EinArray{T}) where {T}
         else
             # not enough work, fall back to serial reduction
             range = ifelse.(length.(axes(R)) .== 1, axes(A), nothing)
-            blk, thr = CuArrays.cudims(R)
-            @cuda(blocks=blk, threads=thr, CuArrays.mapreducedim_kernel_serial(f, op, R, A, range))
+            blk, thr = CUDA.cudims(R)
+            @cuda(blocks=blk, threads=thr, CUDA.mapreducedim_kernel_serial(f, op, R, A, range))
         end
     end
 

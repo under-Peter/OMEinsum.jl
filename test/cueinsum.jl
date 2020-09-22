@@ -1,9 +1,9 @@
 using Test
 using OMEinsum
-using CuArrays
+using CUDA
 using DoubleFloats
 
-CuArrays.allowscalar(false)
+CUDA.allowscalar(false)
 
 @testset "cuda einsum" begin
     a = [randn(fill(3, i)...) for i=1:4]
