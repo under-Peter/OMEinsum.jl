@@ -26,10 +26,7 @@ include:
                           Pkg.build();
                           Pkg.test(; coverage=true);'
 
-test:v1.0:
-  extends: .gpu
-
-test:v1.1:
+test:v1.4:
   extends: .gpu
 
 test:dev:

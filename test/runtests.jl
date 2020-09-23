@@ -8,7 +8,7 @@ using LinearAlgebra
     include("EinRule.jl")
     include("utils.jl")
     include("einsum.jl")
-    if Base.find_package("CuArrays") != nothing
+    if Base.find_package("CUDA") != nothing
         include("cueinsum.jl")
     end
     include("autodiff.jl")

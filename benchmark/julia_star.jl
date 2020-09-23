@@ -1,23 +1,23 @@
-using CUDAnative: device!
+using CUDA: device!
 device!(0)
-using BenchmarkTools, OMEinsum, CuArrays
-CuArrays.allowscalar(false)
+using BenchmarkTools, OMEinsum, CUDA
+CUDA.allowscalar(false)
 
 function bfunc_star(N::Int)
-    ca = CuArrays.curandn(Float32, N, N)
-    res = CuArrays.@sync ein"ji,kl,li->jkl"(ca,ca,ca)
+    ca = CUDA.curandn(Float32, N, N)
+    res = CUDA.@sync ein"ji,kl,li->jkl"(ca,ca,ca)
     #res ≈ ein"ji,kl,li->jkl"(Matrix(ca),Matrix(ca), Matrix(ca))
 end
 
 function bfunc_t3(N::Int)
-    ca = CuArrays.curandn(Float32, N, N)
-    ct = CuArrays.curandn(Float32, N, N, N)
-    CuArrays.@sync ein"ji,kli,li->jkl"(ca,ct,ca)
+    ca = CUDA.curandn(Float32, N, N)
+    ct = CUDA.curandn(Float32, N, N, N)
+    CUDA.@sync ein"ji,kli,li->jkl"(ca,ct,ca)
 end
 
 function bfunc_psum(N::Int)
-    cq = CuArrays.curandn(Float32, N, N, N, N)
-    CuArrays.@sync ein"iikl->"(cq)
+    cq = CUDA.curandn(Float32, N, N, N, N)
+    CUDA.@sync ein"iikl->"(cq)
 end
 
 display(@benchmark bfunc_star(300) seconds = 1)

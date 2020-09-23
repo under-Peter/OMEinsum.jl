@@ -2,7 +2,7 @@ module OMEinsum
 export einsum
 export einsumopt
 
-using TupleTools, Requires, TensorOperations, LinearAlgebra
+using TupleTools, TensorOperations, LinearAlgebra
 using TensorOperations: optimaltree, Power
 using BatchedRoutines
 import LinearAlgebra: BlasFloat
@@ -16,8 +16,10 @@ include("batched_contract.jl")
 include("EinRule.jl")
 include("optcontract.jl")
 include("einsum.jl")
+
+using Requires
 function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" include("cueinsum.jl")
+    @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" include("cueinsum.jl")
 end
 
 include("interfaces.jl")
