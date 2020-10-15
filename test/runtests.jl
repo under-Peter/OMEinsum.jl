@@ -1,6 +1,7 @@
 using OMEinsum
 using Test
 using LinearAlgebra
+using CUDA
 
 
 @testset "OMEinsum.jl" begin
@@ -8,7 +9,7 @@ using LinearAlgebra
     include("EinRule.jl")
     include("utils.jl")
     include("einsum.jl")
-    if Base.find_package("CUDA") != nothing
+    if CUDA.functional()
         include("cueinsum.jl")
     end
     include("autodiff.jl")

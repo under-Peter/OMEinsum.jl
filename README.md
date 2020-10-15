@@ -24,7 +24,7 @@ Einstein summation can be implemented in no more than 20 lines of Julia code, th
 
 ## Install
 
-To install, type `]` in a julia REPL and then input
+To install, type `]` in a julia (>=1.5) REPL and then input
 ```julia pkg
 pkg> add OMEinsum
 ```
