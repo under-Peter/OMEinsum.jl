@@ -15,7 +15,7 @@ CUDA.allowscalar(false)
         @show f
         cins = map(ix->ca[length(ix)], OMEinsum.getixs(f))
         ins = map(ix->a[length(ix)], OMEinsum.getixs(f))
-        @test f(cins...) isa CuArray
+        @test f(cins...) isa DenseCuArray
         @test loop_einsum(f, cins, OMEinsum.get_size_dict(OMEinsum.getixs(f), cins)) |> Array ≈ f(ins...)
         @test f(ins...) ≈ Array(f(cins...))
     end

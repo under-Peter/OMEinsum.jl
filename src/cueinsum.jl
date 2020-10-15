@@ -6,7 +6,9 @@ println("OMEinsum: YOU FIND CUDA!")
 
 asarray(x::Number, arr::CuArray) where T = CuArray(fill(x, ()))
 
-function get_output_array(xs::NTuple{N, CuArray{<:Any,M} where M}, size) where N
+Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
+
+function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size) where N
     out = CUDA.zeros(promote_type(map(eltype,xs)...), size)
 end
 
@@ -29,8 +31,8 @@ end
 =#
 
 function loop_einsum!(code::EinCode{ixs, iy},
-                xs::NTuple{N, CuArray{<:Any,M} where M},
-                y::CuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+                xs::NTuple{N, DenseCuArray{<:Any,M} where M},
+                y::DenseCuArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
     iy_ = tunique(iy)
     NO = length(iy_)
     A = einarray(code, xs, size_dict)
@@ -69,16 +71,16 @@ end
 
 # define einsum for both PairWise and PTrace with CuArray to have those operations
 function einsum(::PTrace, code::EinCode{ixs, iy},
-            xs::NTuple{NT,CuArray{T} where T<:CuBlasFloat},
+            xs::NTuple{NT,DenseCuArray{T} where T<:CuBlasFloat},
             size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
 end
 
-function _batched_gemm(C1::Char, C2::Char, A::CuArray{T1, 3}, B::CuArray{T2,3}) where {T1<:Number, T2<:Number}
+function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:Number, T2<:Number}
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-@generated function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, CuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
+@generated function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, DenseCuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
     quote
         ixs1, xs1 = _preprocess_dupindices($(Val(ixs[1])), xs[1])
         ixs2, xs2 = _preprocess_dupindices($(Val(ixs[2])), xs[2])
@@ -87,4 +89,4 @@ end
     end
 end
 
-tensorpermute(A::CuArray, perm) = permutedims(A, perm)
+tensorpermute(A::DenseCuArray, perm) = permutedims(A, perm)
