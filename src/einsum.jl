@@ -158,7 +158,6 @@ end
         ixs1, xs1 = _preprocess_dupindices($(Val(ixs[1])), xs[1])
         ixs2, xs2 = _preprocess_dupindices($(Val(ixs[2])), xs[2])
         @debug "BatchedContract" ixs => iy ixs1 ixs2 size(xs1) size(xs2)
-# @show size(xs1)
         batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
     end
 end
