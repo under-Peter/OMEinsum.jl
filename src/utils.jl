@@ -70,6 +70,15 @@ function conditioned_permutedims(A::AbstractArray{T,N}, perm, ind=()) where {T,N
     end
 end
 
+function _conditioned_permutedims(@nospecialize(A), @nospecialize(perm), @nospecialize(ind))
+    if any(i-> (@inbounds perm[i]!=i), 1:length(perm))
+        @debug "conditioned_permutedims" size(A) Tuple(perm)
+        return permutedims(A, perm)
+    else
+        return A
+    end
+end
+
 function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
     return map(x->eltype(x)==T ? x : T.(x), xs)

@@ -161,3 +161,22 @@ end
         batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
     end
 end
+
+function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
+    ixs1, xs1 = _dynamic_preprocess_dupindices(ixs[1], xs[1])
+    ixs2, xs2 = _dynamic_preprocess_dupindices(ixs[2], xs[2])
+    @debug "BatchedContract" ixs => iy ixs1 ixs2 size(xs1) size(xs2)
+    iy_ = collect(iy)
+    dynamic_batched_contract(ixs1, xs1, ixs2, xs2, iy_)
+end
+
+function _dynamic_preprocess_dupindices(ix, x)
+    if length(tunique(ix)) != length(ix)
+        iy = [l for l in ix if count(==(l), ix) == 1]
+        iy, einsum(EinCode((ix,), (iy...,)), (x,), get_size_dict((ix,), (x,)))
+    else
+        collect(ix), x
+    end
+end
+
+
