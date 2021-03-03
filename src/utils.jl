@@ -64,7 +64,7 @@ allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
 function conditioned_permutedims(A::AbstractArray{T,N}, perm, ind=()) where {T,N}
     if any(i-> (@inbounds perm[i]!=i), 1:N)
         @debug "conditioned_permutedims" size(A) Tuple(perm) Tuple(ind)
-        return tensorpermute(A, perm)
+        return permutedims(A, perm)
     else
         return A
     end
