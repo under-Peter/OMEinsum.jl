@@ -233,18 +233,20 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
             C1 = i1==i3 ? 'N' : 'T'
             C2 = i2==i3 ? 'N' : 'T'
             @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}})
-                $(i3==1 ? :(batched_gemm($C1, $C2, xs[1], xs[2])) : :(batched_gemm($C2, $C1, xs[2], xs[1])))
+                $(i3==1 ? :(_batched_gemm($C1, $C2, xs[1], xs[2])) : :(_batched_gemm($C2, $C1, xs[2], xs[1])))
             end
         end
     end
 end
 
-function preprocess_binary(ix1, ix2, iy, x1, x2, size_dict)
+function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict) where {ixs, iy}
+    ix1, ix2 = ixs
+    x1, x2 = xs
     c1, c2, cy, s1, s2, sy, rule = analyze_binary(ix1, ix2, iy, size_dict)
-    x1_ = reshape(einsum(EinCode{(ix1,), c1}, x1, size_dict), s1)
-    x2_ = reshape(einsum(EinCode{(ix2,), c2}, x2, size_dict), s2)
+    x1_ = reshape(einsum(EinCode{(ix1,), c1}(), (x1,), size_dict), s1)
+    x2_ = reshape(einsum(EinCode{(ix2,), c2}(), (x2,), size_dict), s2)
     y_ = reshape(einsum(rule, (x1_, x2_)), sy)
-    return einsum(EinCode{((cy,),), iy}(), y_, size_dict)
+    return einsum(EinCode{(cy,), iy}(), (y_,), size_dict)
 end
 
 """
@@ -296,8 +298,7 @@ function analyze_binary(ix1, ix2, iy, size_dict)
     return c1, c2, cy, (s1...,), (s2...,), sy, rule
 end
 
-function _analyze_binary_input(ix1, ix2, iy)
-    T = eltype(ix1)
+function _analyze_binary_input(ix1::NTuple{N1,T}, ix2::NTuple{N2,T}, iy::NTuple{Ny,T}) where {T,N1,N2,Ny}
     ix1_batch = T[]
     ix1_inner = T[]
     ix1_outer = T[]

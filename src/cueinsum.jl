@@ -69,15 +69,11 @@ function expanddims!(code::EinCode{ixs, iy}, x, y) where {ixs, iy}
     return y
 end
 
-# define einsum for both PairWise and PTrace with CuArray to have those operations
+#=
 function einsum(::PTrace, code::EinCode{ixs, iy},
             xs::NTuple{NT,DenseCuArray{T} where T<:CuBlasFloat},
             size_dict) where {ixs, iy, NT}
     loop_einsum(code, xs, size_dict)
-end
-
-function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:Number, T2<:Number}
-    CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
 @generated function einsum(::BatchedContract, ::EinCode{ixs,iy}, xs::NTuple{<:Any, DenseCuArray{<:CuBlasFloat}}, size_dict) where {ixs, iy}
@@ -87,6 +83,11 @@ end
         @debug "BatchedContract" ixs => iy Tuple(ixs1) Tuple(ixs2) size.((xs1, xs2))
         batched_contract(ixs1, xs1, ixs2, xs2, $(Val(iy)))
     end
+end
+=#
+
+function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:Number, T2<:Number}
+    CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
 tensorpermute(A::DenseCuArray, perm) = permutedims(A, perm)

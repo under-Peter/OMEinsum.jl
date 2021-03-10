@@ -50,3 +50,23 @@ end
     OMEinsum.match_rule(ein"ab,bc->ac") == SimpleBinaryRule(('i', 'j'), ('j', 'k'), ('i', 'k'))
     OMEinsum.match_rule(ein"ab,bce->ac") == OMEinsum.DefaultRule()
 end 
+
+@testset "binary einsum" begin
+    for code in [
+        ein",->",
+        ein"ijl,jl->il",
+        ein"ab,bc->ac",
+        ein"abb,bc->ac",  # with diag in
+        ein"ab,bc->acc",  # with diag out
+        ein"ab,bce->ac",  # with sum in
+        ein"ab,bc->ace",  # with sum out
+        ein"bal,bcl->lcae",  # with perm in
+        ein"bal,bcl->ca",  # with multi-edge in
+        ein"bal,bc->lca",  # with multi-edge out
+        ein"ddebal,bcf->lcac",  # with all
+    ]
+        xs = [OMEinsum.asarray(randn(ComplexF64, fill(5, length(ix))...)) for ix in OMEinsum.getixs(code)]
+        size_dict = IndexSize(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->5, 10))
+        @test einsum(code, (xs...,), size_dict) ≈ loop_einsum(code, (xs...,), size_dict)
+    end
+end

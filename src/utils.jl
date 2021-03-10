@@ -88,3 +88,12 @@ function tensorpermute(A::StridedArray{T,N}, perm) where {T,N}
     TensorOperations.tensorcopy(A, ntuple(identity,N), perm)
 end
 tensorpermute(A::AbstractArray, perm) = permutedims(A, perm)
+
+# reload this function for GPU support!
+function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
+    batched_gemm(C1, C2, A, B)
+end
+
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
+    batched_gemm(C1, C2, Array(A), Array(B))
+end
