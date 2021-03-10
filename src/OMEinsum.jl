@@ -16,6 +16,7 @@ include("batched_contract.jl")
 include("EinRule.jl")
 include("optcontract.jl")
 include("einsum.jl")
+include("binaryrules.jl")
 
 using Requires
 function __init__()

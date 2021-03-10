@@ -7,7 +7,7 @@
 # S = 1
 # T = 1
 function einsum(code::EinCode{((),()), ()}, xs::NTuple{2, Any}, size_dict)
-    xs[1] .* xs[2]
+    asarray(xs[1][] * xs[2])
 end
 
 # i,->i : 100
@@ -21,14 +21,14 @@ end
 # S = N
 # T = N
 function einsum(code::EinCode{(('j',), ('j',)), ()}, xs::NTuple{2, Any}, size_dict)
-    transpose(xs[1]) * xs[2]
+    asarray(transpose(xs[1]) * xs[2])
 end
 
 # ,k->k : 001
 # S = N
 # T = N
 @inline function einsum(code::EinCode{((), ('k',)), ('k',)}, xs::NTuple{2, Any}, size_dict)
-    einsum(code, (xs[2], xs[1]), size_dict)
+    einsum(EinCode{(('i',),()),('i',)}(), (xs[2], xs[1]), size_dict)
 end
 
 # j,jk->k : 011
@@ -58,7 +58,7 @@ function einsum(code::EinCode{(('i',), ('k',)), ('i','k')}, xs::NTuple{2, Any}, 
     xs[1] * transpose(xs[2])
 end
 @inline function einsum(code::EinCode{(('i',), ('k',)), ('k','i')}, xs::NTuple{2, Any}, size_dict)
-    einsum(code, (xs[2], xs[1]), size_dict)
+    einsum(EinCode{(('i',),('k',)),('i','k')}(), (xs[2], xs[1]), size_dict)
 end
 
 # 000
@@ -73,7 +73,7 @@ end
 
 # 001
 @inline function einsum(code::EinCode{(('l',), ('k','l')), ('k','l')}, xs::NTuple{2, Any}, size_dict)
-    einsum(code, (xs[2], xs[1]), size_dict)
+    einsum(EinCode{(('i','l'),('l',)),('i','l')}(), (xs[2], xs[1]), size_dict)
 end
 
 # 010
@@ -94,7 +94,7 @@ end
 # 101
 function einsum(code::EinCode{(('i','l'), ('k','l')), ('i','k','l')}, xs::NTuple{2, Any}, size_dict)
     a, b = xs
-    T = promote_type(T1, T2)
+    T = promote_type(eltype(xs[1]), eltype(xs[2]))
     out = similar(a, T, size(a, 1), size(b, 1), size(a, 2))
     @inbounds for k=1:size(a, 2)
         for j=1:size(b, 1)
@@ -106,7 +106,7 @@ function einsum(code::EinCode{(('i','l'), ('k','l')), ('i','k','l')}, xs::NTuple
     return out
 end
 @inline function einsum(code::EinCode{(('i','l'), ('k','l')), ('k','i','l')}, xs::NTuple{2, Any}, size_dict)
-    einsum(code, (xs[2], xs[1]), size_dict)
+    einsum(EinCode{(('i','l'),('k','l')), ('i','k','l')}(), (xs[2], xs[1]), size_dict)
 end
 
 # 011
@@ -142,13 +142,21 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
             @eval function einsum(code::EinCode{($X1B,$X2B), $X3B}, xs::NTuple{2, Any}, size_dict)
                 loop_einsum(code, xs, size_dict)
             end
-            C1 = i1==i3 ? 'N': 'T'
-            C2 = i2==i3 ? 'N': 'T'
-            @eval function einsum(::EinCode{(('i','j','l'), ('j','k','l')),('i','k','l')}, xs::NTuple{2, AbstractArray{<:BlasFloat}}, size_dict)
+            C1 = i1==i3 ? 'N' : 'T'
+            C2 = i2==i3 ? 'N' : 'T'
+            @eval function einsum(::EinCode{($X1B,$X2B),$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}}, size_dict)
                 $(i3==1 ? :(batched_gemm($C1, $C2, xs[1], xs[2])) : :(batched_gemm($C2, $C1, xs[2], xs[1])))
             end
         end
     end
+end
+
+function preprocess_binary(ix1, ix2, iy, x1, x2, size_dict)
+    c1, c2, cy, s1, s2, sy, code = analyze_binary(ix1, ix2, iy, size_dict)
+    x1_ = reshape(einsum(EinCode{(ix1,), c1}, x1, size_dict), s1)
+    x2_ = reshape(einsum(EinCode{(ix2,), c2}, x2, size_dict), s2)
+    y_ = reshape(einsum(code, (x1_, x2_), IndexSize(('i', 'j', 'k', 'l'), (si, sj, sk, sl))), sy)
+    return einsum(EinCode{((cy,),), iy}(), y_, size_dict)
 end
 
 """
@@ -160,9 +168,6 @@ function analyze_binary(ix1, ix2, iy, size_dict)
     c2 = (ix_inner..., ix2_outer..., batch...)
     cy = (ix1_outer..., ix2_outer..., batch...)
     sy = map(x->size_dict[x], cy)
-    #c1 = EinCode{(ix1,), (ix1_outer..., ix_inner..., batch...)}()
-    #c2 = EinCode{(ix2,), (ix_inner..., ix2_outer..., batch...)}()
-    #cy = EinCode{((ix1_outer..., ix2_outer..., batch...),), iy}()
     si = prod(x->size_dict[x], ix1_outer; init=1)
     sj = prod(x->size_dict[x], ix_inner; init=1)
     sk = prod(x->size_dict[x], ix2_outer; init=1)
@@ -200,15 +205,7 @@ function analyze_binary(ix1, ix2, iy, size_dict)
         push!(s2, sl)
     end
     code = EinCode{((i1...,), (i2...,)), (iy...,)}()
-    return c1, c2, cy, s1, s2, sy, code
-end
-
-function preprocess_binary(ix1, ix2, iy, x1, x2, size_dict)
-    c1, c2, cy, s1, s2, sy, code = analyze_binary(ix1, ix2, iy, size_dict)
-    x1_ = reshape(einsum(EinCode{(ix1,), c1}, x1, size_dict), s1)
-    x2_ = reshape(einsum(EinCode{(ix2,), c2}, x2, size_dict), s2)
-    y_ = reshape(einsum(code, (x1_, x2_), IndexSize(('i', 'j', 'k', 'l'), (si, sj, sk, sl))), sy)
-    return einsum(EinCode{((cy,),), iy}(), y_, size_dict)
+    return c1, c2, cy, (s1...,), (s2...,), sy, code
 end
 
 function _analyze_binary_input(ix1, ix2, iy)
@@ -236,15 +233,4 @@ function _analyze_binary_input(ix1, ix2, iy)
         end
     end
     ix1_inner, ix1_outer, ix2_outer, ix1_batch
-end
-
-@testset "analyse binary" begin
-    size_dict = OMEinsum.IndexSize(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7)
-    c1, c2, cy, s1, s2, sy = analyze_binary((1,2,3,4), (2,6,6,4,2), (7,2,1,2,2,6), size_dict)
-    @test c1 == (1,4,2)
-    @test c2 == (4,6,2)
-    @test cy == (1,6,2)
-    @test s1 == (1,4,2)
-    @test s2 == (4,6,2)
-    @test sy == (7,2,1,2,2,6)
 end
