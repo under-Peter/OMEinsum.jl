@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, PairWise, DefaultRule, IndexSize, Permutedims
+using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, IndexSize, Permutedims
 using SymEngine
 using LinearAlgebra: I
 
@@ -211,7 +211,7 @@ end
     a = rand(5,5)
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 
     # index-sum
@@ -224,7 +224,7 @@ end
     a = Basic.(rand(5,5))
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(PairWise(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end
 

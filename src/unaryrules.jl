@@ -30,6 +30,10 @@ struct DefaultRule <: EinRule{Any} end
 
 Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
 "
+function match_rule(ixs::NTuple{Nx,NTuple}, iy::Tuple) where Nx
+    DefaultRule()
+end
+
 function match_rule(ixs::Tuple{NTuple{Nx,T}}, iy::NTuple{Ny,T}) where {Nx, Ny, T}
     ix, = ixs
     # the first rule with the higher the priority

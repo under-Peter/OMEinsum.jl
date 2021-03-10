@@ -1,17 +1,17 @@
 using Test, OMEinsum
-using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
-                Permutedims, PTrace, Hadamard, MatMul, nopermute,
-                Identity, BatchedContract
+using OMEinsum: match_rule, Sum, Tr, DefaultRule,
+                Permutedims, nopermute,
+                Identity, SimpleBinaryRule
 
 @testset "match rule" begin
     ixs = ((1,2), (2,3))
     iy = (1,3)
-    @test match_rule(ixs, iy) == MatMul()
-    @test match_rule(EinCode(ixs, iy)) == MatMul()
+    @test match_rule(ixs, iy) == SimpleBinaryRule(ein"ij,jk->ik")
+    @test match_rule(EinCode(ixs, iy)) == SimpleBinaryRule(ein"ij,jk->ik")
 
     ixs = ((1,2), (2,3), (3,4))
     iy = (1,4)
-    @test match_rule(ixs, iy) == PairWise()
+    @test match_rule(ixs, iy) == DefaultRule()
 
     ixs = ((1,1),)
     iy = ()
@@ -19,7 +19,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
 
     ixs = ((1,1,2),)
     iy = (2,)
-    @test match_rule(ixs, iy) == PTrace()
+    @test match_rule(ixs, iy) == DefaultRule()
 
     ixs = ((1,2),)
     iy = (1,)
@@ -31,7 +31,7 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
 
     ixs = ((1,2),(1,2),(1,2))
     iy = (1,2)
-    @test match_rule(ixs, iy) == Hadamard()
+    @test match_rule(ixs, iy) == DefaultRule()
 
     ixs = ((1,2,3),)
     iy = (1,3,2)
@@ -50,56 +50,55 @@ using OMEinsum: match_rule, PairWise, Sum, Tr, DefaultRule,
     @test !nopermute(ix,iy)
 
     # 3-argument match_rule
-    @test match_rule(Tr, ((1,1),), ())
-    @test !match_rule(Tr, ((1,2),), ())
-    @test !match_rule(Tr, ((1,1),), (1,))
+    @test match_rule(((1,1),), ()) == Tr()
+    @test match_rule(((1,2),), ()) == Sum()
+    @test match_rule(((1,1),), (1,)) == DefaultRule()
 
-    @test match_rule(PairWise, ((1,2),(2,3),(3,4),(4,5)), (1,5))
-    @test match_rule(PairWise, ((1,2),(2,3),(5,4),(3,4)), (1,5))
-    @test !match_rule(PairWise, ((1,2),(2,3),(3,4),(3,5)), (1,5))
+    @test match_rule(((1,2),(2,3),(3,4),(4,5)), (1,5)) == DefaultRule()
+    @test match_rule(((1,2),(2,3),(5,4),(3,4)), (1,5)) == DefaultRule()
+    @test match_rule(((1,2),(2,3),(3,4),(3,5)), (1,5)) == DefaultRule()
 
-    @test match_rule(Sum, ((1,2,3,4),), (1,2))
-    @test match_rule(Sum, ((1,2,3,4),), (1,2))
-    @test match_rule(Sum, ((1,2,3,4),), (1,2,3,4))
-    @test match_rule(Sum, ((1,2,3,4),), (2,1))
-    @test !match_rule(Sum, ((1,2,3,4),), (2,1,1))
+    @test match_rule(((1,2,3,4),), (1,2)) == Sum()
+    @test match_rule(((1,2,3,4),), (1,2)) == Sum()
+    @test match_rule(((1,2,3,4),), (1,2,3,4)) == Identity()
+    @test match_rule(((1,2,3,4),), (2,1)) == Sum()
+    @test match_rule(((1,2,3,4),), (2,1,1)) == DefaultRule()
 
-    @test match_rule(Permutedims, ((1,2),), (2,1))
-    @test !match_rule(Permutedims, ((1,2,3),), (2,1))
-    @test !match_rule(Permutedims, ((3,3),), (1,3))
+    @test match_rule(((1,2),), (2,1)) == Permutedims()
+    @test match_rule(((1,2,3),), (2,1)) == Sum()
+    @test match_rule(((3,3),), (1,3)) == DefaultRule()
 
-    @test match_rule(Hadamard, ((1,2),(1,2)), (1,2))
-    @test !match_rule(Hadamard, ((1,2),(2,1)), (1,2))
-    @test !match_rule(Hadamard, ((1,2),(1,2)), (1,2,1))
+    @test match_rule(((1,2),(1,2)), (1,2)) == DefaultRule()
+    @test match_rule(((1,2),(2,1)), (1,2)) == DefaultRule()
+    @test match_rule(((1,2),(1,2)), (1,2,1)) == DefaultRule()
 
-    @test match_rule(PTrace, ((1,1,2),), (2,))
-    @test match_rule(PTrace, ((1,1,2,3),), (2,3))
-    @test match_rule(PTrace, ((1,1,2,3),), (3,2))
-    @test !match_rule(PTrace, ((1,1,2),), (1,2,))
+    @test match_rule(((1,1,2),), (2,)) == DefaultRule()
+    @test match_rule(((1,1,2,3),), (2,3)) == DefaultRule()
+    @test match_rule(((1,1,2,3),), (3,2)) == DefaultRule()
+    @test match_rule(((1,1,2),), (1,2,)) == DefaultRule()
 
-    @test match_rule(MatMul, ((1,2),(2,3)), (1,3))
-    @test match_rule(MatMul, ((1,2),(2,3)), (3,1))
-    @test match_rule(MatMul, ((2,1),(2,3)), (3,1))
-    @test match_rule(MatMul, ((2,1),(3,2)), (3,1))
-    @test !match_rule(MatMul, ((1,2,3),(2,3,4)), (1,4))
+    @test match_rule(((1,2),(2,3)), (1,3)) == SimpleBinaryRule(ein"ij,jk->ik")
+    @test match_rule(((1,2),(2,3)), (3,1)) == SimpleBinaryRule(ein"ij,jk->ki")
+    @test match_rule(((2,1),(2,3)), (3,1)) == SimpleBinaryRule(ein"ji,jk->ki")
+    @test match_rule(((2,1),(3,2)), (3,1)) == SimpleBinaryRule(ein"ji,kj->ki")
+    @test match_rule(((1,2,3),(2,3,4)), (1,4)) == DefaultRule()
 
-    @test match_rule(Identity, ((1,2,3),), (1,2,3))
-    @test !match_rule(Identity, ((1,2,3),), (1,3,2))
-
+    @test match_rule(((1,2,3),), (1,2,3)) == Identity()
+    @test match_rule(((1,2,3),), (1,3,2)) == Permutedims()
 end
 
 @testset "isbatchmul" begin
-    @test match_rule(BatchedContract,((1,2), (2,3)), (1,3)) # matmul
-    @test match_rule(BatchedContract,((1,2,3), (2,3)), (1,3)) # matvec-batched
-    @test match_rule(BatchedContract,((7,1,2,3), (2,4,3,7)), (1,4,3)) # matmat-batched
-    @test match_rule(BatchedContract,((3,), (3,)), (3,))  # pure batch
-    @test match_rule(BatchedContract,((3,1), (3,)), (3,1))  # batched vector-vector
-    @test !match_rule(BatchedContract,((2,2), (2,3)), (1,3))
-    @test !match_rule(BatchedContract,((2,1), (2,3)), (1,1))
-    @test !match_rule(BatchedContract,((1,2,3), (2,4,3)), (1,3))
+    @test match_rule(((1,2), (2,3)), (1,3)) == SimpleBinaryRule(ein"ij,jk->ik") # matmul
+    @test match_rule(((1,2,3), (2,3)), (1,3)) == SimpleBinaryRule(ein"ijl,jl->il") # matvec-batched
+    @test match_rule(((7,1,2,3), (2,4,3,7)), (1,4,3)) == DefaultRule() # matmat-batched
+    @test match_rule(((3,), (3,)), (3,)) == SimpleBinaryRule(ein"l,l->l")  # pure batch
+    @test match_rule(((3,1), (3,)), (3,1)) == DefaultRule()  # batched vector-vector
+    @test match_rule(((2,2), (2,3)), (1,3)) == DefaultRule()
+    @test match_rule(((2,1), (2,3)), (1,1)) == DefaultRule()
+    @test match_rule(((1,2,3), (2,4,3)), (1,3)) == DefaultRule()
 end
 
 @testset "match_rule eye candies" begin
-    @test match_rule(ein"ij,jk,kl->il") == PairWise()
-    @test match_rule(ein"(ij,jk),kl->il") == (OMEinsum.MatMul(), ((OMEinsum.MatMul(), (1, 2)), 3))
+    @test match_rule(ein"ij,jk,kl->il") == DefaultRule()
+    @test match_rule(ein"(ij,jk),kl->il") == (OMEinsum.SimpleBinaryRule(ein"ij,jk->ik"), ((OMEinsum.SimpleBinaryRule(ein"ij,jk->ik"), (1, 2)), 3))
 end
