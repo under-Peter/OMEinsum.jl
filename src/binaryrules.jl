@@ -7,7 +7,7 @@
 # S = 1
 # T = 1
 function einsum(code::EinCode{((),()), ()}, xs::NTuple{2, Any}, size_dict)
-    asarray(xs[1][] * xs[2])
+    asarray(xs[1][] * xs[2], xs[1])
 end
 
 # i,->i : 100
@@ -21,7 +21,7 @@ end
 # S = N
 # T = N
 function einsum(code::EinCode{(('j',), ('j',)), ()}, xs::NTuple{2, Any}, size_dict)
-    asarray(transpose(xs[1]) * xs[2])
+    asarray(transpose(xs[1]) * xs[2], xs[1])
 end
 
 # ,k->k : 001

@@ -47,8 +47,8 @@ end
 getlocs(::EinIndexer{locs,N}) where {N,locs} = locs
 
 # get a subset of index
-subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
-subindex(indexer::EinIndexer{(),0}, ind::NTuple{N0,Int}) where N0 = 1
+@inline subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
+@inline subindex(indexer::EinIndexer{(),0}, ind::NTuple{N0,Int}) where N0 = 1
 @inline @generated function subindex(indexer::EinIndexer{locs,N}, ind::NTuple{N0,Int}) where {N,N0,locs}
     ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * indexer.cumsize[$i]), 1:N)...)
     :(@inbounds $ex)
