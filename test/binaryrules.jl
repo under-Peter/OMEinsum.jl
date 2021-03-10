@@ -1,4 +1,5 @@
 using OMEinsum, Test
+using OMEinsum: SimpleBinaryRule, match_rule
 
 @testset "analyse binary" begin
     size_dict = OMEinsum.IndexSize(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
@@ -9,11 +10,12 @@ using OMEinsum, Test
     @test s1 == (1,32,2)
     @test s2 == (32,6,2)
     @test sy == (1,6,2)
-    @test code == ein"ijl,jkl->ikl"
+    @test code == SimpleBinaryRule(ein"ijl,jkl->ikl")
 end
 
 @testset "binary rules" begin
     size_dict = OMEinsum.IndexSize(('i', 'j', 'k', 'l'), ntuple(x->5, 4))
+    nmatch = 0
     for has_batch in [true, false]
         for i1 in [(), ('i',), ('j',), ('i','j'), ('j', 'i')]
             for i2 in [(), ('k',), ('j',), ('k','j'), ('j', 'k')]
@@ -25,9 +27,26 @@ end
                     a = randn(fill(5, length(i1_))...) |> OMEinsum.asarray
                     b = randn(fill(5, length(i2_))...) |> OMEinsum.asarray
                     code = EinCode{(i1_,i2_),i3_}()
-                    @test einsum(code, (a, b), size_dict) ≈ loop_einsum(code, (a, b), size_dict)
+                    rule = match_rule(code)
+                    if rule isa SimpleBinaryRule
+                        nmatch += 1
+                        @test einsum(rule, (a, b)) ≈ loop_einsum(code, (a, b), size_dict)
+                    else
+                        @test einsum(code, (a, b), size_dict) ≈ loop_einsum(code, (a, b), size_dict)
+                    end
                 end
             end
         end
     end
+    @test nmatch == 36
 end
+
+@testset "match binary rules" begin
+    for code in [ein",->", ein",k->k", ein"i,->i", ein"j,j->", ein"i,k->ik", ein"i,k->ki",
+                ein"j,jk->k", ein"j,kj->k", ein"ji,j->i", ein"ij,j->i", ein"ji,jk->ik",
+                ein"ji,kj->ik", ein"ji,jk->ki", ein"ji,kj->ki", ein"ij,jk->ik", ein"ij,kj->ik", ein"ij,jk->ki", ein"ij,kj->ki"]
+        @test OMEinsum.match_rule(code) == SimpleBinaryRule(code)
+    end
+    OMEinsum.match_rule(ein"ab,bc->ac") == SimpleBinaryRule(('i', 'j'), ('j', 'k'), ('i', 'k'))
+    OMEinsum.match_rule(ein"ab,bce->ac") == OMEinsum.DefaultRule()
+end 

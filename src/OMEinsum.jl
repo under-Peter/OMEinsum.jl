@@ -13,9 +13,10 @@ include("loop_einsum.jl")
 include("utils.jl")
 include("batched_contract.jl")
 
-include("EinRule.jl")
+#include("EinRule.jl")
 include("optcontract.jl")
-include("einsum.jl")
+#include("einsum.jl")
+include("unaryrules.jl")
 include("binaryrules.jl")
 
 using Requires
