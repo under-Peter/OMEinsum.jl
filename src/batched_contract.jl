@@ -36,14 +36,17 @@ end
 # batched, dynamic version
 @generated function batched_contract(::Val{iAs}, A::AbstractArray, ::Val{iBs}, B::AbstractArray, ::Val{iOuts}) where {iAs, iBs, iOuts, NO,T}
     pA, iAps, iAbs, iAss, pB, iBps, iBbs, iBss, pOut = analyse_batched_dim(iAs, iBs, iOuts)
+    exA = any(i-> (@inbounds pA[i]!=i), 1:length(pA)) ? :(tensorpermute(A, $pA)) : :(A)
+    exB = any(i-> (@inbounds pB[i]!=i), 1:length(pB)) ? :(tensorpermute(B, $pB)) : :(B)
+    exAB = any(i-> (@inbounds pOut[i]!=i), 1:length(pOut)) ? :(tensorpermute(AB, $pOut)) : :(AB)
     quote
         sAb, sAs, sAp, sBs, sBb, sBp, sAB = analyse_batched_size($iAs, $iAps, $iAbs, $iAss, size(A), $iBs, $iBps, $iBbs, $iBss, size(B))
 
         A, B = align_eltypes(A, B)
-        Apr = reshape(conditioned_permutedims(A, $pA, $iAs), sAb, sAs, sAp)
-        Bpr = reshape(conditioned_permutedims(B, $pB, $iBs), sBs, sBb, sBp)
-        AB = _batched_gemm('N','N', Apr, Bpr)
-        AB = conditioned_permutedims(reshape(AB, sAB...), $((pOut...,)), $iOuts)
+        Apr = reshape($exA, sAb, sAs, sAp)
+        Bpr = reshape($exB, sBs, sBb, sBp)
+        AB = reshape(_batched_gemm('N','N', Apr, Bpr), sAB...)
+        AB = $exAB
     end
 end
 
