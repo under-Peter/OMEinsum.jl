@@ -38,11 +38,6 @@ end
 
 using TensorOperations
 
-function einsum(::PTrace, ::EinCode{ixs,iy}, xs::NTuple{<:Any, AbstractArray{<:BlasFloat}}, size_dict) where {ixs, iy}
-    @debug "PTrace tensortrace" ixs => iy size.(xs)
-    asarray(tensortrace(xs[1], ixs[1], iy), xs[1])
-end
-
 # note that dispatching to Hadamard if some `ixs` are permuted has inferior
 # performance compared to the fallback
 function einsum(::Hadamard, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
