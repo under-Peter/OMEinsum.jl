@@ -39,7 +39,7 @@ The contraction between two tensors with the following restriction
 * a tensor can not be simplified by unary rules, e.g. `iij,jk,ik` is not valid, the first index can be simplified to `ij` using the unary rule `iij->ij`.
 * no multi-edge
 
-These rules can be translated to GEMM and batched GEMM directly, a complete list of rules are
+A complete list of rules are
 * ein",->"
 * ein",k->k"
 * ein"i,->i"

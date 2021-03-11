@@ -11,11 +11,8 @@ const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
-include("batched_contract.jl")
 
-#include("EinRule.jl")
 include("optcontract.jl")
-#include("einsum.jl")
 include("unaryrules.jl")
 include("binaryrules.jl")
 

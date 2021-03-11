@@ -29,19 +29,16 @@ They are defined in `EinRule.jl`.
 
 The possible types are:
 - `Identity` - operation is the identity on _one_ tensor, e.g. `ein"ijk -> ijk"`
-- `MatMul` - operation is a matrix multiplication of _two_ matrices, possibly with permutations of inputs and/or outputs, e.g. `ein"ij,kj -> ik"`
 - `Permutedims` - operation is a permutation of the indices of _one_ tensor, e.g. `ein"ijk -> jki"`
-- `Hadamard` - operation is a hadamard-product of arbitrary many tensors, e.g. `ein"ij,ij,ij -> ij"`
 - `Tr` - operation is a trace of _one_ matrix, e.g. `ein"ii ->"`
-- `PTrace` - operation is a partial trace of _one_ tensor, e.g. `ein"iij -> j"`
 - `Sum` - operation is a reduction over one or more indices of _one_ tensor, e.g. `ein"ijkl -> il"`
-- `PairWise` - operation is a tensor-contraction over arbitrary many tensors, e.g. `ein"ijk,kl,lmn,no -> ijmo"`
+- `SimpleBinaryRule` - operation is a pairwise contraction that can not be reduce by unary operations, e.g. `ein"ijl,jkl-> ikl"`
 - `DefaultRule` - default if none of the above match, e.g. `ein"ij,ik,il -> jkl"`
 
 Since `ixs` and `iy` are saved as type-parameters, the operation-matching can happen at compile time.
 The operation is chosen using `match_rule(ixs,iy)` by testing all subtypes of `EinRule` in the sequence above (top to bottom) and picking the first match.
 
-This enables us to chose `MatMul` for a  matrix multiplication which is also a legal tensor-contraction, i.e. a `PairWise`, assuming that we can have a lower-overhead implementation for `MatMul` than `PairWise`.
+This enables us to chose fast BLAS functions for a  matrix multiplication which is also a legal tensor-contraction.
 
 We proceed by calling `einsum(<:EinRule, <:EinCode, xs, size_dict)` which
 dispatches on the `EinRule` and the type of `xs` - the latter enables us to dispatch to e.g. cuda-specific routines for certain operations (as done in the `cueinsum.jl` file).

@@ -164,7 +164,7 @@ end
     allocs2 = @allocated einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,b))
     # doing twice the work (two multiplications instead of one) shouldn't
     # incure much more than twice the allocations.
-    @test_broken allocs2 < 2.1 * allocs1
+    @test allocs2 < 2.1 * allocs1
 
     @test_throws MethodError einsum(((1,2),(2,3)), (a,a))
 end
@@ -235,6 +235,5 @@ end
                         ]
         xs = ([randn(ComplexF64, fill(4,length(ix))...) for ix in ixs]...,)
         @test EinCode(ixs, iy)(xs...) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
-        @test OMEinsum.batched_contract(Val(ixs[1]), xs[1], Val(ixs[2]), xs[2], Val(iy)) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
 end

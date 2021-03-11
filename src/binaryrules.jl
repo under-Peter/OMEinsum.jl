@@ -84,7 +84,7 @@ end
 
 einsum(rule::SimpleBinaryRule, ::EinCode, xs::NTuple{2, Any}, size_dict) = einsum(rule, xs)
 # Code is a binary representation of `(O1,I,O2,B)`.
-# Because the time complexity of `MatMul` and `BatchedMatMul` are higher than space complexity, we allow `permutedims`.
+# Because the time complexity of `GEMM` and `BatchedGEMM` are higher than space complexity, we allow `permutedims`.
 # We reduce the contraction to these basic forms through `permutedims` and reshape,
 # because we assume most using cases have both inner and outer degrees on freedom.
 

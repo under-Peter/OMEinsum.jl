@@ -18,7 +18,7 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 BatchedRoutines = "0.2"
-CUDA = "2"
+CUDA = "2.5"
 Combinatorics = "1.0"
 MacroTools = "0.5"
 PkgBenchmark = "0.2"
