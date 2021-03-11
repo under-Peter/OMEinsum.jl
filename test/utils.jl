@@ -15,11 +15,10 @@ end
     @test !allunique((1,2,1))
 end
 
-@testset "conditioned_permutedims" begin
+@testset "tensorpermute" begin
     a = randn(100, 100)
-    @test OMEinsum.conditioned_permutedims(a, [1,2]) == a
-    @test OMEinsum.conditioned_permutedims(a, (2,1)) == transpose(a)
-    @test (@allocated OMEinsum.conditioned_permutedims(a, (1,2))) < 100
+    @test OMEinsum.tensorpermute(a, [1,2]) == a
+    @test OMEinsum.tensorpermute(a, (2,1)) == transpose(a)
 end
 
 @testset "align_types" begin

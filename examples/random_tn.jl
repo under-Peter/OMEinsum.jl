@@ -28,10 +28,10 @@ function batched_contract2(iAs, A::AbstractArray, iBs, B::AbstractArray, iOuts)
     sAb, sAs, sAp, sBs, sBb, sBp, sAB = OMEinsum.analyse_batched_size(iAs, iAps, iAbs, iAss, size(A), iBs, iBps, iBbs, iBss, size(B))
 
     A, B = OMEinsum.align_eltypes(A, B)
-    Apr = reshape(OMEinsum.conditioned_permutedims(A, pA, iAs), sAb, sAs, sAp)
-    Bpr = reshape(OMEinsum.conditioned_permutedims(B, pB, iBs), sBs, sBb, sBp)
+    Apr = reshape(OMEinsum.tensorpermute(A, pA), sAb, sAs, sAp)
+    Bpr = reshape(OMEinsum.tensorpermute(B, pB), sBs, sBb, sBp)
     AB = OMEinsum._batched_gemm('N','N', Apr, Bpr)
-    AB = OMEinsum.conditioned_permutedims(reshape(AB, sAB...), (pOut...,), iOuts)
+    AB = OMEinsum.tensorpermute(reshape(AB, sAB...), (pOut...,))
 end
 
 function test2()
