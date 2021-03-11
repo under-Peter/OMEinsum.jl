@@ -8,7 +8,7 @@ from e.g. projection to the diagonal like `ein"ii -> ii"`.
 
 The identity operation simply returns the first (and only) tensor argument to `einsum`.
 
-## Index-Permutation
+## Permutations
 
 A specification `ixs,iy` is an index-permutation if `ixs` is a tuple containing
 one tuple of index-labels that are all unique and are a permutation of the labels
@@ -17,7 +17,7 @@ in `iy`.
 Index-permutation is implemented with `permutedims` and a permutation that's calculated
 at runtime.
 
-## Trace
+## Tr
 
 A specification `ixs, iy` is a trace if `iy` is empty and `ixs` contains one
 2-tuple containing the same index-label twice.
@@ -33,6 +33,15 @@ unique labels (that are reduced over).
 
 Index-reductions are implemented using `Base.sum` and `Base.dropdims` - the latter
 to remove the singleton-dimensions left over after summing over a dimension.
+
+## Repeat
+The inverse rule of `Sum`, e.g. `ij->lijk`.
+
+## Diag
+A unary operation that remove multi-edges from a tensor, e.g. `ijkj->ikj`.
+
+## Duplicate
+The inverse rule of `Diag`, e.g. `ikj->ijkj`.
 
 ## SimpleBinaryRule
 The contraction between two tensors with the following restriction
