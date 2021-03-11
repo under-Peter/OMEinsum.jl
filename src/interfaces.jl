@@ -88,7 +88,7 @@ Base.Dict(x::IndexSize) = Dict(zip(x.indices, x.sizes))
 Base.:+(x::IndexSize, y::IndexSize) = IndexSize((x.indices..., y.indices...), (x.sizes..., y.sizes...))
 
 function getindexsize(ixs, xs)
-    indices = TupleTools.flatten(ixs)
+    indices = tuplejoin(ixs...) # not using flatten to avoid flattening iterable labels.
     sizes = TupleTools.flatten(map(size,xs))
     IndexSize(indices,sizes)
 end

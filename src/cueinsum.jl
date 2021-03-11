@@ -30,8 +30,8 @@ function CUDA.mapreducedim_kernel_serial(f, op, R, A::EinArray, range)
 end
 =#
 
-for TP in [:Diag, :Repeat]
-    @eval function einsum(::$TP, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
+    @eval function einsum(::$TP, code::EinCode{ixs, iy}, xs::Tuple{<:DenseCuArray}, size_dict) where {ixs, iy}
         loop_einsum(code, xs, size_dict)
     end
 end

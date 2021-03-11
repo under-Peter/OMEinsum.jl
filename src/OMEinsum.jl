@@ -2,8 +2,7 @@ module OMEinsum
 export einsum
 export einsumopt
 
-using TupleTools, TensorOperations, LinearAlgebra
-using TensorOperations: optimaltree, Power
+using TupleTools, LinearAlgebra
 using BatchedRoutines
 import LinearAlgebra: BlasFloat
 const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
@@ -12,7 +11,6 @@ include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
 
-include("optcontract.jl")
 include("unaryrules.jl")
 include("binaryrules.jl")
 

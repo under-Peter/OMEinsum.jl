@@ -110,7 +110,6 @@ function einsum(::Repeat, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     res = einsum(Permutedims(), EinCode{ixs,ix1f}(), xs, size_dict)
     newshape = [l ∈ ix ? size_dict[l] : 1 for l in iy]
     repeat_dims = [l ∈ ix ? 1 : size_dict[l] for l in iy]
-    @show repeat_dims
     repeat(reshape(res, newshape...), repeat_dims...)
 end
 

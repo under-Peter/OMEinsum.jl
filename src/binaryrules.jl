@@ -243,8 +243,22 @@ function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict
     ix1, ix2 = ixs
     x1, x2 = xs
     c1, c2, cy, s1, s2, sy, rule = analyze_binary(ix1, ix2, iy, size_dict)
-    x1_ = reshape(einsum(EinCode{(ix1,), c1}(), (x1,), size_dict), s1)
-    x2_ = reshape(einsum(EinCode{(ix2,), c2}(), (x2,), size_dict), s2)
+    if ix1 !== c1
+        if length(ix1) == length(c1) # permutation
+            x1 = einsum(Permutedims(), EinCode{(ix1,), c1}(), (x1,), size_dict)
+        else
+            x1 = einsum(EinCode{(ix1,), c1}(), (x1,), size_dict)
+        end
+    end
+    if x2 !== c2
+        if length(ix2) == length(c2) # permutation
+            x2 = einsum(Permutedims(), EinCode{(ix2,), c2}(), (x2,), size_dict)
+        else
+            x2 = einsum(EinCode{(ix2,), c2}(), (x2,), size_dict)
+        end
+    end
+    x1_ = reshape(x1, s1)
+    x2_ = reshape(x2, s2)
     y_ = reshape(einsum(rule, (x1_, x2_)), sy)
     return einsum(EinCode{(cy,), iy}(), (y_,), size_dict)
 end

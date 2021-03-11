@@ -73,11 +73,8 @@ end
 """
     tensorpermute(A, perm)
 
-Like `permutedims(A, perm)`, but calls the faster `TensorOperations.tensorcopy` when possible.
+Aliasing `permutedims(A, perm)`.
 """
-#function tensorpermute(A::StridedArray{T,N}, perm) where {T,N}
-#    TensorOperations.tensorcopy(A, ntuple(identity,N), perm)
-#end
 tensorpermute(A::AbstractArray, perm) = permutedims(A, perm)
 tensorpermute(A::AbstractArray, perm::Tuple{}) = A
 
@@ -89,3 +86,7 @@ end
 function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
     batched_gemm(C1, C2, Array(A), Array(B))
 end
+
+@inline tuplejoin(x) = x
+@inline tuplejoin(x, y) = (x..., y...)
+@inline tuplejoin(x, y, z...) = tuplejoin(tuplejoin(x, y), z...)

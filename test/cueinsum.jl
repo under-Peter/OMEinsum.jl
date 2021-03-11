@@ -12,7 +12,6 @@ CUDA.allowscalar(false)
     xs = (ca[2], ca[2])
     @test loop_einsum!(EinCode(ixs, (1,3)), xs, zeros(3,3) |> CuArray, OMEinsum.get_size_dict(ixs, xs)) ≈ ca[2]*ca[2]
     for f in [ein"ij,jk->ik", ein"ii->", ein"ijj ->i", ein"ij,ik,il->jkl", ein"ii->i", ein"ijl->i", ein"i->ii", ein"ij,jk,kl->il", ein"ij,ij,ij -> ij"]
-        @show f
         cins = map(ix->ca[length(ix)], OMEinsum.getixs(f))
         ins = map(ix->a[length(ix)], OMEinsum.getixs(f))
         @test f(cins...) isa DenseCuArray
