@@ -184,7 +184,7 @@ struct DynamicEinIndexer{N}
     cumsize::NTuple{N, Int}
 end
 
-function DynamicEinIndexer(locs::NTuple{N,Int}, size::NTuple{N,Int}) where {N}
+function dynamic_indexer(locs::NTuple{N,Int}, size::NTuple{N,Int}) where {N}
     N==0 && return DynamicEinIndexer{0}((),())
     DynamicEinIndexer{N}(locs, (1,TupleTools.cumprod(size[1:end-1])...))
 end

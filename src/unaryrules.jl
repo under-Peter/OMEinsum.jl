@@ -121,7 +121,7 @@ end
 function compactify!(y, x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}) where {Nx,Ny,T}
     x_in_y_locs = ([findfirst(==(x), iy) for x in ix]...,)
     @assert size(x) === map(loc->size(y, loc), x_in_y_locs)
-    indexer = DynamicEinIndexer(x_in_y_locs, size(x))
+    indexer = dynamic_indexer(x_in_y_locs, size(x))
     _compactify!(y, x, indexer)
 end
 
