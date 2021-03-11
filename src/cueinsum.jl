@@ -30,6 +30,12 @@ function CUDA.mapreducedim_kernel_serial(f, op, R, A::EinArray, range)
 end
 =#
 
+for TP in [:Diag, :Repeat]
+    @eval function einsum(::$TP, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+        loop_einsum(code, xs, size_dict)
+    end
+end
+
 function loop_einsum!(code::EinCode{ixs, iy},
                 xs::NTuple{N, DenseCuArray{<:Any,M} where M},
                 y::DenseCuArray{T,L}, size_dict) where {N,L,T, ixs, iy}
@@ -75,6 +81,7 @@ function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArra
 end
 
 tensorpermute(A::DenseCuArray, perm) = permutedims(A, perm)
+tensorpermute(A::DenseCuArray, perm::Tuple{}) = A
 
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])

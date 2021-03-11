@@ -177,3 +177,24 @@ function indices_and_locs(ixs, iy)
     locs_y = map(i->findfirst(isequal(i), outer_indices), iy)
     return inner_indices, outer_indices, locs_xs, locs_y
 end
+
+# dynamic EinIndexer
+struct DynamicEinIndexer{N}
+    locs::NTuple{N,Int}
+    cumsize::NTuple{N, Int}
+end
+
+function DynamicEinIndexer(locs::NTuple{N,Int}, size::NTuple{N,Int}) where {N}
+    N==0 && return DynamicEinIndexer{0}((),())
+    DynamicEinIndexer{N}(locs, (1,TupleTools.cumprod(size[1:end-1])...))
+end
+
+getlocs(d::DynamicEinIndexer{N}) where {N} = d.locs
+
+# get a subset of index
+@inline subindex(indexer::DynamicEinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
+@inline subindex(indexer::DynamicEinIndexer{0}, ind::NTuple{N0,Int}) where N0 = 1
+@inline @generated function subindex(indexer::DynamicEinIndexer{N}, ind::NTuple{N0,Int}) where {N,N0}
+    ex = Expr(:call, :+, map(i->i==1 ? :(ind[indexer.locs[$i]]) : :((ind[indexer.locs[$i]]-1) * indexer.cumsize[$i]), 1:N)...)
+    :(@inbounds $ex)
+end

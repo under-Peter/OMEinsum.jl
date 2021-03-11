@@ -1,6 +1,6 @@
 # Unary operations are searched in the following order
 # 0. special rules `Identity` and `Tr`,
-# 1. rules reducing dimensions `Sum` (note: `PTrace` has been removed),
+# 1. rules reducing dimensions `Diag` and `Sum`
 # 2. `Permutedims`,
 # 3. `Repeat` and `Duplicate`,
 #   - we use `loop_einsum` instead of using existing API,
@@ -13,11 +13,13 @@
 # `NT` for number of tensors
 abstract type EinRule{NT} end
 
-struct Sum <: EinRule{1} end
 struct Tr <: EinRule{1} end
+struct Sum <: EinRule{1} end
+struct Repeat <: EinRule{1} end
 struct Permutedims <: EinRule{1} end
 struct Identity <: EinRule{1} end
-struct Repeat <: EinRule{1} end
+struct Duplicate <: EinRule{1} end
+struct Diag <: EinRule{1} end
 struct DefaultRule <: EinRule{Any} end
 # potential rules:
 # - `Duplicate` and `TensorDiagonal`
@@ -52,17 +54,29 @@ function match_rule(ixs::Tuple{NTuple{Nx,T}}, iy::NTuple{Ny,T}) where {Nx, Ny, T
             else
                 if all(i -> i in ix, iy)
                     return Sum()
-                elseif all(i -> i in iy, ix)
+                elseif all(i -> i in iy, ix)  # e.g. ij->ijk
                     return Repeat()
                 else  # e.g. ijkxc,ijkl
                     return DefaultRule()
                 end
             end
         else  # ix is not unique
-            return DefaultRule()
+            if all(i -> i in ix, iy) && all(i -> i in iy, ix)   # ijjj->ij
+                return Diag()
+            else
+                return DefaultRule()
+            end
         end
     else  # iy is not unique
-        return DefaultRule()
+        if allunique(ix) && all(x->x∈iy, ix)
+            if all(y->y∈ix, iy)  # e.g. ij->ijjj
+                return Duplicate()
+            else  # e.g. ij->ijjl
+                return DefaultRule()
+            end
+        else
+            return DefaultRule()
+        end
     end
 end
 
@@ -75,19 +89,51 @@ function einsum(::Tr, ::EinCode{ixs,iy}, xs::NTuple{1, Any}, size_dict) where {i
 end
 
 function einsum(::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    dims = (findall(i -> i ∉ iy, ixs[1])...,)
     (ix1,) = ixs
-    ix1f = filter!(i -> i in iy, collect(ix1))
-    # einsum(EinCode{((ix1f...,),),(iy)}(), res, size_dict)
-    perm = map(i -> findfirst(==(i), ix1f), iy)
+    dims = (findall(i -> i ∉ iy, ix1)...,)
+    ix1f = TupleTools.filter(i -> i ∈ iy, ix1)
     res = dropdims(sum(xs[1], dims=dims), dims=dims)
-    if perm == iy
-        @debug "Sum" ixs => iy size.(xs)
-        res
-    else
-        @debug "Sum permutedims" ixs => iy size.(xs) perm
-        tensorpermute(res, perm)
+    einsum(Permutedims(), EinCode{(ix1f,),iy}(), (res,), size_dict)
+    # perm = map(i -> findfirst(==(i), ix1f), iy)
+    # if perm == iy
+    #     @debug "Sum" ixs => iy size.(xs)
+    #     res
+    # else
+    #     @debug "Sum permutedims" ixs => iy size.(xs) perm
+    #     tensorpermute(res, perm)
+    # end
+end
+
+function einsum(::Repeat, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    (ix,) = ixs
+    ix1f = TupleTools.filter(i -> i ∈ ix, iy)
+    res = einsum(Permutedims(), EinCode{ixs,ix1f}(), xs, size_dict)
+    newshape = [l ∈ ix ? size_dict[l] : 1 for l in iy]
+    repeat_dims = [l ∈ ix ? 1 : size_dict[l] for l in iy]
+    @show repeat_dims
+    repeat(reshape(res, newshape...), repeat_dims...)
+end
+
+function einsum(::Diag, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    compactify!(get_output_array(xs, map(y->size_dict[y],iy); has_repeated_indices=false),xs[1],ixs[1], iy)
+end
+
+function compactify!(y, x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}) where {Nx,Ny,T}
+    x_in_y_locs = ([findfirst(==(x), iy) for x in ix]...,)
+    @assert size(x) === map(loc->size(y, loc), x_in_y_locs)
+    indexer = DynamicEinIndexer(x_in_y_locs, size(x))
+    _compactify!(y, x, indexer)
+end
+
+function _compactify!(y, x, indexer)
+    @inbounds for ci in CartesianIndices(y)
+        y[ci] = x[subindex(indexer, ci.I)]
     end
+    return y
+end
+
+function einsum(::Duplicate, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    loop_einsum(code, xs, size_dict)
 end
 
 function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
@@ -103,11 +149,26 @@ function einsum(::Identity, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
 end
 
 # the fallback
-for RULE in [:Repeat, :DefaultRule]
+for RULE in [:DefaultRule]
     @eval function einsum(::$RULE, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
         @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
         loop_einsum(code, xs, size_dict)
     end
+end
+
+function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs::NTuple{1,Any}, size_dict) where {ixs, iy}
+    ix, = ixs
+    ix_ = (tunique(ix)...,)
+    iy_b = (tunique(iy)...,)
+    iy_a = TupleTools.filter(i->i ∈ ix, iy_b)
+    # diag
+    x_ = ix_ !== ix ? einsum(Diag(), EinCode{ixs, ix_}(), xs, size_dict) : xs[1]
+    # sum
+    y_a = ix_ !== iy_a ? einsum(Sum(), EinCode{(ix_,), iy_a}(), (x_,), size_dict) : x_
+    # repeat
+    y_b = iy_a !== iy_b ? einsum(Repeat(), EinCode{(iy_a,), iy_b}(), (y_a,), size_dict) : y_a
+    # duplicate
+    iy_b !== iy ? einsum(Duplicate(), EinCode{(iy_b,), iy}(), (y_b,), size_dict) : y_b
 end
 
 @doc raw"

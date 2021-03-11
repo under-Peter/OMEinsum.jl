@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: subindex
+using OMEinsum: subindex, DynamicEinIndexer
 
 @testset "EinCode" begin
     code = EinCode(((1,2), (2,3)), (1,3))
@@ -13,6 +13,15 @@ end
     si = EinIndexer{()}(())
     @test subindex(si, (1,2,3)) == 1
     si = EinIndexer{(3,2)}((7,6))
+    @test OMEinsum.getlocs(si) == (3,2)
+    a = randn(7,6)
+    @test a[subindex(si, (4,5,2))] == a[2,5]
+end
+
+@testset "dynamic indexer" begin
+    si = DynamicEinIndexer((), ())
+    @test subindex(si, (1,2,3)) == 1
+    si = DynamicEinIndexer((3,2), (7,6))
     @test OMEinsum.getlocs(si) == (3,2)
     a = randn(7,6)
     @test a[subindex(si, (4,5,2))] == a[2,5]
