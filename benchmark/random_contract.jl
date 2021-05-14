@@ -13,3 +13,5 @@ end
     @show i
     random_contract(8)
 end
+
+#@profile random_contract(8)

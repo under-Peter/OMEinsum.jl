@@ -11,8 +11,10 @@ include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
 
+@nospecialize
 include("unaryrules.jl")
 include("binaryrules.jl")
+@specialize
 
 using Requires
 function __init__()

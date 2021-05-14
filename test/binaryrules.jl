@@ -74,5 +74,5 @@ end
 @testset "regression test" begin
     x, y = randn(fill(2, 8)...), randn(fill(2, 5)...)
     code = EinCode{((10, 5, 4, 2, 6, 6, 7, 9), (1, 9, 8, 2, 10)), (4, 10, 9, 7, 10)}()
-    @test code(x, y) ≈ loop_einsum(code, (x, y), OMEinsum.get_size_dict(getixs(code), (x, y)))
+    @test code(x, y) ≈ loop_einsum(code, (x, y), OMEinsum.get_size_dict(OMEinsum.getixs(code), (x, y)))
 end

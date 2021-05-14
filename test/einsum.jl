@@ -204,9 +204,9 @@ end
     # index-sum
     a = rand(2,2,5)
     ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), EinCode(ixs,(1,2)),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    @test einsum(Sum(), ixs[1],(1,2),xs[1], get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
     a = rand(5,5)
-    @test einsum(Tr(), EinCode(((1,1),),()), (a,), get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
+    @test einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
     t = rand(5,5,5,5)
     a = rand(5,5)
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
@@ -217,15 +217,15 @@ end
     # index-sum
     a = Basic.(rand(2,2,5))
     ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), EinCode(ixs,(1,2)),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    @test einsum(Sum(), ixs[1],(1,2),xs[1], get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
     a = Basic.(rand(5,5))
-    @test isapprox(einsum(Tr(), EinCode(((1,1),),()), (a,), get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
+    @test isapprox(einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
     t = Basic.(rand(5,5,5,5))
     a = Basic.(rand(5,5))
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
 end
 
 @testset "isbatchmul" begin

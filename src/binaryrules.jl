@@ -82,7 +82,7 @@ function _match_simple2(ix1, ix2, iy, Nx1, Nx2, Ny)
     return DefaultRule()
 end
 
-function einsum(rule::SimpleBinaryRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict) where {ixs, iy}
+function einsum(rule::SimpleBinaryRule, ixs, iy, xs::NTuple{2, Any}, size_dict)
     @debug rule size.(xs)
     einsum(rule, xs)
 end
@@ -249,14 +249,14 @@ function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict
     c1, c2, cy, s1, s2, sy, rule = analyze_binary(ix1, ix2, iy, size_dict)
     if ix1 !== c1
         if length(ix1) == length(c1) # permutation
-            x1 = einsum(Permutedims(), EinCode{(ix1,), c1}(), (x1,), size_dict)
+            x1 = einsum(Permutedims(), ix1, c1, x1, size_dict)
         else
             x1 = einsum(EinCode{(ix1,), c1}(), (x1,), size_dict)
         end
     end
     if ix2 !== c2
         if length(ix2) == length(c2) # permutation
-            x2 = einsum(Permutedims(), EinCode{(ix2,), c2}(), (x2,), size_dict)
+            x2 = einsum(Permutedims(), ix2, c2, x2, size_dict)
         else
             x2 = einsum(EinCode{(ix2,), c2}(), (x2,), size_dict)
         end
