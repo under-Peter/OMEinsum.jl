@@ -25,6 +25,19 @@ struct DefaultRule <: EinRule{Any} end
 # - `Duplicate` and `TensorDiagonal`
 # - `Kron`
 
+macro _pipeline1(ex, iy, y)
+    y0 = ex.args[1]
+    rule, code, xs, size_dict = ex.args[2].args[2:end]
+    ixs, iy0 = code.args[1].args[2:3]
+    esc(:(if $iy0 == $iy && $iy0 !== $ixs[1]
+        return einsum!($rule, $code, $xs, $y, $size_dict)
+    elseif $iy0 !== ix
+        $ex
+    else
+        $y0 = $xs[1]
+    end))
+end
+
 @doc raw"
     match_rule(ixs, iy)
     match_rule(code::EinCode{ixs, iy})
@@ -83,37 +96,39 @@ end
 match_rule(code::EinCode{ixs, iy}) where {ixs, iy} = match_rule(ixs, iy)
 
 # trace
-function einsum(::Tr, ::EinCode{ixs,iy}, xs::NTuple{1, Any}, size_dict) where {ixs, iy}
+function einsum!(::Tr, ::EinCode{ixs,iy}, xs::NTuple{1, Any}, y, size_dict) where {ixs, iy}
     @debug "Tr" size.(xs)
-    asarray(tr(xs[1]), xs[1])
+    copyto!(y, tr(xs[1]))
+    #asarray(tr(xs[1]), xs[1])
 end
 
-function einsum(::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Sum, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
+    @debug "Sum" ixs => iy size.(xs)
     (ix1,) = ixs
     dims = (findall(i -> i ∉ iy, ix1)...,)
     ix1f = TupleTools.filter(i -> i ∈ iy, ix1)
-    res = dropdims(sum(xs[1], dims=dims), dims=dims)
-    einsum(Permutedims(), EinCode{(ix1f,),iy}(), (res,), size_dict)
-    # perm = map(i -> findfirst(==(i), ix1f), iy)
-    # if perm == iy
-    #     @debug "Sum" ixs => iy size.(xs)
-    #     res
-    # else
-    #     @debug "Sum permutedims" ixs => iy size.(xs) perm
-    #     tensorpermute(res, perm)
-    # end
+    if ix1f != iy
+        res = dropdims(sum(xs[1], dims=dims), dims=dims)
+        return einsum!(Permutedims(), EinCode{(ix1f,),iy}(), (res,), y, size_dict)
+    else
+        # TODO: fix allocation
+        y .= dropdims(sum(xs[1], dims=dims), dims=dims)
+        return y
+    end
 end
 
-function einsum(::Repeat, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Repeat, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
+    @debug "Repeat" ixs => iy size.(xs)
     (ix,) = ixs
     ix1f = TupleTools.filter(i -> i ∈ ix, iy)
-    res = einsum(Permutedims(), EinCode{ixs,ix1f}(), xs, size_dict)
+    @_pipeline1 res = einsum(Permutedims(), EinCode{ixs,ix1f}(), xs, size_dict) iy y
     newshape = [l ∈ ix ? size_dict[l] : 1 for l in iy]
     repeat_dims = [l ∈ ix ? 1 : size_dict[l] for l in iy]
     repeat(reshape(res, newshape...), repeat_dims...)
 end
 
-function einsum(::Diag, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Diag, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
+    @debug "Diag" ixs => iy size.(xs)
     compactify!(get_output_array(xs, map(y->size_dict[y],iy); has_repeated_indices=false),xs[1],ixs[1], iy)
 end
 
@@ -131,11 +146,12 @@ function _compactify!(y, x, indexer)
     return y
 end
 
-function einsum(::Duplicate, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Duplicate, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
+    @debug "Duplicate" ixs => iy size.(xs)
     loop_einsum(code, xs, size_dict)
 end
 
-function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Permutedims, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
     (ix,) = ixs
     (x,) = xs
     perm = map(i -> findfirst(==(i), ix), iy)
@@ -143,31 +159,34 @@ function einsum(::Permutedims, code::EinCode{ixs, iy}, xs, size_dict) where {ixs
     return tensorpermute(x, perm)
 end
 
-function einsum(::Identity, ::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum!(::Identity, ::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
+    @debug "Identity" ixs => iy size.(xs)
     xs[1]
 end
 
 # the fallback
 for RULE in [:DefaultRule]
-    @eval function einsum(::$RULE, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    @eval function einsum!(::$RULE, code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
         @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
         loop_einsum(code, xs, size_dict)
     end
 end
 
-function einsum(::DefaultRule, code::EinCode{ixs, iy}, xs::NTuple{1,Any}, size_dict) where {ixs, iy}
+function einsum!(::DefaultRule, code::EinCode{ixs, iy}, xs::NTuple{1,Any}, y, size_dict) where {ixs, iy}
+    @debug "DefaultRule unary" ixs => iy size.(xs)
     ix, = ixs
     ix_ = (tunique(ix)...,)
     iy_b = (tunique(iy)...,)
     iy_a = TupleTools.filter(i->i ∈ ix, iy_b)
     # diag
-    x_ = ix_ !== ix ? einsum(Diag(), EinCode{ixs, ix_}(), xs, size_dict) : xs[1]
+    @_pipeline1 x_ = einsum(Diag(), EinCode{ixs, ix_}(), xs, size_dict) iy y
     # sum
-    y_a = ix_ !== iy_a ? einsum(Sum(), EinCode{(ix_,), iy_a}(), (x_,), size_dict) : x_
+    @_pipeline1 y_a = einsum(Sum(), EinCode{(ix_), iy_a}(), (x_,), size_dict) iy y
     # repeat
-    y_b = iy_a !== iy_b ? einsum(Repeat(), EinCode{(iy_a,), iy_b}(), (y_a,), size_dict) : y_a
+    @_pipeline1 y_b = einsum(Repeat(), EinCode{(iy_a,), iy_b}(), (y_a,), size_dict) iy y
     # duplicate
-    iy_b !== iy ? einsum(Duplicate(), EinCode{(iy_b,), iy}(), (y_b,), size_dict) : y_b
+    @_pipeline1 res = einsum(Duplicate(), EinCode{(iy_b,), iy}(), (y_b,), size_dict) iy y
+    return res
 end
 
 @doc raw"
@@ -191,14 +210,19 @@ The result is permuted according to `out`.
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
 
-julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
+julia> einsum!(EinCode((('i','j'),('j','k')),('i','k')), (a, b), zeros(2,2)) ≈ a * b
 true
 
 julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
 true
 ```
 "
-@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    y = get_output_array(xs, size_dict)
+    einsum!(code, xs, y, size_dict)
+end
+
+@generated function einsum!(code::EinCode{ixs, iy}, xs, y, size_dict) where {ixs, iy}
     rule = match_rule(ixs, iy)
-    :(einsum($rule, code, xs, size_dict))
+    :(einsum!($rule, code, xs, y, size_dict))
 end
