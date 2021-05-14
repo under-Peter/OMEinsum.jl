@@ -132,9 +132,25 @@ function _compactify!(y, x, indexer)
     return y
 end
 
+function duplicate(x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}, size_dict) where {Nx,Ny,T}
+    y = zeros(eltype(x), getindex.(Ref(size_dict),iy))
+    # compute same locs
+    x_in_y_locs = ([findfirst(==(l), ix) for l in iy]...,)
+    indexer = dynamic_indexer(x_in_y_locs, size(y))
+    _duplicate!(y, x, indexer)
+end
+
+@noinline function _duplicate!(y, x, indexer)
+    map(CartesianIndices(x)) do ci
+        @inbounds y[subindex(indexer, ci.I)] = x[ci]
+    end
+    return y
+end
+
+# e.g. 'ij'->'iij', left indices are unique, right are not
 function einsum(::Duplicate, ix, iy, x, size_dict)
     @debug "Duplicate" ix => iy size(x)
-    loop_einsum(EinCode{(ix,), iy}(), (x,), size_dict)
+    duplicate(x, ix, iy, size_dict)
 end
 
 function einsum(::Permutedims, ix, iy, x, size_dict)
@@ -163,7 +179,13 @@ function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict)
     # diag
     x_ = ix_ !== ix ? einsum(Diag(), ix, ix_, x, size_dict) : x
     # sum
-    y_a = ix_ !== iy_a ? einsum(Sum(), ix_, iy_a, x_, size_dict) : x_
+    y_a = if length(ix_) !== length(iy_a)
+        einsum(Sum(), ix_, iy_a, x_, size_dict)
+    elseif ix_ !== iy_a
+        einsum(Permutedims(), ix_, iy_a, x_, size_dict)
+    else
+        x_
+    end
     # repeat
     y_b = iy_a !== iy_b ? einsum(Repeat(), iy_a, iy_b, y_a, size_dict) : y_a
     # duplicate

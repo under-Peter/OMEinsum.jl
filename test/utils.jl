@@ -28,3 +28,15 @@ end
     @test res[2] === b
     @test res == (ComplexF64.(a), b)
 end
+
+@testset "batched gemm" begin
+    A = randn(10, 10, 10)
+    B = randn(10, 10, 10)
+    for C1 in ['N', 'T']
+        for C2 in ['N', 'T']
+            A_ = Array{Any}(A)
+            B_ = Array{Any}(B)
+            @test OMEinsum._batched_gemm(C1, C2, A, B) ≈ OMEinsum._batched_gemm(C1, C2, A_, B_)
+        end
+    end
+end

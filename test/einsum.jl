@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, IndexSize, Permutedims
+using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, IndexSize, Permutedims, Duplicate
 using SymEngine
 using LinearAlgebra: I
 
@@ -212,7 +212,7 @@ end
     size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
 
     # index-sum
     a = Basic.(rand(2,2,5))
@@ -236,4 +236,13 @@ end
         xs = ([randn(ComplexF64, fill(4,length(ix))...) for ix in ixs]...,)
         @test EinCode(ixs, iy)(xs...) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
+end
+
+@testset "duplicate" begin
+    ix = (1,2,3)
+    iy = (3,2,1,1,2)
+    size_dict = IndexSize(1=>3,2=>3,3=>3)
+    x = randn(3,3,3)
+    @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test OMEinsum.einsum(Duplicate(), ix, iy, x, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
 end

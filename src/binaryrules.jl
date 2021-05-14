@@ -199,20 +199,18 @@ end
 
 # 011
 function einsum(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any})
-    size_dict = IndexSize(('j','k','l'), size(xs[2]))
-    loop_einsum(EinCode{(('j','l'), ('j','k','l')), ('k','l')}(), xs, size_dict)
+    reshape(_batched_gemm('N', 'N', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2]), size(xs[2],2), size(xs[2],3))
 end
 function einsum(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any})
-    size_dict = IndexSize(('k','j','l'), size(xs[2]))
-    loop_einsum(EinCode{(('j','l'), ('k','j','l')), ('k','l')}(), xs, size_dict)
+    reshape(_batched_gemm('N', 'T', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2]), size(xs[2],1), size(xs[2],3))
 end
 
 # 110
-@inline function einsum(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}(), (xs[2],xs[1]))
+function einsum(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
+    reshape(_batched_gemm('N', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2))), size(xs[1],1), size(xs[1],3))
 end
-@inline function einsum(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}(), (xs[2],xs[1]))
+function einsum(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
+    reshape(_batched_gemm('T', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2))), size(xs[1],2), size(xs[1],3))
 end
 
 # ij,jk->ik : 111
@@ -229,10 +227,6 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
             X1B = (X1...,'l')
             X2B = (X2...,'l')
             X3B = (X3...,'l')
-            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B, $X3B}, xs::NTuple{2, Any})
-                size_dict = IndexSize(('i', 'j', 'k', 'l'), (size(xs[1], 1), size(xs[2])...))
-                loop_einsum(EinCode{($X1B,$X2B), $X3B}(), xs, size_dict)
-            end
             C1 = i1==i3 ? 'N' : 'T'
             C2 = i2==i3 ? 'N' : 'T'
             @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}})
@@ -242,7 +236,7 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
     end
 end
 
-function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict) where {ixs, iy}
+function einsum(::DefaultRule, ixs, iy, xs::NTuple{2, Any}, size_dict)
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
     x1, x2 = xs

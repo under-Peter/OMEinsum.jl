@@ -87,6 +87,20 @@ function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArr
     batched_gemm(C1, C2, Array(A), Array(B))
 end
 
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T, T2}
+    @assert size(A, 3) == size(B, 3) "batch dimension mismatch, got $(size(A,3)) and $(size(B,3))"
+    @assert C1 === 'N' || C1 === 'T'
+    @assert C2 === 'N' || C2 === 'T'
+    L = size(A, 3)
+    C = similar(A, promote_type(T,T2), C1==='N' ? size(A,1) : size(A,2), C2==='N' ? size(B,2) : size(B,1), L)
+    for l = 1:L
+        a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
+        b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
+        mul!(view(C,:,:,l), a, b)
+    end
+    return C
+end
+
 @inline tuplejoin(x) = x
 @inline tuplejoin(x, y) = (x..., y...)
 @inline tuplejoin(x, y, z...) = tuplejoin(tuplejoin(x, y), z...)

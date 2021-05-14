@@ -76,7 +76,7 @@ function expanddims!(code::EinCode{ixs, iy}, x, y) where {ixs, iy}
     return y
 end
 
-function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:Number, T2<:Number}
+function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:CuBlasFloat, T2<:CuBlasFloat}
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
