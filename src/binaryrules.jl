@@ -83,8 +83,8 @@ function _match_simple2(ix1, ix2, iy, Nx1, Nx2, Ny)
 end
 
 function einsum(rule::SimpleBinaryRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict) where {ixs, iy}
-    @debug rule ixs => iy size.(xs)
-    einsum(rule, xs, size_dict)
+    @debug rule size.(xs)
+    einsum(rule, xs)
 end
 # Code is a binary representation of `(O1,I,O2,B)`.
 # Because the time complexity of `GEMM` and `BatchedGEMM` are higher than space complexity, we allow `permutedims`.
@@ -246,7 +246,7 @@ function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
     x1, x2 = xs
-    c1, c2, cy, s1, s2, sy, rule, sdict = analyze_binary(ix1, ix2, iy, size_dict)
+    c1, c2, cy, s1, s2, sy, rule = analyze_binary(ix1, ix2, iy, size_dict)
     if ix1 !== c1
         if length(ix1) == length(c1) # permutation
             x1 = einsum(Permutedims(), EinCode{(ix1,), c1}(), (x1,), size_dict)
@@ -263,7 +263,8 @@ function einsum(::DefaultRule, ::EinCode{ixs, iy}, xs::NTuple{2, Any}, size_dict
     end
     x1_ = reshape(x1, s1)
     x2_ = reshape(x2, s2)
-    y_ = reshape(einsum(rule, (x1_, x2_), sdict), sy)
+    @debug rule size.((x1_, x2_))
+    y_ = reshape(einsum(rule, (x1_, x2_)), sy)
     return einsum(EinCode{(cy,), iy}(), (y_,), size_dict)
 end
 
@@ -313,8 +314,7 @@ function analyze_binary(ix1, ix2, iy, size_dict)
         push!(s2, sl)
     end
     rule = SimpleBinaryRule{(i1...,), (i2...,), (iy...,)}()
-    sdict = IndexSize('i'=>si, 'j'=>sj, 'k'=>sk, 'l'=>sl)
-    return c1, c2, cy, (s1...,), (s2...,), sy, rule, sdict
+    return c1, c2, cy, (s1...,), (s2...,), sy, rule
 end
 
 function _analyze_binary_input(ix1::NTuple{N1,T}, ix2::NTuple{N2,T}, iy::NTuple{Ny,T}) where {T,N1,N2,Ny}
