@@ -203,7 +203,7 @@ function einsum(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTu
     loop_einsum(EinCode{(('j','l'), ('j','k','l')), ('k','l')}(), xs, size_dict)
 end
 function einsum(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any})
-    size_dict = IndexSize(('j','k','l'), size(xs[2]))
+    size_dict = IndexSize(('k','j','l'), size(xs[2]))
     loop_einsum(EinCode{(('j','l'), ('k','j','l')), ('k','l')}(), xs, size_dict)
 end
 

@@ -99,14 +99,6 @@ function einsum(::Sum, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
     else
         return res
     end
-    # perm = map(i -> findfirst(==(i), ix1f), iy)
-    # if perm == iy
-    #     @debug "Sum" ixs => iy size.(xs)
-    #     res
-    # else
-    #     @debug "Sum permutedims" ixs => iy size.(xs) perm
-    #     tensorpermute(res, perm)
-    # end
 end
 
 function einsum(::Repeat, code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
