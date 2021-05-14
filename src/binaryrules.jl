@@ -94,49 +94,49 @@ end
 # ,-> : 000
 # S = 1
 # T = 1
-function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any})
     asarray(xs[1][] * xs[2], xs[1])
 end
 
 # i,->i : 100
 # S = N
 # T = N
-function einsum(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any})
     xs[1] .* xs[2][]
 end
 
 # j,j-> : 010
 # S = N
 # T = N
-function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any})
     asarray(transpose(xs[1]) * xs[2], xs[1])
 end
 
 # ,k->k : 001
 # S = N
 # T = N
-@inline function einsum(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any}, size_dict)
-    einsum(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]), size_dict)
+@inline function einsum(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any})
+    einsum(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]))
 end
 
 # j,jk->k : 011
 # S = N^2
 # T = N^2
-function einsum(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any})
     vec(transpose(xs[1]) * xs[2])
 end
-function einsum(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any})
     xs[2] * xs[1]
 end
 
 # ij,j->i : 110
 # S = N^2
 # T = N^2
-@inline function einsum(::SimpleBinaryRule{('i','j'),('j',), ('i',)}, xs::NTuple{2, Any}, size_dict)
-    einsum(SimpleBinaryRule{('j',),('k','j'), ('k',)}(), (xs[2], xs[1]), size_dict)
+@inline function einsum(::SimpleBinaryRule{('i','j'),('j',), ('i',)}, xs::NTuple{2, Any})
+    einsum(SimpleBinaryRule{('j',),('k','j'), ('k',)}(), (xs[2], xs[1]))
 end
-@inline function einsum(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any}, size_dict)
-    einsum(SimpleBinaryRule{('j',),('j','k'), ('k',)}(), (xs[2], xs[1]), size_dict)
+@inline function einsum(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any})
+    einsum(SimpleBinaryRule{('j',),('j','k'), ('k',)}(), (xs[2], xs[1]))
 end
 
 # i,k->ik : 101
@@ -146,26 +146,26 @@ function einsum(::SimpleBinaryRule{('i',), ('k',), ('i','k')}, xs::NTuple{2, Any
     xs[1] * transpose(xs[2])
 end
 @inline function einsum(::SimpleBinaryRule{('i',), ('k',),('k','i')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('i',),('k',),('i','k')}(), (xs[2], xs[1]), size_dict)
+    einsum(SimpleBinaryRule{('i',),('k',),('i','k')}(), (xs[2], xs[1]))
 end
 
 # 000
-function einsum(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any})
     xs[1] .* xs[2]
 end
 
 # 100
-function einsum(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any})
     xs[1] .* transpose(xs[2])
 end
 
 # 001
-@inline function einsum(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, xs::NTuple{2, Any}, size_dict)
-    einsum(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), (xs[2], xs[1]), size_dict)
+@inline function einsum(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, xs::NTuple{2, Any})
+    einsum(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), (xs[2], xs[1]))
 end
 
 # 010
-function einsum(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any})
     a, b = xs
     T = promote_type(eltype(xs[1]), eltype(xs[2]))
     out = similar(a, T, size(a, 2))
@@ -180,7 +180,7 @@ function einsum(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, 
 end
 
 # 101
-function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any})
     a, b = xs
     T = promote_type(eltype(xs[1]), eltype(xs[2]))
     out = similar(a, T, size(a, 1), size(b, 1), size(a, 2))
@@ -193,26 +193,26 @@ function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTu
     end
     return out
 end
-@inline function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any}, size_dict)
+@inline function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any})
     einsum(SimpleBinaryRule{('i','l'),('k','l'), ('i','k','l')}(), (xs[2], xs[1]))
 end
 
 # 011
-function einsum(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any})
     size_dict = IndexSize(('j','k','l'), size(xs[2]))
     loop_einsum(EinCode{(('j','l'), ('j','k','l')), ('k','l')}(), xs, size_dict)
 end
-function einsum(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any}, size_dict)
+function einsum(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any})
     size_dict = IndexSize(('j','k','l'), size(xs[2]))
     loop_einsum(EinCode{(('j','l'), ('k','j','l')), ('k','l')}(), xs, size_dict)
 end
 
 # 110
-@inline function einsum(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, size_dict)
+@inline function einsum(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
     einsum(SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}(), (xs[2],xs[1]))
 end
-@inline function einsum(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, size_dict)
-    einsum(SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}(), (xs[2],xs[1]), size_dict)
+@inline function einsum(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
+    einsum(SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}(), (xs[2],xs[1]))
 end
 
 # ij,jk->ik : 111
@@ -223,19 +223,19 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
         for (i3, X3) in enumerate([('i', 'k'), ('k', 'i')])
             A1 = i1==i3 ? :(xs[1]) : :(transpose(xs[1]))
             A2 = i2==i3 ? :(xs[2]) : :(transpose(xs[2]))
-            @eval function einsum(::SimpleBinaryRule{$X1,$X2, $X3}, xs::NTuple{2, Any}, size_dict)
+            @eval function einsum(::SimpleBinaryRule{$X1,$X2, $X3}, xs::NTuple{2, Any})
                 $(i3==1 ? :($A1*$A2) : :($A2*$A1))
             end
             X1B = (X1...,'l')
             X2B = (X2...,'l')
             X3B = (X3...,'l')
-            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B, $X3B}, xs::NTuple{2, Any}, size_dict)
+            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B, $X3B}, xs::NTuple{2, Any})
                 size_dict = IndexSize(('i', 'j', 'k', 'l'), (size(xs[1], 1), size(xs[2])...))
                 loop_einsum(EinCode{($X1B,$X2B), $X3B}(), xs, size_dict)
             end
             C1 = i1==i3 ? 'N' : 'T'
             C2 = i2==i3 ? 'N' : 'T'
-            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}}, size_dict)
+            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}})
                 $(i3==1 ? :(_batched_gemm($C1, $C2, xs[1], xs[2])) : :(_batched_gemm($C2, $C1, xs[2], xs[1])))
             end
         end
