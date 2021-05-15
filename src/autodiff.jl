@@ -17,7 +17,7 @@ julia> c = einsum(EinCode((('i','j'),('j','k')), ('i','k')), (a,b));
 
 julia> sd = get_size_dict((('i','j'),('j','k')), (a,b));
 
-julia> einsum_grad(EinCode((('i','j'),('j','k')), ('i','k')), (a,b), sd, c, 1) ≈ c * transpose(b)
+julia> einsum_grad((('i','j'),('j','k')), (a,b), ('i','k'), sd, c, 1) ≈ c * transpose(b)
 true
 ```
 "
