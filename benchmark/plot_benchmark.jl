@@ -1,6 +1,6 @@
 using BenchmarkTools, Plots
 
-function plot_res()
+function plot_benchmark()
     res0 = BenchmarkTools.load(joinpath(@__DIR__, "OMEinsum_master.json"))[]
     res1 = BenchmarkTools.load(joinpath(@__DIR__, "OMEinsum_refactor.json"))[]
     t0 = Float64[]
@@ -20,4 +20,15 @@ function plot_res()
     #Plots.xticks!(xs, xl)
 end
 
-plot_res()
+function plot_compile()
+    pl = []
+    for dynamic in [true, false]
+        for uniqueindex in [true]
+            times = readdlm(joinpath(@__DIR__, "compiletime_8_$(dynamic)_$(uniqueindex).dat"))
+            push!(pl, plot(1:1000, times, label=(dynamic ? "dynamic" : "static") * " ($(round(sum(times); sigdigits=2)))"))
+        end
+    end
+    plt = plot(pl..., xlabel="iteration", ylabel="time", layout=(2,1))
+end
+#plot_benchmark()
+plot_compile()
