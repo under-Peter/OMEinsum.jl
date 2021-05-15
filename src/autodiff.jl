@@ -1,7 +1,7 @@
-using ZygoteRules: @adjoint
+using ChainRulesCore
 
 @doc raw"
-    einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i)
+    einsum_grad(ixs, xs, iy, size_dict, cdy, i)
 
 return the gradient of the result of evaluating the `EinCode` w.r.t
 the `i`th tensor in `xs`. `cdy` is the result of applying the `EinCode`
@@ -17,11 +17,11 @@ julia> c = einsum(EinCode((('i','j'),('j','k')), ('i','k')), (a,b));
 
 julia> sd = get_size_dict((('i','j'),('j','k')), (a,b));
 
-julia> einsum_grad(EinCode((('i','j'),('j','k')), ('i','k')), (a,b), sd, c, 1) ≈ c * transpose(b)
+julia> einsum_grad((('i','j'),('j','k')), (a,b), ('i','k'), sd, c, 1) ≈ c * transpose(b)
 true
 ```
 "
-function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
+function einsum_grad(ixs, xs, iy, size_dict, cdy, i)
     nixs = TupleTools.insertat(ixs, i, (iy,))
     nxs  = TupleTools.insertat( xs, i, (cdy,))
     niy = ixs[i]
@@ -36,16 +36,37 @@ function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     convert(typeof(xs[i]), y)
 end
 
-@adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
+function ChainRulesCore.rrule(::typeof(einsum), code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict) where {N, ixs, iy}
     y = einsum(code, xs, size_dict)
-    return y, dy -> let cdy = map(conj,dy)
-                (
-                    nothing,
-                    ntuple(i -> einsum_grad(code, xs, size_dict, cdy, i), N),
-                    nothing
-                )
-            end
+    function einsum_pullback(dy)
+        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(ixs, xs, iy, size_dict, map(conj, dy), i), N)
+        return (NO_FIELDS, NO_FIELDS, dxs, NO_FIELDS)
+    end
+    einsum_pullback(::Zero) = (NO_FIELDS, NO_FIELDS, Zero(), NO_FIELDS)
+    return y, einsum_pullback
 end
 
-# @Zygote.nograd get_size_dict
-@adjoint get_size_dict(arg...) = get_size_dict(arg...), Δ -> map(_->nothing, arg)
+function dynamic_einsum_grad(ixs, xs, iy, size_dict, cdy, i)
+    nixs = TupleTools.insertat(ixs, i, (iy,))
+    nxs  = TupleTools.insertat( xs, i, (cdy,))
+    niy = ixs[i]
+    y = dynamic_einsum(nixs, nxs, niy, size_dict)
+    try
+        conj!(y)
+    catch e
+        y = conj(y)
+    end
+    typeof(y) == typeof(xs[i]) && return y
+    xs[i] isa Array{<:Real} && return convert(typeof(xs[i]), real(y))
+    convert(typeof(xs[i]), y)
+end
+
+function ChainRulesCore.rrule(::typeof(dynamic_einsum), ixs, xs::NTuple{N,T where T}, iy, size_dict) where {N}
+    y = dynamic_einsum(ixs, xs, iy, size_dict)
+    function einsum_pullback(dy)
+        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(ixs, xs, iy, size_dict, map(conj, dy), i), N)
+        return (NO_FIELDS, NO_FIELDS, dxs, NO_FIELDS, NO_FIELDS)
+    end
+    einsum_pullback(::Zero) = (NO_FIELDS, NO_FIELDS, Zero(), NO_FIELDS, NO_FIELDS)
+    return y, einsum_pullback
+end

@@ -1,9 +1,8 @@
 module OMEinsum
-export einsum
+export einsum, dynamic_einsum
 export einsumopt
 
-using TupleTools, TensorOperations, LinearAlgebra
-using TensorOperations: optimaltree, Power
+using TupleTools, LinearAlgebra
 using BatchedRoutines
 import LinearAlgebra: BlasFloat
 const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
@@ -11,11 +10,9 @@ const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
-include("batched_contract.jl")
 
-include("EinRule.jl")
-include("optcontract.jl")
-include("einsum.jl")
+include("unaryrules.jl")
+include("binaryrules.jl")
 
 using Requires
 function __init__()

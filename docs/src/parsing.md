@@ -29,19 +29,16 @@ They are defined in `EinRule.jl`.
 
 The possible types are:
 - `Identity` - operation is the identity on _one_ tensor, e.g. `ein"ijk -> ijk"`
-- `MatMul` - operation is a matrix multiplication of _two_ matrices, possibly with permutations of inputs and/or outputs, e.g. `ein"ij,kj -> ik"`
 - `Permutedims` - operation is a permutation of the indices of _one_ tensor, e.g. `ein"ijk -> jki"`
-- `Hadamard` - operation is a hadamard-product of arbitrary many tensors, e.g. `ein"ij,ij,ij -> ij"`
 - `Tr` - operation is a trace of _one_ matrix, e.g. `ein"ii ->"`
-- `PTrace` - operation is a partial trace of _one_ tensor, e.g. `ein"iij -> j"`
 - `Sum` - operation is a reduction over one or more indices of _one_ tensor, e.g. `ein"ijkl -> il"`
-- `PairWise` - operation is a tensor-contraction over arbitrary many tensors, e.g. `ein"ijk,kl,lmn,no -> ijmo"`
+- `SimpleBinaryRule` - operation is a pairwise contraction that can not be reduce by unary operations, e.g. `ein"ijl,jkl-> ikl"`
 - `DefaultRule` - default if none of the above match, e.g. `ein"ij,ik,il -> jkl"`
 
 Since `ixs` and `iy` are saved as type-parameters, the operation-matching can happen at compile time.
 The operation is chosen using `match_rule(ixs,iy)` by testing all subtypes of `EinRule` in the sequence above (top to bottom) and picking the first match.
 
-This enables us to chose `MatMul` for a  matrix multiplication which is also a legal tensor-contraction, i.e. a `PairWise`, assuming that we can have a lower-overhead implementation for `MatMul` than `PairWise`.
+This enables us to chose fast BLAS functions for a  matrix multiplication which is also a legal tensor-contraction.
 
 We proceed by calling `einsum(<:EinRule, <:EinCode, xs, size_dict)` which
 dispatches on the `EinRule` and the type of `xs` - the latter enables us to dispatch to e.g. cuda-specific routines for certain operations (as done in the `cueinsum.jl` file).
@@ -66,38 +63,37 @@ julia> c = ein"ik,kl -> il"(ein"ij,jk -> ik"(a,b),c)
 julia> @ein ab[i,k] := a[i,j] * b[j,k]
 julia> @ein c[i,l] := ab[i,k] * c[k,l]
 ```
-and is expressed as a nested structure `NestedEinsumStable`
+and is expressed as a nested structure `NestedEinsum`
 which contains the `EinCode`s for the intermediate calculations
 as well as some logic to assign the correct input and output tensors
 to the correct `EinCode`.
 
-`NestedEinsumStable` has the following definition:
+`NestedEinsum` has the following definition:
 ```julia
-struct NestedEinsumStable{T,S,N}
-    args::S
-    eins::T
+struct NestedEinsum
+    args
+    eins
 end
 ```
-where the `eins`-field contains an `EinCode` of `N` arguments and
-`args` holds the arguments to that `EinCode` which can either be a integer to label a tensor or a `NestedEinsumStable` itself.
+`args` holds the arguments to that `EinCode` which can either be a integer to label a tensor or a `NestedEinsum` itself.
 The labeling works such that the `i`th input is represented by the number `i`.
 
-Upon application to tensors, a `NestedEinsumStable` evaluates its arguments.
+Upon application to tensors, a `NestedEinsum` evaluates its arguments.
 If the argument is an integer `i`, the `i`th provided tensor is chosen,
-otherwise the `NestedEinsumStable` is evaluated.
+otherwise the `NestedEinsum` is evaluated.
 
-To make it more concrete, consider the `NestedEinsumStable` for the expression above, where for easier reading the type signatures were removed and the `EinCode`-structs were replaced by `ein`-string literals.
+To make it more concrete, consider the `NestedEinsum` for the expression above, where for easier reading the type signatures were removed and the `EinCode`-structs were replaced by `ein`-string literals.
 ```julia
 julia> ein"(ij,jk),kl -> il"
- NestedEinsumStable{...}((NestedEinsumStable{...}((1, 2), ein"ij,jk -> ik"), 3), ein"ik,kl -> il")
+ NestedEinsum{...}((NestedEinsum{...}((1, 2), ein"ij,jk -> ik"), 3), ein"ik,kl -> il")
 ```
-Evaluating this expression with three arguments leads to the inner `NestedEinsumStable` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
+Evaluating this expression with three arguments leads to the inner `NestedEinsum` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
 as the first argument to `ein"ik,kl -> il"` with the third argument as the second input.
 
 To improve understanding, you might replace the integers with `getindex` operations in your head
 ```julia
 ein"(ij,jk),kl -> il"(xs...)
-⇒ NestedEinsumStable{...}((NestedEinsumStable{...}((xs[1], xs[2]), ein"ij,jk -> ik"), xs[3]), ein"ik,kl -> il")
+⇒ NestedEinsum{...}((NestedEinsum{...}((xs[1], xs[2]), ein"ij,jk -> ik"), xs[3]), ein"ik,kl -> il")
 ```
 and finally turn it into
 ```julia

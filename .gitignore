@@ -8,3 +8,4 @@
 local/
 *.swp
 Manifest.toml
+/docs/Manifest.toml

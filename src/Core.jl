@@ -47,8 +47,8 @@ end
 getlocs(::EinIndexer{locs,N}) where {N,locs} = locs
 
 # get a subset of index
-subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
-subindex(indexer::EinIndexer{(),0}, ind::NTuple{N0,Int}) where N0 = 1
+@inline subindex(indexer::EinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
+@inline subindex(indexer::EinIndexer{(),0}, ind::NTuple{N0,Int}) where N0 = 1
 @inline @generated function subindex(indexer::EinIndexer{locs,N}, ind::NTuple{N0,Int}) where {N,N0,locs}
     ex = Expr(:call, :+, map(i->i==1 ? :(ind[$(locs[i])]) : :((ind[$(locs[i])]-1) * indexer.cumsize[$i]), 1:N)...)
     :(@inbounds $ex)
@@ -87,8 +87,7 @@ end
 """
     einarray(::EinCode, xs, size_dict) -> EinArray
 
-Constructor of `EinArray` from an `EinCode`, a tuple of tensors `xs` and a `size_dict`
-of type `IndexSize` that assigns each index-label a size.
+Constructor of `EinArray` from an `EinCode`, a tuple of tensors `xs` and a `size_dict` that assigns each index-label a size.
 The returned `EinArray` holds an intermediate result of the `einsum` specified by the
 `EinCode` with indices corresponding to all unique labels in the einsum.
 Reduction over the (lazily calculated) dimensions that correspond to labels not present
@@ -166,8 +165,8 @@ where the list of all index-labels is simply the first  and the second output ca
 "
 function indices_and_locs(ixs, iy)
     # outer legs and inner legs
-    outer_indices = tunique(iy)
-    inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
+    outer_indices = unique!(collect(iy))
+    inner_indices = setdiff!(collect(TupleTools.vcat(ixs...)), outer_indices)
 
     # for indexing tensors (leg binding)
     indices = (inner_indices...,outer_indices...)
@@ -176,4 +175,25 @@ function indices_and_locs(ixs, iy)
     end
     locs_y = map(i->findfirst(isequal(i), outer_indices), iy)
     return inner_indices, outer_indices, locs_xs, locs_y
+end
+
+# dynamic EinIndexer
+struct DynamicEinIndexer{N}
+    locs::NTuple{N,Int}
+    cumsize::NTuple{N, Int}
+end
+
+function dynamic_indexer(locs::NTuple{N,Int}, size::NTuple{N,Int}) where {N}
+    N==0 && return DynamicEinIndexer{0}((),())
+    DynamicEinIndexer{N}(locs, (1,TupleTools.cumprod(size[1:end-1])...))
+end
+
+getlocs(d::DynamicEinIndexer{N}) where {N} = d.locs
+
+# get a subset of index
+@inline subindex(indexer::DynamicEinIndexer, ind::CartesianIndex) = subindex(indexer, ind.I)
+@inline subindex(indexer::DynamicEinIndexer{0}, ind::NTuple{N0,Int}) where N0 = 1
+@inline @generated function subindex(indexer::DynamicEinIndexer{N}, ind::NTuple{N0,Int}) where {N,N0}
+    ex = Expr(:call, :+, map(i->i==1 ? :(ind[indexer.locs[$i]]) : :((ind[indexer.locs[$i]]-1) * indexer.cumsize[$i]), 1:N)...)
+    :(@inbounds $ex)
 end

@@ -10,9 +10,6 @@ asarray(x::Number) = fill(x, ())
 asarray(x::Number, arr::Array) = fill(x, ())
 asarray(x::AbstractArray, args...) = x
 
-tsetdiff(t::Tuple, b) = setdiff!(collect(t), b)
-tunique(t::Tuple) = unique!(collect(t))
-
 """
     nopermute(ix,iy)
 
@@ -59,16 +56,9 @@ julia> allunique((1,2,3,1))
 false
 ```
 """
-allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
-
-function conditioned_permutedims(A::AbstractArray{T,N}, perm, ind=()) where {T,N}
-    if any(i-> (@inbounds perm[i]!=i), 1:N)
-        @debug "conditioned_permutedims" size(A) Tuple(perm) Tuple(ind)
-        return tensorpermute(A, perm)
-    else
-        return A
-    end
-end
+allunique(ix) = all(i -> count(==(i), ix) == 1, ix)
+_unique(::Type{T}, x::NTuple{N,T}) where {N,T} = unique!(collect(T, x))
+_unique(::Type{T}, x::Vector{T}) where T = unique(x)
 
 function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
@@ -82,9 +72,30 @@ end
 """
     tensorpermute(A, perm)
 
-Like `permutedims(A, perm)`, but calls the faster `TensorOperations.tensorcopy` when possible.
+Aliasing `permutedims(A, perm)`.
 """
-function tensorpermute(A::StridedArray{T,N}, perm) where {T,N}
-    TensorOperations.tensorcopy(A, ntuple(identity,N), perm)
-end
 tensorpermute(A::AbstractArray, perm) = permutedims(A, perm)
+tensorpermute(A::AbstractArray, perm::Tuple{}) = A
+
+# reload this function for GPU support!
+function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
+    batched_gemm(C1, C2, A, B)
+end
+
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
+    batched_gemm(C1, C2, Array(A), Array(B))
+end
+
+function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T, T2}
+    @assert size(A, 3) == size(B, 3) "batch dimension mismatch, got $(size(A,3)) and $(size(B,3))"
+    @assert C1 === 'N' || C1 === 'T'
+    @assert C2 === 'N' || C2 === 'T'
+    L = size(A, 3)
+    C = similar(A, promote_type(T,T2), C1==='N' ? size(A,1) : size(A,2), C2==='N' ? size(B,2) : size(B,1), L)
+    for l = 1:L
+        a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
+        b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
+        mul!(view(C,:,:,l), a, b)
+    end
+    return C
+end

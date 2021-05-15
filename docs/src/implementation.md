@@ -8,16 +8,7 @@ from e.g. projection to the diagonal like `ein"ii -> ii"`.
 
 The identity operation simply returns the first (and only) tensor argument to `einsum`.
 
-## Matrix Multiplication
-A specification `ixs,iy` is a matrix multiplication if `ixs` consists of two 2-tuples
-that share _one_ index-label and `iy` is a permutation of the two-nonshared index-labels
-of the `ixs`.
-
-Matrix multiplication uses a generated function to return a matrix-product with at most
-one application of `transpose`, such that e.g. `ein"ij,jk -> ik"(a,b)` returns `:(a * b)`
-and `ein"ij,kj -> ki"(a,b)` returns `:(b * transpose(a))`.
-
-## Index-Permutation
+## Permutations
 
 A specification `ixs,iy` is an index-permutation if `ixs` is a tuple containing
 one tuple of index-labels that are all unique and are a permutation of the labels
@@ -26,34 +17,13 @@ in `iy`.
 Index-permutation is implemented with `permutedims` and a permutation that's calculated
 at runtime.
 
-## Hadamard
-
-A specification `ixs, iy` is a hadamard-product if `ixs` is a tuple that contains
-copies of `iy` and nothing else and `iy` contains no duplicates.
-
-The hadamard-product is implemented by broadcasting `*` over the tensors.
-If some of the index-labels in `ixs` are permutations of `iy`, we found that
-doing the permutation and then broadcasting `*` had worse performance than the
-fallback implementation below - we are thus rather strict about what is a
-hadamard-product.
-
-## Trace
+## Tr
 
 A specification `ixs, iy` is a trace if `iy` is empty and `ixs` contains one
 2-tuple containing the same index-label twice.
 
 A trace dispatches to the `LinearAlgebra.tr` although the result is wrapped in
 a 0-dimensional array for type stability since all `einsum` return `AbstractArray`s.
-
-## Partial Trace
-
-A specification `ixs, iy` is a partial trace if `iy` contains no duplicates and
-`ixs` is a tuple containing one tuple of index-labels that contains all index-labels
-in `iy` plus pairs of labels not in `iy` in arbitrary order.
-
-Partial traces are implemented using `TensorOperations.jl` for regular `AbstractArray`s
-and with the Fallback-option (see below) for `CuArray`s, since at this point
-`TensorOperations.jl` lacks full GPU support.
 
 ## Sum
 
@@ -64,14 +34,39 @@ unique labels (that are reduced over).
 Index-reductions are implemented using `Base.sum` and `Base.dropdims` - the latter
 to remove the singleton-dimensions left over after summing over a dimension.
 
-## Tensor-Contractions (PairWise)
+## Repeat
+The inverse rule of `Sum`, e.g. `ij->lijk`.
 
-A specification `ixs,iy` corresponds to tensor-contractions if all all labels in `iy`
-are unique and all indices appear exactly twice in `ixs` and `iy`.
+## Diag
+A unary operation that remove multi-edges from a tensor, e.g. `ijkj->ikj`.
 
-Such operations can be dispatched to `TensorOperations.jl` and are evaluated using
-the `@tensoropt` macro which chooses a suitable contraction order for the problem
-for all `AbstractArray` except `CuArray`s which are implemented using the Fallback.
+## Duplicate
+The inverse rule of `Diag`, e.g. `ikj->ijkj`.
+
+## SimpleBinaryRule
+The contraction between two tensors with the following restriction
+* a tensor can not be simplified by unary rules, e.g. `iij,jk,ik` is not valid, the first index can be simplified to `ij` using the unary rule `iij->ij`.
+* no multi-edge
+
+A complete list of rules are
+* ein",->"
+* ein",k->k"
+* ein"i,->i"
+* ein"j,j->"
+* ein"i,k->ik" and ein"i,k->ki",
+* ein"j,jk->k" and ein"j,kj->k"
+* ein"ji,j->i" and ein"ij,j->i"
+* ein"ji,jk->ik" and its index permutations (within a tensor)
+* ein"l,l->l"
+* ein"l,kl->kl"
+* ein"il,->il"
+* ein"jl,jl->"
+* ein"il,kl->ikl" and ein"il,kl->kil",
+* ein"jl,jkl->kl" and ein"jl,kjl->kl"
+* ein"jil,jl->il" and ein"ijl,jl->il"
+* ein"jil,jkl->ikl" and its index permutations (within a tensor, except the batch dimension)
+
+Here, the batch dimension always appears as the last dimension.
 
 ## Fallback
 

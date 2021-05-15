@@ -9,9 +9,9 @@ over all possible indices and calculating the contributions ot the result.
 Scales exponentially in the number of distinct index-labels.
 """
 function loop_einsum(code::EinCode{ixs, iy}, xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                size_dict) where {N,T, ixs, iy}
+                size_dict) where {N, ixs, iy}
     size = getindex.(Ref(size_dict), iy)
-    loop_einsum!(code, xs, get_output_array(xs, size), size_dict)
+    loop_einsum!(code, xs, get_output_array(xs, size; has_repeated_indices=!allunique(iy)), size_dict)
 end
 
 """
@@ -28,18 +28,25 @@ function loop_einsum!(code::EinCode{ixs, iy},
     reduce_einarray!(A, y)
 end
 
-function reduce_einarray!(A::EinArray, y)
+function reduce_einarray!(A::EinArray{T}, y) where T
     @inbounds for ind_y in A.OCIS
         iy = subindex(A.y_indexer,ind_y)
+        yi = zero(T)
         for ind_x in A.ICIS
-            y[iy] += map_prod(A.xs, TupleTools.vcat(ind_x.I,ind_y.I), A.x_indexers)
+            ind = TupleTools.vcat(ind_x.I,ind_y.I)
+            yi += map_prod(A.xs, ind, A.x_indexers)
         end
+        y[iy] = yi
     end
     y
 end
 
-function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size) where N
-    zeros(promote_type(map(eltype,xs)...), size)
+@inline function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
+    if has_repeated_indices
+        zeros(promote_type(map(eltype,xs)...), size...)
+    else
+        Array{promote_type(map(eltype,xs)...)}(undef, size...)
+    end
 end
 
 const ALLOW_LOOPS = Ref(true)
