@@ -25,10 +25,12 @@ function plot_compile()
     for dynamic in [true, false]
         for uniqueindex in [true]
             times = readdlm(joinpath(@__DIR__, "compiletime_8_$(dynamic)_$(uniqueindex).dat"))
-            push!(pl, plot(1:1000, times, label=(dynamic ? "dynamic" : "static") * " ($(round(sum(times); sigdigits=2)))"))
+            push!(pl, plot(1:1000, times, label=(dynamic ? "dynamic" : "static") * " ($(round(sum(times); sigdigits=2)))", ylim=(0,2)))
         end
     end
-    plt = plot(pl..., xlabel="iteration", ylabel="time", layout=(2,1))
+    times = readdlm(joinpath(@__DIR__, "compiletime_8_false_true_master.dat"))
+    push!(pl, plot(1:1000, times, label="master ($(round(sum(times); sigdigits=2)))", ylim=(0,2)))
+    plt = plot(pl..., xlabel="iteration", ylabel="time", layout=(3,1))
 end
 #plot_benchmark()
 plot_compile()
