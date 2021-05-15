@@ -22,7 +22,7 @@ true
 macro ein_str(s::AbstractString)
     s = replace(replace(s, "\n" => ""), " "=>"")
     m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
-    m == nothing && throw(ArgumentError("invalid einsum specification $s"))
+    m === nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
     if '(' in sixs
         return parse_nested(sixs, collect(siy))

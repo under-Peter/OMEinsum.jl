@@ -10,9 +10,9 @@ using CUDA
     include("binaryrules.jl")
     include("utils.jl")
     include("einsum.jl")
-    #if CUDA.functional()
-    #    include("cueinsum.jl")
-    #end
+    if CUDA.functional()
+        include("cueinsum.jl")
+    end
     include("autodiff.jl")
     include("einsequence.jl")
     include("interfaces.jl")
