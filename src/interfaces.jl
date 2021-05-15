@@ -170,6 +170,10 @@ end
 
 function dynamic_einsum(ixs, xs, iy; size_info=nothing)
     size_dict = get_size_dict(ixs, xs, size_info)
+    dynamic_einsum(ixs, xs, iy, size_dict)
+end
+
+function dynamic_einsum(ixs, xs, iy, size_dict)
     rule = match_rule(ixs, iy)
     if length(ixs) == 1
         einsum(rule, ixs[1], iy, xs[1], size_dict)
