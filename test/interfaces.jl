@@ -10,4 +10,7 @@ using OMEinsum: get_size_dict
     @test einsum(ein"j,kk->j", xs, get_size_dict(ixs, xs)) ≈ ein"j,kk->j"(xs...)
     res = ein"j,kk->iij"(xs...; size_info=Dict('i'=>9))
     @test size(res) == (9,9,5)
+    @test ein"ijk,
+    ijk->
+    ikl" == ein"ijk,ijk->ikl"
 end

@@ -20,7 +20,7 @@ true
 ```
 """
 macro ein_str(s::AbstractString)
-    s = replace(s, " " => "")
+    s = replace(replace(s, "\n" => ""), " "=>"")
     m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
     m == nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
