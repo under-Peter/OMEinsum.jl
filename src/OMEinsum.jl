@@ -1,5 +1,5 @@
 module OMEinsum
-export einsum
+export einsum, dynamic_einsum
 export einsumopt
 
 using TupleTools, LinearAlgebra
@@ -11,10 +11,8 @@ include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
 
-@nospecialize
 include("unaryrules.jl")
 include("binaryrules.jl")
-@specialize
 
 using Requires
 function __init__()

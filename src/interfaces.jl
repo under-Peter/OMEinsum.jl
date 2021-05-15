@@ -54,9 +54,10 @@ return the `IndexSize` struct that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
+#function get_size_dict(ixs::NTuple{N, NTuple{M, T} where M}, xs::NTuple{X, AbstractArray}) where {N,T,X}
+function get_size_dict(ixs, xs)
     # check size of input tuples
-    N != X && throw(ArgumentError("$X tensors labelled by $N indices"))
+    length(ixs) != length(xs) && throw(ArgumentError("$(length(xs)) tensors labelled by $(length(ixs)) indices"))
 
     # check tensor orders
     foreach(ixs, xs) do ix, x
@@ -168,4 +169,60 @@ function _ein_macro(ex; einsum=:einsum)
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
     return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
+end
+
+@doc raw"
+    einsum(::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+
+return the tensor that results from contracting the tensors `xs` according
+to their indices `ixs`, where all indices that do not appear in the output `iy` are
+summed over.
+The result is permuted according to `out`.
+
+- `ixs` - tuple of tuples of index-labels of the input-tensors `xs`
+
+- `iy` - tuple of index-labels of the output-tensor
+
+- `xs` - tuple of tensors
+
+- `size_dict` - `IndexSize`-object that maps index-labels to their sizes
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> a, b = rand(2,2), rand(2,2);
+
+julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
+true
+
+julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
+true
+```
+"
+@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    rule = match_rule(ixs, iy)
+    if length(ixs) == 1
+        :(einsum($rule, ixs[1], iy, xs[1], size_dict))
+    else
+        :(einsum($rule, ixs, iy, xs, size_dict))
+    end
+end
+
+function dynamic_einsum(ixs, xs, iy; size_info=nothing)
+    size_dict = get_size_dict(ixs, xs)
+    if size_info !== nothing
+        size_dict = size_dict + size_info
+    end
+    rule = match_rule(ixs, iy)
+    if length(ixs) == 1
+        einsum(rule, ixs[1], iy, xs[1], size_dict)
+    else
+        einsum(rule, ixs, iy, xs, size_dict)
+    end
+end
+
+# the fallback
+function einsum(::DefaultRule, ixs, iy, xs, size_dict)
+    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
+    loop_einsum(EinCode{ixs, iy}(), xs, size_dict)
 end

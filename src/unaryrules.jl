@@ -133,7 +133,7 @@ function _compactify!(y, x, indexer)
 end
 
 function duplicate(x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}, size_dict) where {Nx,Ny,T}
-    y = zeros(eltype(x), getindex.(Ref(size_dict),iy))
+    y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
     # compute same locs
     x_in_y_locs = ([findfirst(==(l), ix) for l in iy]...,)
     indexer = dynamic_indexer(x_in_y_locs, size(y))
@@ -164,67 +164,24 @@ function einsum(::Identity, ix, iy, x, size_dict)
     x
 end
 
-# the fallback
-function einsum(::DefaultRule, ixs, iy, xs, size_dict)
-    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum(EinCode{ixs, iy}(), xs, size_dict)
-end
-
 # for unary operations
 function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict)
     @debug "DefaultRule unary" ix => iy size(x)
-    ix_ = (tunique(ix)...,)
-    iy_b = (tunique(iy)...,)
-    iy_a = TupleTools.filter(i->i ∈ ix, iy_b)
     # diag
-    x_ = ix_ !== ix ? einsum(Diag(), ix, ix_, x, size_dict) : x
+    ix_ = tunique(ix)
+    x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, (ix_...,), x, size_dict) : x
     # sum
+    iy_b = tunique(iy)
+    iy_a = filter(i->i ∈ ix, iy_b)
     y_a = if length(ix_) !== length(iy_a)
-        einsum(Sum(), ix_, iy_a, x_, size_dict)
+        einsum(Sum(), (ix_...,), (iy_a...,), x_, size_dict)
     elseif ix_ !== iy_a
-        einsum(Permutedims(), ix_, iy_a, x_, size_dict)
+        einsum(Permutedims(), (ix_...,), (iy_a...,), x_, size_dict)
     else
         x_
     end
     # repeat
-    y_b = iy_a !== iy_b ? einsum(Repeat(), iy_a, iy_b, y_a, size_dict) : y_a
+    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
     # duplicate
-    iy_b !== iy ? einsum(Duplicate(), iy_b, iy, y_b, size_dict) : y_b
-end
-
-@doc raw"
-    einsum(::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-
-return the tensor that results from contracting the tensors `xs` according
-to their indices `ixs`, where all indices that do not appear in the output `iy` are
-summed over.
-The result is permuted according to `out`.
-
-- `ixs` - tuple of tuples of index-labels of the input-tensors `xs`
-
-- `iy` - tuple of index-labels of the output-tensor
-
-- `xs` - tuple of tensors
-
-- `size_dict` - `IndexSize`-object that maps index-labels to their sizes
-
-# example
-
-```jldoctest; setup = :(using OMEinsum)
-julia> a, b = rand(2,2), rand(2,2);
-
-julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
-true
-
-julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
-true
-```
-"
-@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
-    rule = match_rule(ixs, iy)
-    if length(ixs) == 1
-        :(einsum($rule, ixs[1], iy, xs[1], size_dict))
-    else
-        :(einsum($rule, ixs, iy, xs, size_dict))
-    end
+    length(iy_b) !== length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
 end
