@@ -6,7 +6,7 @@ String macro interface which understands `numpy.einsum`'s notation.
 Translates strings into `EinCode`-structs that can be called to evaluate
 an `einsum`.
 To control evaluation order, use parentheses - instead of an `EinCode`,
-a `NestedEinsumStable` is returned which evaluates the expression
+a `NestedEinsum` is returned which evaluates the expression
 according to parens.
 The valid character ranges for index-labels are `a-z` and `α-ω`.
 

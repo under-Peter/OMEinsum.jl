@@ -13,7 +13,7 @@ function parse_nested(s::AbstractString, iy = [])
     _, out = parse_parens(s, firstindex(s), 1)
     append!(out.iy, iy)
     filliys!(out)
-    return stabilize(out)
+    return out
 end
 
 """
@@ -175,37 +175,5 @@ or evaluate and return the tensor associated with x (if x isa NestedEinsum)
 """
 extractxs(xs, x::NestedEinsum) = x(xs...)
 extractxs(xs, x::IndexGroup) = xs[x.n]
-
-struct NestedEinsumStable{T,S,N}
-    args::S
-    eins::T
-end
-
-@doc raw"
-    stabilize(nein::NestedEinsum)
-    
-turn the nested einsum into a `NestedEinsumStable` which is type-stable and
-more performant.
-"
-function stabilize(nein::OMEinsum.NestedEinsum)
-    ixs = Tuple(map(OMEinsum.extractixs, nein.args))
-    iy = Tuple(nein.iy)
-    eins = EinCode{ixs,iy}()
-    args = Tuple(map(x -> x isa OMEinsum.NestedEinsum ? stabilize(x) : x.n,nein.args))
-    return NestedEinsumStable{typeof(eins), typeof(args), length(iy)}(args, eins)
-end
-
-function (neinsum::NestedEinsumStable{<:Any,<:Any,N})(xs...; size_dict = nothing) where N
-    mxs = map(x -> extractxs(xs, x), neinsum.args)
-    neinsum.eins(mxs...)
-end
-
-extractxs(xs, x::NestedEinsumStable) = x(xs...)
-extractxs(xs, i::Int) = xs[i]
-
-
-function match_rule(code::NestedEinsumStable)
-    return (match_rule(code.eins), match_rule.(code.args))
-end
 
 match_rule(code::Int64) = code

@@ -63,38 +63,39 @@ julia> c = ein"ik,kl -> il"(ein"ij,jk -> ik"(a,b),c)
 julia> @ein ab[i,k] := a[i,j] * b[j,k]
 julia> @ein c[i,l] := ab[i,k] * c[k,l]
 ```
-and is expressed as a nested structure `NestedEinsumStable`
+and is expressed as a nested structure `NestedEinsum`
 which contains the `EinCode`s for the intermediate calculations
 as well as some logic to assign the correct input and output tensors
 to the correct `EinCode`.
 
-`NestedEinsumStable` has the following definition:
+`NestedEinsum` has the following definition:
 ```julia
-struct NestedEinsumStable{T,S,N}
-    args::S
-    eins::T
+struct NestedEinsum{T}
+    args::Vector{Union{NestedEinsum{T}, IndexGroup{T}}}
+    inds::Vector{T}
+    iy::Vector{T}
 end
 ```
 where the `eins`-field contains an `EinCode` of `N` arguments and
-`args` holds the arguments to that `EinCode` which can either be a integer to label a tensor or a `NestedEinsumStable` itself.
+`args` holds the arguments to that `EinCode` which can either be a integer to label a tensor or a `NestedEinsum` itself.
 The labeling works such that the `i`th input is represented by the number `i`.
 
-Upon application to tensors, a `NestedEinsumStable` evaluates its arguments.
+Upon application to tensors, a `NestedEinsum` evaluates its arguments.
 If the argument is an integer `i`, the `i`th provided tensor is chosen,
-otherwise the `NestedEinsumStable` is evaluated.
+otherwise the `NestedEinsum` is evaluated.
 
-To make it more concrete, consider the `NestedEinsumStable` for the expression above, where for easier reading the type signatures were removed and the `EinCode`-structs were replaced by `ein`-string literals.
+To make it more concrete, consider the `NestedEinsum` for the expression above, where for easier reading the type signatures were removed and the `EinCode`-structs were replaced by `ein`-string literals.
 ```julia
 julia> ein"(ij,jk),kl -> il"
- NestedEinsumStable{...}((NestedEinsumStable{...}((1, 2), ein"ij,jk -> ik"), 3), ein"ik,kl -> il")
+ NestedEinsum{...}((NestedEinsum{...}((1, 2), ein"ij,jk -> ik"), 3), ein"ik,kl -> il")
 ```
-Evaluating this expression with three arguments leads to the inner `NestedEinsumStable` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
+Evaluating this expression with three arguments leads to the inner `NestedEinsum` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
 as the first argument to `ein"ik,kl -> il"` with the third argument as the second input.
 
 To improve understanding, you might replace the integers with `getindex` operations in your head
 ```julia
 ein"(ij,jk),kl -> il"(xs...)
-⇒ NestedEinsumStable{...}((NestedEinsumStable{...}((xs[1], xs[2]), ein"ij,jk -> ik"), xs[3]), ein"ik,kl -> il")
+⇒ NestedEinsum{...}((NestedEinsum{...}((xs[1], xs[2]), ein"ij,jk -> ik"), xs[3]), ein"ik,kl -> il")
 ```
 and finally turn it into
 ```julia
