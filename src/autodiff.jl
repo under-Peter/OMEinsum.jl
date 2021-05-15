@@ -36,7 +36,7 @@ function einsum_grad(::EinCode{ixs, iy}, xs, size_dict, cdy, i) where {ixs, iy}
     convert(typeof(xs[i]), y)
 end
 
-@adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict::IndexSize) where {N, ixs, iy}
+@adjoint function einsum(code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict) where {N, ixs, iy}
     y = einsum(code, xs, size_dict)
     return y, dy -> let cdy = map(conj,dy)
                 (

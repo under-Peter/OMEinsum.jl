@@ -236,62 +236,63 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
     end
 end
 
-function einsum(::DefaultRule, ixs, iy, xs::NTuple{2, Any}, size_dict)
+function einsum(::DefaultRule, @nospecialize(ixs), @nospecialize(iy), @nospecialize(xs::NTuple{2, Any}), size_dict::Dict{LT}) where LT
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
     x1, x2 = xs
-    c1, c2, cy, s1, s2, sy, rule = analyze_binary(ix1, ix2, iy, size_dict)
-    x1 = simplify_unary(ix1, c1, x1, size_dict)
-    x2 = simplify_unary(ix2, c2, x2, size_dict)
-    x1_ = reshape(x1, s1)
-    x2_ = reshape(x2, s2)
+    c1, c2, cy, s1, s2, sy, i1, i2, iyb = analyze_binary(collect(LT,ix1), collect(LT,ix2), collect(LT,iy), size_dict)
+    rule = SimpleBinaryRule{(i1...,), (i2...,), (iyb...,)}()
+    x1 = simplify_unary(collect(LT,ix1), c1, x1, size_dict)
+    x2 = simplify_unary(collect(LT,ix2), c2, x2, size_dict)
+    x1_ = reshape(x1, s1...)
+    x2_ = reshape(x2, s2...)
     @debug rule size.((x1_, x2_))
-    y_ = reshape(einsum(rule, (x1_, x2_)), sy)
-    return expand_unary(cy, iy, y_, size_dict)
+    y_ = reshape(einsum(rule, (x1_, x2_)), sy...)
+    return expand_unary(cy, collect(LT,iy), y_, size_dict)
 end
 
-function simplify_unary(ix, iy, x, size_dict)
-    if ix === iy
+function simplify_unary(ix::Vector{T}, iy::Vector{T}, x, size_dict::Dict{T}) where T
+    if ix == iy
         return x
     elseif length(ix) == length(iy) # permutation
         return einsum(Permutedims(), ix, iy, x, size_dict)
     else
         # diag
-        ix_ = tunique(ix)
-        x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, (ix_...,), x, size_dict) : x
+        ix_ = unique(ix)
+        x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, ix_, x, size_dict) : x
         # sum
         if length(ix_) != length(iy)
             return einsum(Sum(), ix_, iy, x_, size_dict)
-        elseif ix_ != collect(iy)
-            return einsum(Permutedims(), (ix_...,), iy, x_, size_dict)
+        elseif ix_ != iy
+            return einsum(Permutedims(), ix_, iy, x_, size_dict)
         else
             return x_
         end
     end
 end
 
-function expand_unary(ix, iy, x::AbstractArray, size_dict)
-    iy_b = tunique(iy)
+function expand_unary(ix::Vector{T}, iy::Vector{T}, x::AbstractArray, size_dict::Dict{T}) where T
+    iy_b = unique(iy)
     iy_a = filter(i->i ∈ ix, iy_b)
-    y_a = if collect(ix) !== iy_a
+    y_a = if ix != iy_a
         einsum(Permutedims(), ix, (iy_a...,), x, size_dict)
     else
         x
     end
     # repeat
-    y_b = length(iy_a) !== length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
+    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
     # duplicate
-    length(iy_b) !== length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
+    length(iy_b) != length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
 end
 
 """
 Get the expected labels.
 """
-function analyze_binary(ix1, ix2, iy, size_dict)
+function analyze_binary(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}, size_dict::Dict{T,Int}) where T
     ix_inner, ix1_outer, ix2_outer, batch = _analyze_binary_input(ix1, ix2, iy)
-    c1 = (ix1_outer..., ix_inner..., batch...)
-    c2 = (ix_inner..., ix2_outer..., batch...)
-    cy = (ix1_outer..., ix2_outer..., batch...)
+    c1 = vcat(ix1_outer, ix_inner, batch)
+    c2 = vcat(ix_inner, ix2_outer, batch)
+    cy = vcat(ix1_outer, ix2_outer, batch)
     sy = map(x->size_dict[x], cy)
     si = prod(map(x->size_dict[x], ix1_outer))
     sj = prod(map(x->size_dict[x], ix_inner))
@@ -303,12 +304,12 @@ function analyze_binary(ix1, ix2, iy, size_dict)
     has_l = !isempty(batch)
     i1 = Char[]
     i2 = Char[]
-    iy = Char[]
+    iyb = Char[]
     s1 = Int[]
     s2 = Int[]
     if has_i
         push!(i1, 'i')
-        push!(iy, 'i')
+        push!(iyb, 'i')
         push!(s1, si)
     end
     if has_j
@@ -319,21 +320,20 @@ function analyze_binary(ix1, ix2, iy, size_dict)
     end
     if has_k
         push!(i2, 'k')
-        push!(iy, 'k')
+        push!(iyb, 'k')
         push!(s2, sk)
     end
     if has_l
         push!(i1, 'l')
         push!(i2, 'l')
-        push!(iy, 'l')
+        push!(iyb, 'l')
         push!(s1, sl)
         push!(s2, sl)
     end
-    rule = SimpleBinaryRule{(i1...,), (i2...,), (iy...,)}()
-    return c1, c2, cy, (s1...,), (s2...,), sy, rule
+    return c1, c2, cy, s1, s2, sy, i1, i2, iyb
 end
 
-function _analyze_binary_input(ix1::NTuple{N1,T}, ix2::NTuple{N2,T}, iy::NTuple{Ny,T}) where {T,N1,N2,Ny}
+function _analyze_binary_input(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}) where T
     ix1_batch = T[]
     ix1_inner = T[]
     ix1_outer = T[]

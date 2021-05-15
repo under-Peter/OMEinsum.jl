@@ -84,7 +84,7 @@ end
         @info code
         D = 2
         xs = [length(ix)==0 ? CUDA.fill(1.2) : CUDA.rand(Float64, fill(D, length(ix))...) for ix in OMEinsum.getixs(code)]
-        size_dict = IndexSize(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->D, 10))
+        size_dict = Dict(zip(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->D, 10)))
         res = einsum(code, (xs...,), size_dict)
         @test Array(res) ≈ loop_einsum(code, (Array.(xs)...,), size_dict)
         @test Array(res) ≈ Array(loop_einsum(code, (xs...,), size_dict))

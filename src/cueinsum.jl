@@ -32,7 +32,7 @@ end
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
     @eval function einsum(::$TP, ix, iy, x::DenseCuArray, size_dict)
-        loop_einsum(EinCode{(ix,),iy}(), (x,), size_dict)
+        loop_einsum(EinCode{((ix...,),),(iy...,)}(), (x,), size_dict)
     end
 end
 

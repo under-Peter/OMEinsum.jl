@@ -41,11 +41,11 @@ function reduce_einarray!(A::EinArray{T}, y) where T
     y
 end
 
-function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
+@inline function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
     if has_repeated_indices
-        zeros(promote_type(map(eltype,xs)...), size)
+        zeros(promote_type(map(eltype,xs)...), size...)
     else
-        Array{promote_type(map(eltype,xs)...)}(undef, size)
+        Array{promote_type(map(eltype,xs)...)}(undef, size...)
     end
 end
 

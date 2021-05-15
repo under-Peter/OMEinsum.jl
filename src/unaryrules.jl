@@ -39,13 +39,13 @@ end
 function match_rule(ixs::Tuple{NTuple{Nx,T}}, iy::NTuple{Ny,T}) where {Nx, Ny, T}
     ix, = ixs
     # the first rule with the higher the priority
-    if Ny === 0 && Nx === 2 && ix[1] == ix[2]
+    if Ny == 0 && Nx == 2 && ix[1] == ix[2]
         return Tr()
     elseif allunique(iy)
-        if ix === iy
+        if ix == iy
             return Identity()
         elseif allunique(ix)
-            if Nx === Ny
+            if Nx == Ny
                 if all(i -> i in iy, ix)
                     return Permutedims()
                 else  # e.g. (abcd->bcde)
@@ -118,9 +118,9 @@ function einsum(::Diag, ix, iy, x, size_dict)
     compactify!(get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=false),x,ix, iy)
 end
 
-function compactify!(y, x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}) where {Nx,Ny,T}
+function compactify!(y, x, ix, iy)
     x_in_y_locs = ([findfirst(==(x), iy) for x in ix]...,)
-    @assert size(x) === map(loc->size(y, loc), x_in_y_locs)
+    @assert size(x) == map(loc->size(y, loc), x_in_y_locs)
     indexer = dynamic_indexer(x_in_y_locs, size(x))
     _compactify!(y, x, indexer)
 end
@@ -132,7 +132,7 @@ function _compactify!(y, x, indexer)
     return y
 end
 
-function duplicate(x, ix::NTuple{Nx,T}, iy::NTuple{Ny,T}, size_dict) where {Nx,Ny,T}
+function duplicate(x, ix, iy, size_dict) where {Nx,Ny,T}
     y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
     # compute same locs
     x_in_y_locs = ([findfirst(==(l), ix) for l in iy]...,)
@@ -173,9 +173,9 @@ function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict)
     # sum
     iy_b = tunique(iy)
     iy_a = filter(i->i ∈ ix, iy_b)
-    y_a = if length(ix_) !== length(iy_a)
+    y_a = if length(ix_) != length(iy_a)
         einsum(Sum(), (ix_...,), (iy_a...,), x_, size_dict)
-    elseif ix_ !== iy_a
+    elseif ix_ != iy_a
         einsum(Permutedims(), (ix_...,), (iy_a...,), x_, size_dict)
     else
         x_
@@ -183,5 +183,5 @@ function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict)
     # repeat
     y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
     # duplicate
-    length(iy_b) !== length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
+    length(iy_b) != length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
 end

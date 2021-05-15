@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, IndexSize, Permutedims, Duplicate
+using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, Permutedims, Duplicate
 using SymEngine
 using LinearAlgebra: I
 
@@ -129,10 +129,10 @@ end
     @test einsum(EinCode(((1,2),(3,4)),(1,2,3,4)),(a,b)) ≈ reshape(a,2,3,1,1) .* reshape(b,1,1,2,3)
 
     # Broadcasting
-    @test ein"->ii"(OMEinsum.asarray(1); size_info=IndexSize('i'=>5)) == Matrix(I, 5, 5)
+    @test ein"->ii"(OMEinsum.asarray(1); size_info=Dict('i'=>5)) == Matrix(I, 5, 5)
 
     # trivil
-    @test ein"->ii"(asarray(1); size_info=IndexSize('i'=>5)) == Matrix(I, 5, 5)
+    @test ein"->ii"(asarray(1); size_info=Dict('i'=>5)) == Matrix(I, 5, 5)
     res = ein"->"(asarray(3))
     @test res isa Array
     @test res[] === 3
@@ -209,7 +209,7 @@ end
     @test einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
     t = rand(5,5,5,5)
     a = rand(5,5)
-    size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
@@ -222,7 +222,7 @@ end
     @test isapprox(einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
     t = Basic.(rand(5,5,5,5))
     a = Basic.(rand(5,5))
-    size_dict = IndexSize((1,2,3,4,2,3), ((size(t)..., size(a)...)))
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
@@ -241,7 +241,7 @@ end
 @testset "duplicate" begin
     ix = (1,2,3)
     iy = (3,2,1,1,2)
-    size_dict = IndexSize(1=>3,2=>3,3=>3)
+    size_dict = Dict(1=>3,2=>3,3=>3)
     x = randn(3,3,3)
     @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
     @test OMEinsum.einsum(Duplicate(), ix, iy, x, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)

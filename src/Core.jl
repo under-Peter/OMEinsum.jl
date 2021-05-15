@@ -87,8 +87,7 @@ end
 """
     einarray(::EinCode, xs, size_dict) -> EinArray
 
-Constructor of `EinArray` from an `EinCode`, a tuple of tensors `xs` and a `size_dict`
-of type `IndexSize` that assigns each index-label a size.
+Constructor of `EinArray` from an `EinCode`, a tuple of tensors `xs` and a `size_dict` that assigns each index-label a size.
 The returned `EinArray` holds an intermediate result of the `einsum` specified by the
 `EinCode` with indices corresponding to all unique labels in the einsum.
 Reduction over the (lazily calculated) dimensions that correspond to labels not present

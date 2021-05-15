@@ -2,19 +2,21 @@ using OMEinsum, Test
 using OMEinsum: SimpleBinaryRule, match_rule
 
 @testset "analyse binary" begin
-    size_dict = OMEinsum.IndexSize(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
-    c1, c2, cy, s1, s2, sy, code = OMEinsum.analyze_binary((1,2,3,4,8), (2,6,6,8,4,2), (7,2,1,2,2,6), size_dict)
-    @test c1 == (1,4,8,2)
-    @test c2 == (4,8,6,2)
-    @test cy == (1,6,2)
-    @test s1 == (1,32,2)
-    @test s2 == (32,6,2)
-    @test sy == (1,6,2)
-    @test code == SimpleBinaryRule(ein"ijl,jkl->ikl")
+    size_dict = Dict(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
+    c1, c2, cy, s1, s2, sy, is, js, ys = OMEinsum.analyze_binary([1,2,3,4,8], [2,6,6,8,4,2], [7,2,1,2,2,6], size_dict)
+    @test c1 == [1,4,8,2]
+    @test c2 == [4,8,6,2]
+    @test cy == [1,6,2]
+    @test s1 == [1,32,2]
+    @test s2 == [32,6,2]
+    @test sy == [1,6,2]
+    @test is == ['i', 'j', 'l']
+    @test js == ['j', 'k', 'l']
+    @test ys == ['i', 'k', 'l']
 end
 
 @testset "binary rules" begin
-    size_dict = OMEinsum.IndexSize(('i', 'j', 'k', 'l'), ntuple(x->5, 4))
+    size_dict = Dict(zip(('i', 'j', 'k', 'l'), ntuple(x->5, 4)))
     nmatch = 0
     for has_batch in [true, false]
         for i1 in [(), ('i',), ('j',), ('i','j'), ('j', 'i')]
@@ -66,7 +68,7 @@ end
         ein"ddebal,bcf->lcac",  # with all
     ]
         xs = [OMEinsum.asarray(randn(ComplexF64, fill(5, length(ix))...)) for ix in OMEinsum.getixs(code)]
-        size_dict = IndexSize(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->5, 10))
+        size_dict = Dict(zip(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->5, 10)))
         @test einsum(code, (xs...,), size_dict) ≈ loop_einsum(code, (xs...,), size_dict)
     end
 end
