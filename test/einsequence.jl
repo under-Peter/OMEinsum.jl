@@ -13,6 +13,9 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested
     abc3 = ein"ij,jk,km -> im"(a,b,c)
 
     @test abc1 ≈ abc2 ≈ abc3
+    size_info = Dict('k'=>2)
+    a, b, c, d = randn(2), randn(2,2), randn(2), randn(2)
+    @test ein"((i,ij),i),j->ik"(a, b, c, d; size_info=size_info) ≈ ein"i,ij,i,j->ik"(a, b, c, d; size_info=size_info)
 end
 
 @testset "macro" begin

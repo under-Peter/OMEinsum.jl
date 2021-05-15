@@ -70,13 +70,11 @@ to the correct `EinCode`.
 
 `NestedEinsum` has the following definition:
 ```julia
-struct NestedEinsum{T}
-    args::Vector{Union{NestedEinsum{T}, IndexGroup{T}}}
-    inds::Vector{T}
-    iy::Vector{T}
+struct NestedEinsum
+    args
+    eins
 end
 ```
-where the `eins`-field contains an `EinCode` of `N` arguments and
 `args` holds the arguments to that `EinCode` which can either be a integer to label a tensor or a `NestedEinsum` itself.
 The labeling works such that the `i`th input is represented by the number `i`.
 
