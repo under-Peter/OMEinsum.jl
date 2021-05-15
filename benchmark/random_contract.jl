@@ -33,7 +33,7 @@ function benchmark_compiletime(; D, nrepeat, dynamic, uniqueindex, nodangling, w
     return times
 end
 
-times = benchmark_compiletime(D=8, nrepeat=1000, dynamic=false, uniqueindex=true, nodangling=true, write=true)
+times = benchmark_compiletime(D=8, nrepeat=1000, dynamic=true, uniqueindex=true, nodangling=true, write=false)
 
 #using Profile
 #@profile for i=1:10 random_contract(8, true, true, true) end

@@ -165,8 +165,8 @@ where the list of all index-labels is simply the first  and the second output ca
 "
 function indices_and_locs(ixs, iy)
     # outer legs and inner legs
-    outer_indices = tunique(iy)
-    inner_indices = tsetdiff(TupleTools.vcat(ixs...), outer_indices)
+    outer_indices = unique!(collect(iy))
+    inner_indices = setdiff!(collect(TupleTools.vcat(ixs...)), outer_indices)
 
     # for indexing tensors (leg binding)
     indices = (inner_indices...,outer_indices...)

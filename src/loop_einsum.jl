@@ -11,7 +11,7 @@ Scales exponentially in the number of distinct index-labels.
 function loop_einsum(code::EinCode{ixs, iy}, xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 size_dict) where {N, ixs, iy}
     size = getindex.(Ref(size_dict), iy)
-    loop_einsum!(code, xs, get_output_array(xs, size; has_repeated_indices=length(tunique(iy)) != length(iy)), size_dict)
+    loop_einsum!(code, xs, get_output_array(xs, size; has_repeated_indices=!allunique(iy)), size_dict)
 end
 
 """

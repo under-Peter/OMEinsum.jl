@@ -1,14 +1,8 @@
-# Unary operations are searched in the following order
+# A general unary operation uses the following pipeline
 # 0. special rules `Identity` and `Tr`,
 # 1. rules reducing dimensions `Diag` and `Sum`
 # 2. `Permutedims`,
 # 3. `Repeat` and `Duplicate`,
-#   - we use `loop_einsum` instead of using existing API,
-#   - because it is has similar or even better performance.
-
-# For unclassified unary rules
-# 1. the simplified pattern can be handled by `Sum` + `Permutedims`,
-# 2. generate the correct output using `Repeat` and `Duplicate`,
 
 # `NT` for number of tensors
 abstract type EinRule{NT} end
@@ -21,9 +15,6 @@ struct Identity <: EinRule{1} end
 struct Duplicate <: EinRule{1} end
 struct Diag <: EinRule{1} end
 struct DefaultRule <: EinRule{Any} end
-# potential rules:
-# - `Duplicate` and `TensorDiagonal`
-# - `Kron`
 
 @doc raw"
     match_rule(ixs, iy)
@@ -32,11 +23,11 @@ struct DefaultRule <: EinRule{Any} end
 
 Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
 "
-function match_rule(ixs::NTuple{Nx,NTuple}, iy::Tuple) where Nx
+function match_rule(@nospecialize(ixs::NTuple{Nx,NTuple} where Nx), @nospecialize(iy::Tuple))
     DefaultRule()
 end
 
-function match_rule(ixs::Tuple{NTuple{Nx,T}}, iy::NTuple{Ny,T}) where {Nx, Ny, T}
+function match_rule(@nospecialize(ixs::Tuple{NTuple{Nx,T}}), @nospecialize(iy::NTuple{Ny,T})) where {Nx, Ny, T}
     ix, = ixs
     # the first rule with the higher the priority
     if Ny == 0 && Nx == 2 && ix[1] == ix[2]
@@ -83,16 +74,20 @@ end
 match_rule(code::EinCode{ixs, iy}) where {ixs, iy} = match_rule(ixs, iy)
 
 # trace
+# overhead ~ 0.07us
+# @benchmark OMEinsum.einsum(Tr(), $(('a', 'a')), $(()), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Tr, ix, iy, x, size_dict)
     @debug "Tr" size(x)
     asarray(tr(x), x)
 end
 
-function einsum(::Sum, ix, iy, x, size_dict)
+# overhead ~ 0.55us
+# @benchmark OMEinsum.einsum(Sum(), $(('a', 'b')), $(('b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
+function einsum(::Sum, ix, iy, x, size_dict::Dict{LT}) where LT
     @debug "Sum" ix => iy size(x)
-    dims = (findall(i -> i ∉ iy, ix)...,)
-    ix1f = TupleTools.filter(i -> i ∈ iy, ix)
+    dims = (findall(i -> i ∉ iy, ix)...,)::NTuple{length(ix)-length(iy),Int}
     res = dropdims(sum(x, dims=dims), dims=dims)
+    ix1f = filter(i -> i ∈ iy, ix)::typeof(iy)
     if ix1f != iy
         return einsum(Permutedims(), ix1f, iy, res, size_dict)
     else
@@ -100,9 +95,11 @@ function einsum(::Sum, ix, iy, x, size_dict)
     end
 end
 
+# overhead ~ 0.53us
+# @benchmark OMEinsum.einsum(OMEinsum.Repeat(), $(('a',)), $(('a', 'b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1))
 function einsum(::Repeat, ix, iy, x, size_dict)
     @debug "Repeat" ix => iy size(x)
-    ix1f = TupleTools.filter(i -> i ∈ ix, iy)
+    ix1f = filter(i -> i ∈ ix, iy)
     res = if ix1f != ix
         einsum(Permutedims(), ix, ix1f, x, size_dict)
     else
@@ -113,6 +110,8 @@ function einsum(::Repeat, ix, iy, x, size_dict)
     repeat(reshape(res, newshape...), repeat_dims...)
 end
 
+# overhead ~ 0.28us
+# @benchmark OMEinsum.einsum(Diag(), $(('a', 'a')), $(('a',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Diag, ix, iy, x, size_dict)
     @debug "Diag" ix => iy size.(x)
     compactify!(get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=false),x,ix, iy)
@@ -148,30 +147,38 @@ end
 end
 
 # e.g. 'ij'->'iij', left indices are unique, right are not
+# overhead ~ 0.29us
+# @benchmark OMEinsum.einsum(Duplicate(), $(('a', )), $(('a','a')), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1))
 function einsum(::Duplicate, ix, iy, x, size_dict)
     @debug "Duplicate" ix => iy size(x)
     duplicate(x, ix, iy, size_dict)
 end
 
+# overhead ~ 0.15us
+# @benchmark OMEinsum.einsum(Permutedims(), $(('a', 'b')), $(('b','a')), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Permutedims, ix, iy, x, size_dict)
     perm = map(i -> findfirst(==(i), ix), iy)
     @debug "Permutedims" ix => iy size(x) perm
     return tensorpermute(x, perm)
 end
 
+# overhead ~0.04us
+# @benchmark OMEinsum.einsum(Identity(), $(('a', 'b')), $(('a','b')), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Identity, ix, iy, x, size_dict)
     @debug "Identity" ix => iy size(x)
     x
 end
 
 # for unary operations
-function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict)
+# overhead ~ 2.3us
+# @benchmark OMEinsum.einsum(DefaultRule(), $(('a', 'a', 'b')), $(('c', 'b','a')), x, $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
+function einsum(::DefaultRule, ix, iy, x::AbstractArray, size_dict::Dict{LT}) where LT
     @debug "DefaultRule unary" ix => iy size(x)
     # diag
-    ix_ = tunique(ix)
+    ix_ = _unique(LT, ix)
     x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, (ix_...,), x, size_dict) : x
     # sum
-    iy_b = tunique(iy)
+    iy_b = _unique(LT, iy)
     iy_a = filter(i->i ∈ ix, iy_b)
     y_a = if length(ix_) != length(iy_a)
         einsum(Sum(), (ix_...,), (iy_a...,), x_, size_dict)

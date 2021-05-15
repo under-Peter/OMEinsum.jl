@@ -10,9 +10,6 @@ asarray(x::Number) = fill(x, ())
 asarray(x::Number, arr::Array) = fill(x, ())
 asarray(x::AbstractArray, args...) = x
 
-tsetdiff(t::Tuple, b) = setdiff!(collect(t), b)
-tunique(t::Tuple) = unique!(collect(t))
-
 """
     nopermute(ix,iy)
 
@@ -59,7 +56,9 @@ julia> allunique((1,2,3,1))
 false
 ```
 """
-allunique(ix::NTuple) = all(i -> count(==(i), ix) == 1, ix)
+allunique(ix) = all(i -> count(==(i), ix) == 1, ix)
+_unique(::Type{T}, x::NTuple{N,T}) where {N,T} = unique!(collect(T, x))
+_unique(::Type{T}, x::Vector{T}) where T = unique(x)
 
 function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
@@ -100,7 +99,3 @@ function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArr
     end
     return C
 end
-
-@inline tuplejoin(x) = x
-@inline tuplejoin(x, y) = (x..., y...)
-@inline tuplejoin(x, y, z...) = tuplejoin(tuplejoin(x, y), z...)

@@ -15,31 +15,16 @@ end
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
-#=
-function CUDA.mapreducedim_kernel_serial(f, op, R, A::EinArray, range)
-    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
-    i > length(A.OCIS) && return nothing
-    @inbounds ind_y = A.OCIS[i]
-    iy = subindex(A.y_indexer, ind_y.I)
-    #invoke(CUDA.mapreducedim_kernel_serial, Tuple{Any,Any,Any,Any,Any}, f, op, R, A, range)
-    @inbounds for ind_x in A.ICIS
-        ind_xy = TupleTools.vcat(ind_x.I,ind_y.I)
-        R[iy] = op(R[iy], f(map_prod(A.xs, ind_xy, A.x_indexers)))
-    end
-    return nothing
-end
-=#
-
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
-    @eval function einsum(::$TP, ix, iy, x::DenseCuArray, size_dict)
+    @eval function einsum(::$TP, ix, iy, x::DenseCuArray, size_dict::Dict{LT}) where LT
         loop_einsum(EinCode{((ix...,),),(iy...,)}(), (x,), size_dict)
     end
 end
 
 function loop_einsum!(code::EinCode{ixs, iy},
                 xs::NTuple{N, DenseCuArray{<:Any,M} where M},
-                y::DenseCuArray{T,L}, size_dict) where {N,L,T, ixs, iy}
-    iy_ = tunique(iy)
+                y::DenseCuArray{T,L}, size_dict::Dict{LT}) where {N,L,T, ixs, iy, LT}
+    iy_ = _unique(LT,iy)
     NO = length(iy_)
     A = einarray(code, xs, size_dict)
     if NO == length(iy)
@@ -60,10 +45,9 @@ end
     Expr(:tuple, ids...)
 end
 
-function expanddims!(code::EinCode{ixs, iy}, x, y) where {ixs, iy}
+function expanddims!(code::EinCode{ixs, iy}, x, y) where {LT,ixs, iy}
     nthreads = 256
     nblocks = cld(prod(size(x)), nthreads)
-    ix = tunique(iy)
     CIS = CartesianIndices(x)
     @inline function kernel(code, y, x)
         i = (blockIdx().x-1) * blockDim().x + threadIdx().x

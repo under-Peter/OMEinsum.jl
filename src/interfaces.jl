@@ -155,7 +155,7 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict::Dict{LT}) where {ixs, iy, LT}
     rule = match_rule(ixs, iy)
     if length(ixs) == 1
         :(einsum($rule, ixs[1], iy, xs[1], size_dict))
