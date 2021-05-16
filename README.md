@@ -22,6 +22,8 @@ Einstein summation can be implemented in no more than 20 lines of Julia code, th
 
 *Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, the actual coverage is at about _97%_.
 
+*Warning: since v0.4, OMEinsum does not optimize the contraction order anymore. One has to use nested einsum to specify the contraction order manually, e.g. `ein"(ijk,jkl),klm->im"(x, y, z)`.*
+
 ## Install
 
 To install, type `]` in a julia (>=1.5) REPL and then input
