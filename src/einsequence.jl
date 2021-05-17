@@ -213,3 +213,4 @@ Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
 _join(ix::NTuple{0}) = ""
 _join(ix::NTuple{N,Char}) where N = join(ix, "")
 _join(ix::NTuple{N,Int}) where N = join(ix, "∘")
+_join(ix::NTuple{N,Any}) where N = join(ix, "-")
