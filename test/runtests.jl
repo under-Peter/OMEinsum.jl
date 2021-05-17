@@ -16,4 +16,6 @@ using CUDA
     include("autodiff.jl")
     include("einsequence.jl")
     include("interfaces.jl")
+
+    include("contractionorder.jl")
 end

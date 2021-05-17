@@ -23,5 +23,7 @@ include("interfaces.jl")
 include("einsequence.jl")
 include("autodiff.jl")
 
+include("contractionorder/contractionorder.jl")
+
 include("deprecation.jl")
 end # module

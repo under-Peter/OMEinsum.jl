@@ -1,4 +1,4 @@
-export @ein_str, @ein
+export @ein_str, @ein, ein
 """
     ein"ij,jk -> ik"(A,B)
 
@@ -20,6 +20,10 @@ true
 ```
 """
 macro ein_str(s::AbstractString)
+    ein(s)
+end
+
+function ein(s::AbstractString)
     s = replace(replace(s, "\n" => ""), " "=>"")
     m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
     m === nothing && throw(ArgumentError("invalid einsum specification $s"))
