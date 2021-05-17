@@ -14,14 +14,46 @@ struct LegInfo{ET}
 end
 
 """
-    tree_greedy(incidence_list, log2_sizes)
+    tree_greedy(incidence_list, log2_sizes; method=MinSpaceOut())
 
 Compute greedy order, and the time and space complexities, the rows of the `incidence_list` are vertices and columns are edges.
 `log2_sizes` are defined on edges.
+
+```jldoctest; setup = :(using OMEinsum)
+julia> code = ein"(abc,cde),(ce,sf,j),ak->ael"
+aec, ec, ak -> ael
+├─ ce, sf, j -> ec
+│  ├─ sf
+│  ├─ j
+│  └─ ce
+├─ ak
+└─ abc, cde -> aec
+   ├─ cde
+   └─ abc
+
+
+julia> optimize_greedy(code, Dict([c=>2 for c in "abcdefjkls"]))
+ae, ak -> ea
+├─ ak
+└─ aec, ec -> ae
+   ├─ ce,  -> ce
+   │  ├─ sf, j -> 
+   │  │  ├─ j
+   │  │  └─ sf
+   │  └─ ce
+   └─ abc, cde -> aec
+      ├─ cde
+      └─ abc
+```
 """
 function tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; method=MinSpaceOut()) where {VT,ET}
     incidence_list = copy(incidence_list)
     n = nv(incidence_list)
+    if n == 0
+        return nothing
+    elseif n == 1
+        return collect(vertices(incidence_list))[1]
+    end
     #tree_dict = collect(Any, 1:n)
     log2_tcs = Float64[] # time complexity
     log2_scs = Float64[]
@@ -29,7 +61,8 @@ function tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; meth
     tree = Dict{VT,Any}([v=>v for v in vertices(incidence_list)])
     while true
         cost_values = evaluate_costs(method, incidence_list, log2_edge_sizes)
-        local pair
+        vpool = collect(vertices(incidence_list))
+        pair = minmax(vpool[1], vpool[2])  # to prevent empty intersect
         vmin = Inf
         for (k,v) in cost_values
             if v < vmin
