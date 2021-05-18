@@ -229,7 +229,7 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
             X3B = (X3...,'l')
             C1 = i1==i3 ? 'N' : 'T'
             C2 = i2==i3 ? 'N' : 'T'
-            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, AbstractArray{<:BlasFloat}})
+            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, Any})
                 $(i3==1 ? :(_batched_gemm($C1, $C2, xs[1], xs[2])) : :(_batched_gemm($C2, $C1, xs[2], xs[1])))
             end
         end

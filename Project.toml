@@ -4,6 +4,7 @@ authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
 version = "0.4.0"
 
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BatchedRoutines = "a9ab73d0-e05c-5df1-8fde-d6a4645b8d8e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -18,12 +19,12 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 [compat]
 BatchedRoutines = "0.2"
 CUDA = "2, 3.1"
+ChainRulesCore = "0.9"
 Combinatorics = "1.0"
 MacroTools = "0.5"
 PkgBenchmark = "0.2"
 Requires = "0.5, 1"
 TupleTools = "1.2"
-ChainRulesCore = "0.9"
 julia = "1"
 
 [extras]
@@ -33,7 +34,8 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SymEngine = "123dc426-2d89-5057-bbad-38513e3affd8"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TropicalNumbers = "b3a74e9c-7526-4576-a4eb-79c0d4c32334"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "LinearAlgebra", "ProgressMeter", "SymEngine", "Random", "Zygote", "DoubleFloats"]
+test = ["Test", "LinearAlgebra", "ProgressMeter", "SymEngine", "Random", "Zygote", "DoubleFloats", "TropicalNumbers"]
