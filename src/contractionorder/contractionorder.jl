@@ -17,7 +17,7 @@ include("greedy.jl")
 
 end
 
-using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, tree_greedy, timespace_complexity
+using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy, timespace_complexity
 export parse_eincode, ContractionOrder, optimize_greedy
 
 function parse_eincode!(incidence_list::IncidenceList, tree, vertices_order)
@@ -49,7 +49,7 @@ function parse_tree(ein, vertices)
     end
 end
 
-function optimize_greedy(code::EinCode{ixs, iy}, size_dict; method=MinSpaceOut()) where {ixs, iy}
+function optimize_greedy(code::EinCode{ixs, iy}, size_dict; method=MinSpaceOut(), nrepeat=10) where {ixs, iy}
     if length(ixs) < 2
         return code
     end
@@ -59,7 +59,7 @@ function optimize_greedy(code::EinCode{ixs, iy}, size_dict; method=MinSpaceOut()
         log2_edge_sizes[k] = log2(v)
     end
     incidence_list = ContractionOrder.IncidenceList(Dict([i=>collect(T,ixs[i]) for i=1:length(ixs)]); openedges=collect(T,iy))
-    tree, tc, sc = tree_greedy(incidence_list, log2_edge_sizes; method=method)
+    tree, _, _ = tree_greedy(incidence_list, log2_edge_sizes; method=method, nrepeat=nrepeat)
     parse_eincode!(incidence_list, tree, 1:length(ixs))[2]
 end
 

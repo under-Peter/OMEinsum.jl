@@ -46,7 +46,21 @@ ae, ak -> ea
       └─ abc
 ```
 """
-function tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; method=MinSpaceOut()) where {VT,ET}
+function tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; method=MinSpaceOut(), nrepeat=10) where {VT,ET}
+    @assert nrepeat >= 1
+    best_tree, best_tcs, best_scs = _tree_greedy(incidence_list, log2_edge_sizes; method=method)
+    best_tc, best_sc = log2sumexp2(best_tcs), maximum(best_scs)
+    for _ = 1:nrepeat-1
+        tree, tcs, scs = _tree_greedy(incidence_list, log2_edge_sizes; method=method)
+        tc, sc = log2sumexp2(tcs), maximum(scs)
+        if sc < best_sc || (sc <= best_sc && tc < best_tc)
+            best_tcs, best_scs, best_tc, best_sc, best_tree = tcs, scs, tc, sc, tree
+        end
+    end
+    return best_tree, best_tcs, best_scs
+end
+
+function _tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; method=MinSpaceOut()) where {VT,ET}
     incidence_list = copy(incidence_list)
     n = nv(incidence_list)
     if n == 0
@@ -61,14 +75,11 @@ function tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; meth
     tree = Dict{VT,Any}([v=>v for v in vertices(incidence_list)])
     while true
         cost_values = evaluate_costs(method, incidence_list, log2_edge_sizes)
-        vpool = collect(vertices(incidence_list))
-        pair = minmax(vpool[1], vpool[2])  # to prevent empty intersect
-        vmin = Inf
-        for (k,v) in cost_values
-            if v < vmin
-                pair = k
-                vmin = v
-            end
+        if length(cost_values) == 0
+            vpool = collect(vertices(incidence_list))
+            pair = minmax(vpool[1], vpool[2])  # to prevent empty intersect
+        else
+            pair = find_best_cost(cost_values)
         end
         log2_tc_step, sc, code = contract_pair!(incidence_list, pair..., log2_edge_sizes)
         push!(log2_tcs, log2_tc_step)
@@ -117,6 +128,14 @@ function evaluate_costs(method, incidence_list::IncidenceList{VT,ET}, log2_edge_
     return cost_values
 end
 
+function find_best_cost(cost_values)
+    length(cost_values) < 1 && error("cost value information missing")
+    pairs = collect(keys(cost_values))
+    values = collect(Base.values(cost_values))
+    best_locs = findall(==(minimum(values)), values)
+    return pairs[rand(best_locs)]
+end
+
 function analyze_contraction(incidence_list::IncidenceList{VT,ET}, vi::VT, vj::VT) where {VT,ET}
     ei = edges(incidence_list, vi)
     ej = edges(incidence_list, vj)
@@ -152,7 +171,7 @@ end
 function greedy_loss(::MinSpaceOut, incidence_list, log2_edge_sizes, vi, vj)
     log2dim(legs) = sum(l->log2_edge_sizes[l], legs, init=0)
     legs = analyze_contraction(incidence_list, vi, vj)
-    log2dim(legs.l01)+log2dim(legs.l02)+log2dim(legs.l012) - 0.01*(log2dim(legs.l12)+log2dim(legs.l1)+log2dim(legs.l2))  # only counts external legs
+    log2dim(legs.l01)+log2dim(legs.l02)+log2dim(legs.l012)
 end
 
 function greedy_loss(::MinSpaceDiff, incidence_list, log2_edge_sizes, vi, vj)
