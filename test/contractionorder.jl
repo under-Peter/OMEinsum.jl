@@ -3,7 +3,7 @@ using OMEinsum.ContractionOrder
 using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs
 using TropicalNumbers
 
-using Test
+using Test, Random
 @testset "analyze contraction" begin
     incidence_list = IncidenceList(Dict('A' => ['a', 'b', 'k', 'o', 'f'], 'B'=>['a', 'c', 'd', 'm', 'f'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']), openedges=['c', 'f', 'o'])
     info = analyze_contraction(incidence_list, 'A', 'B')
@@ -16,6 +16,7 @@ using Test
 end
 
 @testset "tree greedy" begin
+    Random.seed!(2)
     incidence_list = IncidenceList(Dict('A' => ['a', 'b'], 'B'=>['a', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
     log2_edge_sizes = Dict([c=>i for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     il = copy(incidence_list)
@@ -27,11 +28,9 @@ end
         @test sort(target.e2v[k]) == sort(v)
     end
     costs = evaluate_costs(MinSpaceOut(), incidence_list, log2_edge_sizes)
-    @test costs == Dict(('A', 'B')=>9-0.01, ('A', 'C')=>15-0.02, ('B','C')=>18-0.03, ('B','E')=>10-0.04, ('C','D')=>11-0.05, ('C', 'E')=>14-0.06)
+    @test costs == Dict(('A', 'B')=>9, ('A', 'C')=>15, ('B','C')=>18, ('B','E')=>10, ('C','D')=>11, ('C', 'E')=>14)
     tree, log2_tcs, log2_scs = tree_greedy(incidence_list, log2_edge_sizes)
-    @test log2_tcs == [10.0, 16, 15, 9]
-    @test tree == ContractionTree(ContractionTree('A', 'B'), ContractionTree(ContractionTree('C', 'D'), 'E'))
-    @test timespace_complexity(incidence_list, tree, log2_edge_sizes) == (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11)
+    @test all(timespace_complexity(incidence_list, tree, log2_edge_sizes) .<= (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11))
     vertices = ['A', 'B', 'C', 'D', 'E']
     optcode1 = parse_eincode(incidence_list, tree, vertices=vertices)
     @test optcode1 isa OMEinsum.NestedEinsum
@@ -40,14 +39,17 @@ end
 
     eincode = ein"ab,acd,bcef,e,df->"
     size_dict = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
+    Random.seed!(2)
     optcode2 = optimize_greedy(eincode, size_dict) 
     tc, sc = timespace_complexity(optcode2, log2_edge_sizes)
-    @test tc ≈ log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
+    @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
     @test sc == 11
     @test optcode1 == optcode2
     eincode3 = ein"(ab,acd),bcef,e,df->"
+    Random.seed!(2)
     optcode3 = optimize_greedy(eincode3, size_dict) 
-    @test optcode1 == optcode3
+    tc, sc = timespace_complexity(optcode3, log2_edge_sizes)
+    @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
 end
 
 @testset "fullerene" begin
