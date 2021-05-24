@@ -189,7 +189,7 @@ using AbstractTrees
 function AbstractTrees.children(ne::NestedEinsum)
     d = Dict()
     for (k,item) in enumerate(ne.args)
-        d[k] = item isa Integer ? join(OMEinsum.getixs(ne.eins)[k]) : item
+        d[k] = item isa Integer ? _join(OMEinsum.getixs(ne.eins)[k]) : item
     end
     d
 end
