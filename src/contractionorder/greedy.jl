@@ -73,8 +73,8 @@ function _tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; met
     log2_scs = Float64[]
 
     tree = Dict{VT,Any}([v=>v for v in vertices(incidence_list)])
+    cost_values = evaluate_costs(method, incidence_list, log2_edge_sizes)
     while true
-        cost_values = evaluate_costs(method, incidence_list, log2_edge_sizes)
         if length(cost_values) == 0
             vpool = collect(vertices(incidence_list))
             pair = minmax(vpool[1], vpool[2])  # to prevent empty intersect
@@ -89,6 +89,7 @@ function _tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; met
         else
             return ContractionTree(tree[pair[1]], tree[pair[2]]), log2_tcs, log2_scs
         end
+        update_costs!(cost_values, pair..., method, incidence_list, log2_edge_sizes)
     end
 end
 
@@ -128,12 +129,28 @@ function evaluate_costs(method, incidence_list::IncidenceList{VT,ET}, log2_edge_
     return cost_values
 end
 
-function find_best_cost(cost_values)
+function update_costs!(cost_values, va, vb, method, incidence_list::IncidenceList{VT,ET}, log2_edge_sizes) where {VT,ET}
+    for vj in neighbors(incidence_list, va)
+        vx, vy = minmax(vj, va)
+        cost_values[(vx,vy)] = greedy_loss(method, incidence_list, log2_edge_sizes, vx, vy)
+    end
+    for k in keys(cost_values)
+        if vb ∈ k
+            delete!(cost_values, k)
+        end
+    end
+end
+
+function find_best_cost(cost_values::Dict{PT}) where PT
     length(cost_values) < 1 && error("cost value information missing")
-    pairs = collect(keys(cost_values))
-    values = collect(Base.values(cost_values))
-    best_locs = findall(==(minimum(values)), values)
-    return pairs[rand(best_locs)]
+    minval = minimum(Base.values(cost_values))
+    pairs = PT[]
+    for (k, v) in cost_values
+        if v == minval
+            push!(pairs, k)
+        end
+    end
+    return rand(pairs)
 end
 
 function analyze_contraction(incidence_list::IncidenceList{VT,ET}, vi::VT, vj::VT) where {VT,ET}

@@ -25,8 +25,8 @@ Base.copy(il::IncidenceList) = IncidenceList(deepcopy(il.v2e), deepcopy(il.e2v),
 function neighbors(il::IncidenceList{VT}, v) where VT
     res = VT[]
     for e in il.v2e[v]
-        for v in il.e2v[e]
-            push!(res, v)
+        for vj in il.e2v[e]
+            v != vj && push!(res, vj)
         end
     end
     return unique!(res)

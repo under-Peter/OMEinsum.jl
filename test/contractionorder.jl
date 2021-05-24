@@ -19,6 +19,7 @@ end
     Random.seed!(2)
     incidence_list = IncidenceList(Dict('A' => ['a', 'b'], 'B'=>['a', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
     log2_edge_sizes = Dict([c=>i for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
+    edge_sizes = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     il = copy(incidence_list)
     contract_pair!(il, 'A', 'B', log2_edge_sizes)
     target = IncidenceList(Dict('A' => ['b', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
@@ -41,14 +42,14 @@ end
     size_dict = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     Random.seed!(2)
     optcode2 = optimize_greedy(eincode, size_dict) 
-    tc, sc = timespace_complexity(optcode2, log2_edge_sizes)
+    tc, sc = timespace_complexity(optcode2, edge_sizes)
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
     @test sc == 11
     @test optcode1 == optcode2
     eincode3 = ein"(ab,acd),bcef,e,df->"
     Random.seed!(2)
     optcode3 = optimize_greedy(eincode3, size_dict) 
-    tc, sc = timespace_complexity(optcode3, log2_edge_sizes)
+    tc, sc = timespace_complexity(optcode3, edge_sizes)
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
 end
 
@@ -73,11 +74,12 @@ end
     code = EinCode((c60_edges..., [(i,) for i=1:60]...), ())
     size_dict = Dict([i=>2 for i in 1:60])
     log2_edge_sizes = Dict([i=>1 for i in 1:60])
-    tc, sc = timespace_complexity(code, log2_edge_sizes)
+    edge_sizes = Dict([i=>2 for i in 1:60])
+    tc, sc = timespace_complexity(code, edge_sizes)
     @test tc == 60
     @test sc == 0
     optcode = optimize_greedy(code, size_dict)
-    tc2, sc2 = timespace_complexity(optcode, log2_edge_sizes)
+    tc2, sc2 = timespace_complexity(optcode, edge_sizes)
     @test sc2 == 10
     xs = vcat([TropicalF64.([-1 1; 1 -1]) for i=1:90], [TropicalF64.([0, 0]) for i=1:60])
     @test Base.Iterators.flatten(optcode) == code
