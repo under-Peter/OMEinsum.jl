@@ -1,13 +1,13 @@
 export asarray
 
 """
-    asarray(x::Number[, parent::AbstractArray]) -> AbstactArray
+    asarray(x[, parent::AbstractArray]) -> AbstactArray
 
 Return a 0-dimensional array with item `x`, otherwise, do nothing.
 If a `parent` is supplied, it will try to match the parent array type.
 """
-asarray(x::Number) = fill(x, ())
-asarray(x::Number, arr::Array) = fill(x, ())
+asarray(x) = fill(x, ())
+asarray(x, arr::Array) = fill(x, ())
 asarray(x::AbstractArray, args...) = x
 
 """
