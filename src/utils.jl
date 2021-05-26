@@ -8,7 +8,7 @@ If a `parent` is supplied, it will try to match the parent array type.
 """
 asarray(x) = fill(x, ())
 asarray(x, arr::Array) = fill(x, ())
-asarray(x::AbstractArray, args...) = x
+asarray(x::AbstractArray, y::Array) = x
 
 """
     nopermute(ix,iy)

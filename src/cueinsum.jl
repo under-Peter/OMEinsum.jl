@@ -3,6 +3,7 @@ using .CUDA
 println("OMEinsum: YOU FIND CUDA!")
 
 asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
+asarray(x::AbstractArray, y::CuArray) = x
 
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
