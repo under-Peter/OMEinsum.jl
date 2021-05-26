@@ -72,12 +72,12 @@ function optimize_greedy(ixs::AbstractVector, iy::AbstractVector, size_dict; met
     tree, _, _ = tree_greedy(incidence_list, log2_edge_sizes; method=method, nrepeat=nrepeat)
     parse_eincode!(incidence_list, tree, 1:length(ixs))[2]
 end
-optimize_greedy(code::Int, size_dict; method=MinSpaceOut()) = code
-function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut())
-    args = optimize_greedy.(code.args, Ref(size_dict); method=method)
+optimize_greedy(code::Int, size_dict; method=MinSpaceOut(), nrepeat=10) = code
+function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut(), nrepeat=10)
+    args = optimize_greedy.(code.args, Ref(size_dict); method=method, nrepeat=nrepeat)
     if length(code.args) > 2
         # generate coarse grained hypergraph.
-        nested = optimize_greedy(code.eins, size_dict; method=method)
+        nested = optimize_greedy(code.eins, size_dict; method=method, nrepeat=nrepeat)
         replace_args(nested, args)
     else
         NestedEinsum(args, code.eins)
