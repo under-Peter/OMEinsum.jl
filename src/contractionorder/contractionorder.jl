@@ -49,7 +49,17 @@ function parse_tree(ein, vertices)
     end
 end
 
-function optimize_greedy(code::EinCode{ixs, iy}, size_dict; method=MinSpaceOut(), nrepeat=10) where {ixs, iy}
+"""
+    optimize_greedy(eincode, size_dict; method=MinSpaceOut(), nrepeat=10)
+
+Greedy optimizing the contraction order. Methods are
+* `MinSpaceOut`, always choose the next contraction that produces the minimum output tensor.
+* `MinSpaceDiff`, always choose the next contraction that minimizes the total space.
+"""
+function optimize_greedy(@nospecialize(code::EinCode{ixs, iy}), size_dict; method=MinSpaceOut(), nrepeat=10) where {ixs, iy}
+    optimize_greedy(collect(ixs), collect(iy), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
+end
+function optimize_greedy(ixs::AbstractVector, iy::AbstractVector, size_dict; method=MinSpaceOut(), nrepeat=10)
     if length(ixs) < 2
         return code
     end
@@ -62,16 +72,12 @@ function optimize_greedy(code::EinCode{ixs, iy}, size_dict; method=MinSpaceOut()
     tree, _, _ = tree_greedy(incidence_list, log2_edge_sizes; method=method, nrepeat=nrepeat)
     parse_eincode!(incidence_list, tree, 1:length(ixs))[2]
 end
-
-optimize_greedy(code::Int, size_dict; method=MinSpaceOut()) = code
-
-function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut())
-    args = optimize_greedy.(code.args, Ref(size_dict); method=method)
+optimize_greedy(code::Int, size_dict; method=MinSpaceOut(), nrepeat=10) = code
+function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut(), nrepeat=10)
+    args = optimize_greedy.(code.args, Ref(size_dict); method=method, nrepeat=nrepeat)
     if length(code.args) > 2
         # generate coarse grained hypergraph.
-        #hyper_incidence_list = code.eins  # TODO
-        #tree_greedy(hyper_incidence_list, log2_edge_sizes; method=method)
-        nested = optimize_greedy(code.eins, size_dict; method=method)
+        nested = optimize_greedy(code.eins, size_dict; method=method, nrepeat=nrepeat)
         replace_args(nested, args)
     else
         NestedEinsum(args, code.eins)
@@ -83,22 +89,37 @@ function replace_args(nested::NestedEinsum, trueargs)
 end
 replace_args(nested::Int, trueargs) = trueargs[nested]
 
-ContractionOrder.timespace_complexity(ei::Int, log2_edge_sizes) = -Inf, -Inf
-function ContractionOrder.timespace_complexity(ei::NestedEinsum, log2_edge_sizes)
-    tcscs = timespace_complexity.(ei.args, Ref(log2_edge_sizes))
-    tc2, sc2 = timespace_complexity(ei.eins, log2_edge_sizes)
-    tc = ContractionOrder.log2sumexp2([getindex.(tcscs, 1)..., tc2])
-    sc = max(reduce(max, getindex.(tcscs, 2)), sc2)
+"""
+    ContractionOrder.timespace_complexity(eincode, size_dict)
+
+Return the time and space complexity of the einsum contraction.
+The time complexity is defined as `log2(number of element multiplication)`.
+The space complexity is defined as `log2(size of the maximum intermediate tensor)`.
+"""
+ContractionOrder.timespace_complexity(ei::Int, size_dict) = -Inf, -Inf
+function ContractionOrder.timespace_complexity(ei::NestedEinsum, size_dict)
+    tcs = Float64[]
+    scs = Float64[]
+    for arg in ei.args
+        tc, sc = timespace_complexity(arg, size_dict)
+        push!(tcs, tc)
+        push!(scs, sc)
+    end
+    tc2, sc2 = timespace_complexity(collect(getixs(ei.eins)), collect(getiy(ei.eins)), size_dict)
+    tc = ContractionOrder.log2sumexp2([tcs..., tc2])
+    sc = max(reduce(max, scs), sc2)
     return tc, sc
 end
-
-function ContractionOrder.timespace_complexity(ei::EinCode{ixs, iy}, log2_edge_sizes) where {ixs, iy}
+function ContractionOrder.timespace_complexity(@nospecialize(ei::EinCode{ixs, iy}), size_dict) where {ixs, iy}
+    ContractionOrder.timespace_complexity(collect(ixs), collect(iy), size_dict)
+end
+function ContractionOrder.timespace_complexity(ixs::AbstractVector, iy::AbstractVector, size_dict)
     # remove redundant legs
-    labels = vcat(collect.(ixs)..., collect(iy))
+    labels = vcat(collect.(ixs)..., iy)
     loop_inds = unique!(filter(l->count(==(l), labels)>=2, labels))
 
-    tc = isempty(loop_inds) ? -Inf : sum(l->log2_edge_sizes[l], loop_inds)
-    sc = isempty(iy) ? 0.0 : sum(l->log2_edge_sizes[l], iy)
+    tc = isempty(loop_inds) ? -Inf : sum(l->log2(size_dict[l]), loop_inds)
+    sc = isempty(iy) ? 0.0 : sum(l->log2(size_dict[l]), iy)
     return tc, sc
 end
 

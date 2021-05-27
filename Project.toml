@@ -1,7 +1,7 @@
 name = "OMEinsum"
 uuid = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
-version = "0.4.1"
+version = "0.4.2"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
@@ -17,6 +17,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [compat]
+AbstractTrees = "0.3"
 BatchedRoutines = "0.2"
 CUDA = "2, 3.1"
 ChainRulesCore = "0.9"
@@ -25,7 +26,6 @@ MacroTools = "0.5"
 PkgBenchmark = "0.2"
 Requires = "0.5, 1"
 TupleTools = "1.2"
-AbstractTrees = "0.3"
 julia = "1"
 
 [extras]
