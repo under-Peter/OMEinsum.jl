@@ -19,7 +19,7 @@ end
 Compute greedy order, and the time and space complexities, the rows of the `incidence_list` are vertices and columns are edges.
 `log2_sizes` are defined on edges.
 
-```jldoctest; setup = :(using OMEinsum)
+```julia
 julia> code = ein"(abc,cde),(ce,sf,j),ak->ael"
 aec, ec, ak -> ael
 ├─ ce, sf, j -> ec
