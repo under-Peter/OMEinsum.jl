@@ -20,17 +20,17 @@ end
 using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy, timespace_complexity
 export parse_eincode, ContractionOrder, optimize_greedy
 
-function parse_eincode!(incidence_list::IncidenceList, tree, vertices_order)
+function parse_eincode!(::IncidenceList, tree, vertices_order, level=0)
     ti = findfirst(==(tree), vertices_order)
     ti, ti
 end
 
-function parse_eincode!(incidence_list::IncidenceList, tree::ContractionTree, vertices_order)
-    ti, codei = parse_eincode!(incidence_list, tree.left, vertices_order)
-    tj, codej = parse_eincode!(incidence_list, tree.right, vertices_order)
+function parse_eincode!(incidence_list::IncidenceList, tree::ContractionTree, vertices_order, level=0)
+    ti, codei = parse_eincode!(incidence_list, tree.left, vertices_order, level+1)
+    tj, codej = parse_eincode!(incidence_list, tree.right, vertices_order, level+1)
     dummy = Dict([e=>0 for e in keys(incidence_list.e2v)])
-    tc, sc, code = contract_pair!(incidence_list, vertices_order[ti], vertices_order[tj], dummy)
-    ti, NestedEinsum((codei, codej), EinCode(Tuple.(code.first), Tuple(code.second)))
+    _, _, code = contract_pair!(incidence_list, vertices_order[ti], vertices_order[tj], dummy)
+    ti, NestedEinsum((codei, codej), EinCode(Tuple.(code.first), Tuple(level==0 ? incidence_list.openedges : code.second)))
 end
 
 function parse_eincode(incidence_list::IncidenceList{VT,ET}, tree::ContractionTree; vertices = collect(keys(incidence_list.v2e))) where {VT,ET}
@@ -52,19 +52,19 @@ end
 """
     optimize_greedy(eincode, size_dict; method=MinSpaceOut(), nrepeat=10)
 
-Greedy optimizing the contraction order. Methods are
+Greedy optimizing the contraction order and return a `NestedEinsum` object. Methods are
 * `MinSpaceOut`, always choose the next contraction that produces the minimum output tensor.
 * `MinSpaceDiff`, always choose the next contraction that minimizes the total space.
 """
-function optimize_greedy(@nospecialize(code::EinCode{ixs, iy}), size_dict; method=MinSpaceOut(), nrepeat=10) where {ixs, iy}
+function optimize_greedy(@nospecialize(code::EinCode{ixs, iy}), size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {ixs, iy, L, T}
     optimize_greedy(collect(ixs), collect(iy), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
 end
-function optimize_greedy(ixs::AbstractVector, iy::AbstractVector, size_dict; method=MinSpaceOut(), nrepeat=10)
-    if length(ixs) < 2
-        return code
+function optimize_greedy(ixs::AbstractVector, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {L, TI}
+    if length(ixs) <= 2
+        return NestedEinsum((1:length(ixs)...,), EinCode{(ixs...,), (iy...,)}())
     end
     T = promote_type(eltype.(ixs)...)
-    log2_edge_sizes = empty(size_dict)
+    log2_edge_sizes = Dict{L,Float64}()
     for (k, v) in size_dict
         log2_edge_sizes[k] = log2(v)
     end

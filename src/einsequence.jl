@@ -1,3 +1,5 @@
+export NestedEinsum
+
 """
     parse_nested(s::AbstractString (, iy = []))
 
