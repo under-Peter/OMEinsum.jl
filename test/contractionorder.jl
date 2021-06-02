@@ -85,3 +85,24 @@ end
     @test Base.Iterators.flatten(optcode) == code
     @test optcode(xs...)[].n == 66
 end
+
+@testset "regression test" begin
+    code = ein"i->"
+    optcode = optimize_greedy(code, Dict('i'=>3))
+    @test optcode isa NestedEinsum
+    x = randn(3)
+    @test optcode(x) ≈ code(x)
+
+    code = ein"i,j->"
+    optcode = optimize_greedy(code, Dict('i'=>3, 'j'=>3))
+    @test optcode isa NestedEinsum
+    x = randn(3)
+    y = randn(3)
+    @test optcode(x, y) ≈ code(x, y)
+
+    code = ein"ij,jk,kl->ijl"
+    optcode = optimize_greedy(code, Dict('i'=>3, 'j'=>3, 'k'=>3, 'l'=>3))
+    @test optcode isa NestedEinsum
+    a, b, c = [rand(3,3) for i=1:3]
+    @test optcode(a, b, c) ≈ code(a, b, c)
+end
