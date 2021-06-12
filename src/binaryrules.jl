@@ -95,14 +95,14 @@ end
 # S = 1
 # T = 1
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any})
-    asarray(xs[1][] * xs[2], xs[1])
+    asarray(asscalar(xs[1]) * xs[2], xs[1])
 end
 
 # i,->i : 100
 # S = N
 # T = N
 function einsum(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any})
-    xs[1] .* xs[2][]
+    xs[1] .* asscalar(xs[2])
 end
 
 # j,j-> : 010
@@ -167,31 +167,13 @@ end
 # 010
 function einsum(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any})
     a, b = xs
-    T = promote_type(eltype(xs[1]), eltype(xs[2]))
-    out = similar(a, T, size(a, 2))
-    @inbounds for k=1:size(a, 2)
-        elem = zero(T)
-        for i=1:size(a, 1)
-            elem += a[i,k] * b[i,k]
-        end
-        out[k] = elem
-    end
-    return out
+    dropdims(mapreduce(*, +, a, b; dims=1); dims=1)
 end
 
 # 101
 function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any})
     a, b = xs
-    T = promote_type(eltype(xs[1]), eltype(xs[2]))
-    out = similar(a, T, size(a, 1), size(b, 1), size(a, 2))
-    @inbounds for k=1:size(a, 2)
-        for j=1:size(b, 1)
-            for i=1:size(a, 1)
-                out[i,j,k] = a[i,k] * b[j,k]
-            end
-        end
-    end
-    return out
+    _batched_gemm('N', 'N', reshape(a, size(a, 1), 1, size(a, 2)), reshape(b, 1, size(b, 1), size(b, 2)))
 end
 @inline function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any})
     einsum(SimpleBinaryRule{('i','l'),('k','l'), ('i','k','l')}(), (xs[2], xs[1]))

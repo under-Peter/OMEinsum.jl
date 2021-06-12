@@ -1,4 +1,4 @@
-export asarray
+export asarray, asscalar
 
 """
     asarray(x[, parent::AbstractArray]) -> AbstactArray
@@ -10,6 +10,8 @@ asarray(x) = fill(x, ())
 asarray(x::AbstractArray) = x
 asarray(x, arr::Array) = fill(x, ())
 asarray(x::AbstractArray, y::Array) = x
+asscalar(x) = x
+asscalar(x::AbstractArray) = x[]
 
 """
     nopermute(ix,iy)
