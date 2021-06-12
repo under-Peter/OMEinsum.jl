@@ -4,6 +4,7 @@ println("OMEinsum: YOU FIND CUDA!")
 
 asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
+asscalar(x::DenseCuArray) = Array(x)[]
 
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
@@ -18,6 +19,10 @@ for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
     @eval function einsum(::$TP, ix, iy, x::DenseCuArray, size_dict::Dict{LT}) where LT
         loop_einsum(EinCode{((ix...,),),(iy...,)}(), (x,), size_dict)
     end
+end
+
+function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, DenseCuArray})
+    dropdims(reshape(xs[1],1,:) * xs[2]; dims=1)
 end
 
 function loop_einsum!(code::EinCode{ixs, iy},

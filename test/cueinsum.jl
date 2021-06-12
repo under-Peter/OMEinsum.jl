@@ -90,3 +90,17 @@ end
         @test Array(res) ≈ Array(loop_einsum(code, (xs...,), size_dict))
     end
 end
+
+@testset "binary rules" begin
+    for (code, a, b) in [
+        (ein"j,j->", randn(10), randn(10)),
+        (ein"i,->i", randn(10), fill(2.0, ())),
+        (ein",->", fill(2.0,()), fill(2.0, ())),
+        (ein"il,kl->ikl", randn(10, 10), randn(10, 10)),
+        ]
+        res0 = code(a, b)
+        res1 = code(CuArray(a), CuArray(b))
+        @test res1 isa CuArray
+        @test res0 ≈ Array(res1)
+    end
+end
