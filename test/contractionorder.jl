@@ -82,7 +82,8 @@ end
     tc2, sc2 = timespace_complexity(optcode, edge_sizes)
     @test sc2 == 10
     xs = vcat([TropicalF64.([-1 1; 1 -1]) for i=1:90], [TropicalF64.([0, 0]) for i=1:60])
-    @test Base.Iterators.flatten(optcode) == code
+    @test OMEinsum.flatten(optcode) == code
+    @test OMEinsum.flatten(code) == code
     @test optcode(xs...)[].n == 66
 end
 

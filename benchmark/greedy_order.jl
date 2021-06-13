@@ -1,9 +1,9 @@
 using OMEinsum, LightGraphs, BenchmarkTools
 
 function uniformsize(@nospecialize(code::EinCode{ixs,iy}), size::Int) where {ixs, iy}
-    Dict([c=>size for c in [Iterators.flatten(ixs)..., iy...]])
+    Dict([c=>size for c in [OMEinsum.flatten(ixs)..., iy...]])
 end
-uniformsize(ne::OMEinsum.NestedEinsum, size::Int) = uniformsize(Iterators.flatten(ne), size)
+uniformsize(ne::OMEinsum.NestedEinsum, size::Int) = uniformsize(OMEinsum.flatten(ne), size)
 
 function random_regular_eincode(n, k)
 	g = LightGraphs.random_regular_graph(n, k)

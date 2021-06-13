@@ -5,6 +5,8 @@ using OMEinsum: _unique
     @test asarray(3) isa Array
     @test asarray(3, randn(3,3)) isa Array
     @test asarray(randn(3,3)) isa Array
+    @test asscalar(fill(3,())) === 3
+    @test asscalar(3) === 3
 end
 
 @testset "allunique" begin

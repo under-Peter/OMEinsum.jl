@@ -122,17 +122,3 @@ function ContractionOrder.timespace_complexity(ixs::AbstractVector, iy::Abstract
     sc = isempty(iy) ? 0.0 : sum(l->log2(size_dict[l]), iy)
     return tc, sc
 end
-
-function _flatten(code::NestedEinsum, iy=nothing)
-    ixs = []
-    for i=1:length(code.args)
-        append!(ixs, _flatten(code.args[i], OMEinsum.getixs(code.eins)[i]))
-    end
-    return ixs
-end
-_flatten(i::Int, iy) = [i=>iy]
-
-function Base.Iterators.flatten(code::NestedEinsum)
-    ixd = Dict(_flatten(code))
-    EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
-end
