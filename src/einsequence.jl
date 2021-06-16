@@ -216,3 +216,20 @@ _join(ix::NTuple{0}) = ""
 _join(ix::NTuple{N,Char}) where N = join(ix, "")
 _join(ix::NTuple{N,Int}) where N = join(ix, "∘")
 _join(ix::NTuple{N,Any}) where N = join(ix, "-")
+
+
+# flattten nested einsum
+function _flatten(code::NestedEinsum, iy=nothing)
+    ixs = []
+    for i=1:length(code.args)
+        append!(ixs, _flatten(code.args[i], OMEinsum.getixs(code.eins)[i]))
+    end
+    return ixs
+end
+_flatten(i::Int, iy) = [i=>iy]
+
+flatten(code::EinCode) = code
+function flatten(code::NestedEinsum)
+    ixd = Dict(_flatten(code))
+    EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
+end
