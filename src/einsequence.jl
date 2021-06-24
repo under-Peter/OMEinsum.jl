@@ -233,3 +233,10 @@ function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
     EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
 end
+
+dynamic_extractxs(xs, x::NestedEinsum; size_info) = dynamic_einsum(x, xs; size_info=size_info)
+dynamic_extractxs(xs, x::Int; size_info) = xs[x]
+function dynamic_einsum(ne::NestedEinsum, xs; size_info=nothing)
+    mxs = map(x->dynamic_extractxs(xs, x; size_info=size_info), ne.args)
+    dynamic_einsum(getixs(ne.eins), mxs, getiy(ne.eins); size_info=size_info)
+end
