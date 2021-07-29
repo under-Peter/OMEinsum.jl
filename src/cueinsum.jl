@@ -1,7 +1,5 @@
 using .CUDA
 
-println("OMEinsum: YOU FIND CUDA!")
-
 asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
 asscalar(x::DenseCuArray) = Array(x)[]
@@ -75,3 +73,4 @@ function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
 end
 
+@info("OMEinsum loaded the CUDA module successfully")
