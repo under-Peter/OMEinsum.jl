@@ -40,9 +40,9 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode{ixs, iy}, xs::NTup
     y = einsum(code, xs, size_dict)
     function einsum_pullback(dy)
         dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(ixs, xs, iy, size_dict, map(conj, dy), i), N)
-        return (NO_FIELDS, NO_FIELDS, dxs, NO_FIELDS)
+        return (NoTangent(), NoTangent(), dxs, NoTangent())
     end
-    einsum_pullback(::NoTangent) = (NO_FIELDS, NO_FIELDS, NoTangent(), NO_FIELDS)
+    einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())
     return y, einsum_pullback
 end
 
@@ -65,8 +65,8 @@ function ChainRulesCore.rrule(::typeof(dynamic_einsum), ixs, xs::NTuple{N,T wher
     y = dynamic_einsum(ixs, xs, iy, size_dict)
     function einsum_pullback(dy)
         dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(ixs, xs, iy, size_dict, map(conj, dy), i), N)
-        return (NO_FIELDS, NO_FIELDS, dxs, NO_FIELDS, NO_FIELDS)
+        return (NoTangent(), NoTangent(), dxs, NoTangent(), NoTangent())
     end
-    einsum_pullback(::NoTangent) = (NO_FIELDS, NO_FIELDS, NoTangent(), NO_FIELDS, NO_FIELDS)
+    einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent())
     return y, einsum_pullback
 end
