@@ -8,7 +8,7 @@ If a `parent` is supplied, it will try to match the parent array type.
 """
 asarray(x) = fill(x, ())
 asarray(x::AbstractArray) = x
-asarray(x, arr::Array) = fill(x, ())
+asarray(x, arr::AbstractArray) = fill(x, ())
 asarray(x::AbstractArray, y::Array) = x
 asscalar(x) = x
 asscalar(x::AbstractArray) = x[]

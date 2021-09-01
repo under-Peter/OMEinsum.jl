@@ -7,7 +7,7 @@ asscalar(x::DenseCuArray) = Array(x)[]
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
 function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
-    out = CUDA.zeros(promote_type(map(eltype,xs)...), size)
+    CUDA.zeros(promote_type(map(eltype,xs)...), size)
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
@@ -31,13 +31,19 @@ function loop_einsum!(code::EinCode{ixs, iy},
     A = einarray(code, xs, size_dict)
     if NO == length(iy)
         y = reshape(y, fill(1, ndims(A)-NO)...,size(y)...)
-        dropdims(Base.mapreducedim!(x->x, +, y, A), dims=(1:ndims(A)-NO...,))
+        raw = Base.mapreducedim!(x->x, +, y, A)
+        if ndims(A)-NO > 0  # fix 1.7 compatibility
+            raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
+        end
+        return raw
     else
         y_ = CUDA.zeros(T, size(A)[end-NO+1:end]...)
         y_ = reshape(y_, fill(1, ndims(A)-NO)...,size(y_)...)
         raw = Base.mapreducedim!(x->x, +, y_, A)
-        out = dropdims(raw, dims=(1:ndims(A)-NO...,))
-        expanddims!(EinCode{((iy_...,),), iy}(), out, y)
+        if ndims(A)-NO > 0  # fix 1.7 compatibility
+            raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
+        end
+        return expanddims!(EinCode{((iy_...,),), iy}(), raw, y)
     end
 end
 
