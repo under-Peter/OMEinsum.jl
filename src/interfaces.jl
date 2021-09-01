@@ -182,12 +182,14 @@ function dynamic_einsum(ixs, xs, iy, size_dict)
     if length(ixs) == 1
         einsum(rule, ixs[1], iy, xs[1], size_dict)
     else
-        einsum(rule, ixs, iy, xs, size_dict)
+        einsum(rule, ixs, iy, (xs...,), size_dict)
     end
 end
+
+dynamic_einsum(::EinCode{ixs, iy}, xs; kwargs...) where {ixs, iy} = dynamic_einsum(ixs, xs, iy; kwargs...)
 
 # the fallback
 function einsum(::DefaultRule, ixs, iy, xs, size_dict)
     @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum(EinCode{ixs, iy}(), xs, size_dict)
+    loop_einsum(EinCode{ixs, iy}(), (xs...,), size_dict)
 end

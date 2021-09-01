@@ -94,7 +94,7 @@ function _tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; met
 end
 
 function contract_pair!(incidence_list, vi, vj, log2_edge_sizes)
-    log2dim(legs) = sum(l->log2_edge_sizes[l], legs, init=0)
+    log2dim(legs) = sum(l->log2_edge_sizes[l], legs)
     @assert vj > vi
     # compute time complexity and output tensor
     legsets = analyze_contraction(incidence_list, vi, vj)
@@ -186,13 +186,13 @@ function analyze_contraction(incidence_list::IncidenceList{VT,ET}, vi::VT, vj::V
 end
 
 function greedy_loss(::MinSpaceOut, incidence_list, log2_edge_sizes, vi, vj)
-    log2dim(legs) = sum(l->log2_edge_sizes[l], legs, init=0)
+    log2dim(legs) = sum(l->log2_edge_sizes[l], legs)
     legs = analyze_contraction(incidence_list, vi, vj)
     log2dim(legs.l01)+log2dim(legs.l02)+log2dim(legs.l012)
 end
 
 function greedy_loss(::MinSpaceDiff, incidence_list, log2_edge_sizes, vi, vj)
-    log2dim(legs) = sum(l->log2_edge_sizes[l], legs, init=0)
+    log2dim(legs) = sum(l->log2_edge_sizes[l], legs)
     legs = analyze_contraction(incidence_list, vi, vj)
     D1,D2,D12,D01,D02,D012 = log2dim.(getfield.(Ref(legs), 1:6))
     exp2(D01+D02+D012) - exp2(D1+D01+D12) - exp2(D2+D02+D12)  # out - in
