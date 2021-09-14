@@ -1,5 +1,4 @@
 export tree_greedy, MinSpaceOut, MinSpaceDiff
-export timespace_complexity
 
 struct MinSpaceOut end
 struct MinSpaceDiff end
@@ -215,10 +214,4 @@ function contract_tree!(incidence_list::IncidenceList, tree::ContractionTree, lo
     push!(tcs, tc)
     push!(scs, sc)
     return vi
-end
-
-function timespace_complexity(incidence_list::IncidenceList, tree::ContractionTree, log2_edge_sizes)
-    tcs, scs = Float64[], Float64[]
-    contract_tree!(copy(incidence_list), tree, log2_edge_sizes, tcs, scs)
-    return log2sumexp2(tcs), maximum(scs)
 end

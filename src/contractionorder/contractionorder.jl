@@ -17,7 +17,7 @@ include("greedy.jl")
 
 end
 
-using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy, timespace_complexity
+using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy
 export parse_eincode, ContractionOrder, optimize_greedy
 
 function parse_eincode!(::IncidenceList, tree, vertices_order, level=0)
@@ -89,36 +89,68 @@ function replace_args(nested::NestedEinsum, trueargs)
 end
 replace_args(nested::Int, trueargs) = trueargs[nested]
 
+export timespace_complexity
 """
-    ContractionOrder.timespace_complexity(eincode, size_dict)
+    timespace_complexity(eincode, size_dict)
 
 Return the time and space complexity of the einsum contraction.
 The time complexity is defined as `log2(number of element multiplication)`.
 The space complexity is defined as `log2(size of the maximum intermediate tensor)`.
 """
-ContractionOrder.timespace_complexity(ei::Int, size_dict) = -Inf, -Inf
-function ContractionOrder.timespace_complexity(ei::NestedEinsum, size_dict)
+function timespace_complexity(ei::NestedEinsum, size_dict)
+    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
+    _timespace_complexity(ei, log2_sizes)
+end
+
+function timespace_complexity(@nospecialize(ei::EinCode{ixs, iy}), size_dict) where {ixs, iy}
+    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
+    _timespace_complexity(collect(ixs), collect(iy), log2_sizes)
+end
+
+function _timespace_complexity(ei::NestedEinsum, log2_sizes)
     tcs = Float64[]
     scs = Float64[]
     for arg in ei.args
-        tc, sc = timespace_complexity(arg, size_dict)
+        tc, sc = _timespace_complexity(arg, log2_sizes)
         push!(tcs, tc)
         push!(scs, sc)
     end
-    tc2, sc2 = timespace_complexity(collect(getixs(ei.eins)), collect(getiy(ei.eins)), size_dict)
+    tc2, sc2 = _timespace_complexity(collect(getixs(ei.eins)), collect(getiy(ei.eins)), log2_sizes)
     tc = ContractionOrder.log2sumexp2([tcs..., tc2])
     sc = max(reduce(max, scs), sc2)
     return tc, sc
 end
-function ContractionOrder.timespace_complexity(@nospecialize(ei::EinCode{ixs, iy}), size_dict) where {ixs, iy}
-    ContractionOrder.timespace_complexity(collect(ixs), collect(iy), size_dict)
-end
-function ContractionOrder.timespace_complexity(ixs::AbstractVector, iy::AbstractVector, size_dict)
-    # remove redundant legs
-    labels = vcat(collect.(ixs)..., iy)
-    loop_inds = unique!(filter(l->count(==(l), labels)>=2, labels))
+_timespace_complexity(ei::Int, size_dict) = -Inf, -Inf
 
-    tc = isempty(loop_inds) ? -Inf : sum(l->log2(size_dict[l]), loop_inds)
-    sc = isempty(iy) ? 0.0 : sum(l->log2(size_dict[l]), iy)
+function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L}) where {T, L}
+    # remove redundant legs
+    counts = Dict{L,Int}()
+    for ix in ixs
+        for l in ix
+            if haskey(counts, l)
+                counts[l] += 1
+            else
+                counts[l] = 1
+            end
+        end
+    end
+    for l in iy
+        if haskey(counts, l)
+            counts[l] += 1
+        else
+            counts[l] = 1
+        end
+    end
+    loop_inds = L[]
+    for ix in ixs
+        for l in ix
+            c = count(==(l), ix)
+            if counts[l] > c && l ∉ loop_inds
+                push!(loop_inds, l)
+            end
+        end
+    end
+    tc = isempty(loop_inds) ? -Inf : sum(l->log2_sizes[l], loop_inds)
+    sc = isempty(iy) ? 0.0 : sum(l->log2_sizes[l], iy)
     return tc, sc
 end
