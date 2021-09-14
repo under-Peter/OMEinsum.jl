@@ -1,6 +1,6 @@
 using OMEinsum
 using OMEinsum.ContractionOrder
-using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs
+using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs, contract_tree!, log2sumexp2
 using TropicalNumbers
 
 using Test, Random
@@ -31,7 +31,9 @@ end
     costs = evaluate_costs(MinSpaceOut(), incidence_list, log2_edge_sizes)
     @test costs == Dict(('A', 'B')=>9, ('A', 'C')=>15, ('B','C')=>18, ('B','E')=>10, ('C','D')=>11, ('C', 'E')=>14)
     tree, log2_tcs, log2_scs = tree_greedy(incidence_list, log2_edge_sizes)
-    @test all(timespace_complexity(incidence_list, tree, log2_edge_sizes) .<= (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11))
+    tcs_, scs_ = [], []
+    contract_tree!(copy(incidence_list), tree, log2_edge_sizes, tcs_, scs_)
+    @test all((log2sumexp2(tcs_), maximum(scs_)) .<= (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11))
     vertices = ['A', 'B', 'C', 'D', 'E']
     optcode1 = parse_eincode(incidence_list, tree, vertices=vertices)
     @test optcode1 isa OMEinsum.NestedEinsum
