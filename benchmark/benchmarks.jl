@@ -7,6 +7,21 @@ Random.seed!(0)
 
 const SUITE = BenchmarkGroup()
 
+SUITE["manyinds"] = BenchmarkGroup()
+suite = SUITE["manyinds"]
+
+for T in (Float32, Float64, ComplexF32, ComplexF64)
+    suite[string(T)] = BenchmarkGroup()
+    args = ["abcdefghijklmnop,flnqrcipstujvgamdwxyz->bcdeghkmnopqrstuvwxyz"]
+    dims = [2]
+    for str in args, dim in dims
+        code = ein"abcdefghijklmnop,flnqrcipstujvgamdwxyz->bcdeghkmnopqrstuvwxyz"
+        arr1 = rand(T, map(i->2, OMEinsum.getixs(code)[1])...)
+        arr2 = rand(T, map(i->2, OMEinsum.getixs(code)[2])...)
+        suite[string(T)]["tiny"] = @benchmarkable code($arr1,$arr2)
+    end
+end
+
 # Matrix multiplication
 SUITE["matmul"] = BenchmarkGroup()
 suite = SUITE["matmul"]
