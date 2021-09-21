@@ -15,17 +15,10 @@ for T in (Float32, Float64, ComplexF32, ComplexF64)
     args = ["abcdefghijklmnop,flnqrcipstujvgamdwxyz->bcdeghkmnopqrstuvwxyz"]
     dims = [2]
     for str in args, dim in dims
-        inputs = split(str,'-')[1]
-        outputs = split(str,'>')[2]
-        len1 = length(split(inputs, ',')[1])
-        len2 = length(split(inputs, ',')[2])
-        arr1_dims = fill(dim, len1)
-        arr1 = rand(T, arr1_dims...)
-        arr2_dims = fill(dim, len2)
-        arr2 = rand(T, arr2_dims...)
-        inp1 = split(inputs, ',')[1]
-        inp2 = split(inputs, ',')[2]
-        suite[string(T)]["tiny"] = @benchmarkable ein"abcdefghijklmnop,flnqrcipstujvgamdwxyz->bcdeghkmnopqrstuvwxyz"($arr1,$arr2)
+        code = ein"abcdefghijklmnop,flnqrcipstujvgamdwxyz->bcdeghkmnopqrstuvwxyz"
+        arr1 = rand(T, map(i->2, OMEinsum.getixs(code)[1])...)
+        arr2 = rand(T, map(i->2, OMEinsum.getixs(code)[2])...)
+        suite[string(T)]["tiny"] = @benchmarkable code($arr1,$arr2)
     end
 end
 
