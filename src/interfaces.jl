@@ -56,7 +56,8 @@ function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
     length(ixs) != length(xs) && throw(ArgumentError("$(length(xs)) tensors labelled by $(length(ixs)) indices"))
 
     # check tensor orders
-    foreach(ixs, xs) do ix, x
+    for i=1:length(xs)
+        ix, x = ixs[i], xs[i]
         length(ix) == ndims(x) || throw(
             ArgumentError("indices $ix invalid for tensor with ndims = $(ndims(x))"))
         for j = 1:length(ix)
