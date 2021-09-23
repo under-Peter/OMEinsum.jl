@@ -49,7 +49,7 @@ return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict(ixs, xs, size_info=nothing)
+function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
     # check size of input tuples
     length(xs)<1 && error("empty input tensors")
     d = size_info === nothing ? Dict{promote_type(eltype.(ixs)...),Int}() : size_info
@@ -172,12 +172,12 @@ function einsum(code::EinCode{ixs, iy}, xs) where {ixs, iy}
     einsum(code, xs, get_size_dict(ixs, xs))
 end
 
-function dynamic_einsum(ixs, xs, iy; size_info=nothing)
+function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy); size_info=nothing)
     size_dict = get_size_dict(ixs, xs, size_info)
     dynamic_einsum(ixs, xs, iy, size_dict)
 end
 
-function dynamic_einsum(ixs, xs, iy, size_dict)
+function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy), size_dict)
     rule = match_rule(ixs, iy)
     if length(ixs) == 1
         einsum(rule, ixs[1], iy, xs[1], size_dict)
@@ -186,7 +186,7 @@ function dynamic_einsum(ixs, xs, iy, size_dict)
     end
 end
 
-dynamic_einsum(::EinCode{ixs, iy}, xs; kwargs...) where {ixs, iy} = dynamic_einsum(ixs, xs, iy; kwargs...)
+dynamic_einsum(@nospecialize(code::EinCode{ixs, iy}), @nospecialize(xs); kwargs...) where {ixs, iy} = dynamic_einsum(ixs, xs, iy; kwargs...)
 
 # the fallback
 function einsum(::DefaultRule, ixs, iy, xs, size_dict)

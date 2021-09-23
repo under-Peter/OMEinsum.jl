@@ -203,7 +203,7 @@ function AbstractTrees.printnode(io::IO, x::NestedEinsum)
     print(io, x.eins)
 end
 
-function Base.show(io::IO, e::EinCode{ixs, iy}) where {ixs, iy}
+function Base.show(io::IO, @nospecialize(e::EinCode{ixs, iy})) where {ixs, iy}
     s = join([_join(ix) for ix in ixs], ", ") * " -> " * _join(iy)
     print(io, s)
 end
@@ -211,7 +211,7 @@ function Base.show(io::IO, e::NestedEinsum)
     print_tree(io, e)
 end
 Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
-Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
+Base.show(io::IO, ::MIME"text/plain", @nospecialize(e::EinCode)) = show(io, e)
 _join(ix::NTuple{0}) = ""
 _join(ix::NTuple{N,Char}) where N = join(ix, "")
 _join(ix::NTuple{N,Int}) where N = join(ix, "∘")
@@ -228,7 +228,7 @@ function _flatten(code::NestedEinsum, iy=nothing)
 end
 _flatten(i::Int, iy) = [i=>iy]
 
-flatten(code::EinCode) = code
+flatten(@nospecialize(code::EinCode)) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
     EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
