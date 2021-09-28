@@ -36,10 +36,10 @@ function einsum_grad(ixs, xs, iy, size_dict, cdy, i)
     convert(typeof(xs[i]), y)
 end
 
-function ChainRulesCore.rrule(::typeof(einsum), code::EinCode{ixs, iy}, xs::NTuple{N,T where T}, size_dict) where {N, ixs, iy}
+function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, xs::NTuple{N,T where T}, size_dict) where {N}
     y = einsum(code, xs, size_dict)
     function einsum_pullback(dy)
-        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(ixs, xs, iy, size_dict, map(conj, dy), i), N)
+        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, map(conj, dy), i), N)
         return (NoTangent(), NoTangent(), dxs, NoTangent())
     end
     einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())

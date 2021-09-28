@@ -2,7 +2,7 @@ export EinCode, EinIndexer, EinArray
 export einarray
 
 """
-    EinCode{ixs, iy}
+    EinCode{LT, NX, DY}
 
 Wrapper to `eincode`-specification that creates a callable object
 to evaluate the `eincode` `ixs -> iy` where `ixs` are the index-labels
@@ -17,11 +17,16 @@ julia> EinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
 true
 ```
 """
-struct EinCode{ixs, iy} end
-EinCode(@nospecialize(ixs::NTuple{N, NTuple{M, T} where M}),@nospecialize(iy::NTuple{<:Any,T})) where {N, T} = EinCode{ixs, iy}()
+struct EinCode{LT, TX<:NTuple{NX, NTuple{M, LT} where {M}} where NX, DY}
+    ixs::TX
+    iy::NTuple{DY, LT}
+end
+#EinCode(ixs::TX, iy::NTuple{NY,LT}) where {LT, NX, TX<:NTuple{NX, NTuple{M, LT} where M}, NY} = EinCode{LT, TX, NY}(ixs, iy)
+EinCode(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = EinCode{Int, NTuple{N,Tuple{}}, 0}(ixs, iy)
+EinCode(ixs::Tuple{}, iy::Tuple{}) where N = EinCode{Int, Tuple{}, 0}(ixs, iy)
 
-getixs(@nospecialize(code::EinCode{ixs,iy})) where {ixs, iy} = ixs
-getiy(@nospecialize(code::EinCode{ixs,iy})) where {ixs, iy} = iy
+getixs(code::EinCode) = code.ixs
+getiy(code::EinCode) = code.iy
 
 """
     EinIndexer{locs,N}
@@ -108,7 +113,7 @@ julia> dropdims(sum(ea, dims=1), dims=1) ≈ a * b
 true
 ```
 """
-@generated function einarray(::EinCode{ixs, iy}, xs::TT, size_dict) where {ixs, iy, NI, TT<:NTuple{NI,AbstractArray}}
+@generated function einarray(::Val{ixs}, ::Val{iy}, xs::TT, size_dict) where {ixs, iy, NI, TT<:NTuple{NI,AbstractArray}}
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
     inner_indices = (inner_indices...,)
     outer_indices = (outer_indices...,)

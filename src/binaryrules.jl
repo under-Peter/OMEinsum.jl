@@ -1,6 +1,7 @@
 # binary operations that can not be simplified by a unitary operations
 struct SimpleBinaryRule{ix1,ix2,iy} <: EinRule{2} end
-function SimpleBinaryRule(code::EinCode{ixs,iy}) where {ixs, iy}
+function SimpleBinaryRule(code::EinCode)
+    ixs, iy = getixs(code), getiy(code)
     @assert length(ixs)==2 "fail to construct simple binary rule from $code"
     SimpleBinaryRule{ixs[1], ixs[2], iy}()
 end

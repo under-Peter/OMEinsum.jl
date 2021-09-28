@@ -37,22 +37,22 @@ function ein(s::AbstractString)
     end
 end
 
-function (code::EinCode)(xs...; size_info=nothing)
-    size_dict = get_size_dict(getixs(code), xs, size_info)
+function (code::EinCode{LT})(xs...; size_info=nothing) where LT
+    size_dict = get_size_dict(LT, getixs(code), xs, size_info)
     einsum(code, xs, size_dict)
 end
 
 @doc raw"
-    get_size_dict(ixs, xs, size_info=nothing)
+    get_size_dict(LT, ixs, xs, size_info=nothing)
 
 return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
+function get_size_dict(::Type{LT}, @nospecialize(ixs), @nospecialize(xs), size_info=nothing) where LT
     # check size of input tuples
     length(xs)<1 && error("empty input tensors")
-    d = size_info === nothing ? Dict{promote_type(eltype.(ixs)...),Int}() : size_info
+    d = size_info === nothing ? Dict{LT,Int}() : size_info
     length(ixs) != length(xs) && throw(ArgumentError("$(length(xs)) tensors labelled by $(length(ixs)) indices"))
 
     # check tensor orders
@@ -71,6 +71,7 @@ function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
     end
     return d
 end
+get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing) = get_size_dict(promote_type(eltype.(ixs)...), ixs, xs, size_info)
 
 using MacroTools
 """
@@ -129,11 +130,11 @@ function _ein_macro(ex; einsum=:einsum)
     righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
-    return :( $(esc(Z)) = $einsum( EinCode{($(righttuples...),), $lefttuple}(), ($(rightnames...),)) )
+    return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),)) )
 end
 
 @doc raw"
-    einsum(::EinCode{ixs, iy}, xs, size_dict) where {ixs, iy}
+    einsum(code::EinCode, xs, size_dict)
 
 return the tensor that results from contracting the tensors `xs` according
 to their indices `ixs`, where all indices that do not appear in the output `iy` are
@@ -160,21 +161,21 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::EinCode{ixs, iy}, xs, size_dict::Dict{LT}) where {ixs, iy, LT}
-    rule = match_rule(ixs, iy)
-    if length(ixs) == 1
-        :(einsum($rule, ixs[1], iy, xs[1], size_dict))
+@generated function einsum(code::EinCode{LT1,XT,DY}, xs, size_dict::Dict{LT}) where {LT1, LT,NX,XT<:NTuple{NX,Any},DY}
+    if NX == 1
+        :(rule = match_rule(getixs(code), getiy(code)); einsum(rule, getixs(code)[1], getiy(code), xs[1], size_dict))
     else
-        :(einsum($rule, ixs, iy, xs, size_dict))
+        :(rule = match_rule(getixs(code), getiy(code)); einsum(rule, getixs(code), getiy(code), xs, size_dict))
     end
 end
 
-function einsum(code::EinCode{ixs, iy}, xs) where {ixs, iy}
-    einsum(code, xs, get_size_dict(ixs, xs))
+function einsum(code::EinCode{LT}, xs) where LT
+    einsum(code, xs, get_size_dict(LT, getixs(code), xs))
 end
 
 function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy); size_info=nothing)
-    size_dict = get_size_dict(ixs, xs, size_info)
+    LT = promote_type(eltype.(ixs)..., eltype(iy))
+    size_dict = get_size_dict(LT, ixs, xs, size_info)
     dynamic_einsum(ixs, xs, iy, size_dict)
 end
 
@@ -187,10 +188,10 @@ function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy)
     end
 end
 
-dynamic_einsum(@nospecialize(code::EinCode{ixs, iy}), @nospecialize(xs); kwargs...) where {ixs, iy} = dynamic_einsum(ixs, xs, iy; kwargs...)
+dynamic_einsum(@nospecialize(code::EinCode), @nospecialize(xs); kwargs...) = dynamic_einsum(getixs(code), xs, getiy(code); kwargs...)
 
 # the fallback
 function einsum(::DefaultRule, ixs, iy, xs, size_dict)
     @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum(EinCode{ixs, iy}(), (xs...,), size_dict)
+    loop_einsum(EinCode(ixs, iy), (xs...,), size_dict)
 end

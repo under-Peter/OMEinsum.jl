@@ -33,7 +33,7 @@ end
     iy = (1,3)
     x1 = randn(8, 8)
     x2 = randn(8, 8)
-    arr = einarray(EinCode(ixs, iy), (x1, x2), OMEinsum.get_size_dict(ixs, (x1, x2)))
+    arr = einarray(Val(ixs), Val(iy), (x1, x2), OMEinsum.get_size_dict(Int, ixs, (x1, x2)))
     @test size(arr) == (8,8,8)
     # inner first, then outer
     @test arr[CartesianIndex((3,4,2))] == x1[4,3]*x2[3,2]

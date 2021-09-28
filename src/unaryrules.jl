@@ -18,7 +18,7 @@ struct DefaultRule <: EinRule{Any} end
 
 @doc raw"
     match_rule(ixs, iy)
-    match_rule(code::EinCode{ixs, iy})
+    match_rule(code::EinCode)
     match_rule(code::NestedEinsum)
 
 Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
@@ -71,7 +71,7 @@ function match_rule(@nospecialize(ixs::Tuple{NTuple{Nx,T}}), @nospecialize(iy::N
     end
 end
 
-match_rule(@nospecialize(code::EinCode{ixs, iy})) where {ixs, iy} = match_rule(ixs, iy)
+match_rule(@nospecialize(code::EinCode)) = match_rule(getixs(code), getiy(code))
 
 # trace
 # overhead ~ 0.07us

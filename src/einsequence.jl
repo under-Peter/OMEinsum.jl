@@ -162,7 +162,7 @@ end
 function construct(nein::NestedEinsumConstructor{T}) where T
     ixs = Tuple(map(extractixs, nein.args))
     iy = Tuple(nein.iy)
-    eins = EinCode{ixs,iy}()
+    eins = EinCode(ixs,iy)
     args = Tuple(map(x -> x isa NestedEinsumConstructor ? construct(x) : x.n,nein.args))
     return NestedEinsum(args, eins)
 end
@@ -203,8 +203,8 @@ function AbstractTrees.printnode(io::IO, x::NestedEinsum)
     print(io, x.eins)
 end
 
-function Base.show(io::IO, @nospecialize(e::EinCode{ixs, iy})) where {ixs, iy}
-    s = join([_join(ix) for ix in ixs], ", ") * " -> " * _join(iy)
+function Base.show(io::IO, @nospecialize(e::EinCode))
+    s = join([_join(ix) for ix in getixs(e)], ", ") * " -> " * _join(getiy(e))
     print(io, s)
 end
 function Base.show(io::IO, e::NestedEinsum)

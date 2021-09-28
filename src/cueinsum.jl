@@ -15,7 +15,7 @@ CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_index
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
     @eval function einsum(::$TP, ix, iy, x::DenseCuArray, size_dict::Dict{LT}) where LT
-        loop_einsum(EinCode{((ix...,),),(iy...,)}(), (x,), size_dict)
+        loop_einsum(EinCode(((ix...,),),(iy...,)), (x,), size_dict)
     end
 end
 
@@ -23,12 +23,13 @@ function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, DenseCuArr
     dropdims(reshape(xs[1],1,:) * xs[2]; dims=1)
 end
 
-function loop_einsum!(code::EinCode{ixs, iy},
+function loop_einsum!(code::EinCode,
                 xs::NTuple{N, DenseCuArray{<:Any,M} where M},
-                y::DenseCuArray{T,L}, size_dict::Dict{LT}) where {N,L,T, ixs, iy, LT}
+                y::DenseCuArray{T,L}, size_dict::Dict{LT}) where {N,L,T, LT}
+    iy = getiy(code)
     iy_ = _unique(LT,iy)
     NO = length(iy_)
-    A = einarray(code, xs, size_dict)
+    A = einarray(Val((getixs(code)...,)), Val(iy), xs, size_dict)
     if NO == length(iy)
         y = reshape(y, fill(1, ndims(A)-NO)...,size(y)...)
         raw = Base.mapreducedim!(x->x, +, y, A)
@@ -43,28 +44,28 @@ function loop_einsum!(code::EinCode{ixs, iy},
         if ndims(A)-NO > 0  # fix 1.7 compatibility
             raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
         end
-        return expanddims!(EinCode{((iy_...,),), iy}(), raw, y)
+        return expanddims!(Val{((iy_...,),)}(), Val{iy}(), raw, y)
     end
 end
 
-@generated function expandind(::EinCode{ixs,iy}, ind) where {ixs, iy}
+@generated function expandind(::Val{ixs}, ::Val{iy}, ind) where {ixs, iy}
     ix = ixs[1]
     ids = map(ii->:(ind[$(findfirst(==(ii), ix))]), iy)
     Expr(:tuple, ids...)
 end
 
-function expanddims!(code::EinCode{ixs, iy}, x, y) where {LT,ixs, iy}
+function expanddims!(::Val{ixs}, ::Val{iy}, x, y) where {LT,ixs,iy}
     nthreads = 256
     nblocks = cld(prod(size(x)), nthreads)
     CIS = CartesianIndices(x)
-    @inline function kernel(code, y, x)
+    @inline function kernel(y, x)
         i = (blockIdx().x-1) * blockDim().x + threadIdx().x
         i > length(x) && return nothing
-        @inbounds yi = expandind(code, CIS[i].I)
+        @inbounds yi = expandind(Val{ixs}(), Val{iy}(), CIS[i].I)
         @inbounds y[CartesianIndex(yi)] = x[i]
         nothing
     end
-    @cuda(blocks=nblocks, threads=nthreads, kernel(code, y, x))
+    @cuda(blocks=nblocks, threads=nthreads, kernel(y, x))
     return y
 end
 
