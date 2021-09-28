@@ -118,7 +118,7 @@ function einsum(::Diag, ix, iy, x, size_dict)
 end
 
 function compactify!(y, x, ix, iy)
-    x_in_y_locs = ([findfirst(==(x), iy) for x in ix]...,)
+    x_in_y_locs = (Int[findfirst(==(x), iy) for x in ix]...,)
     @assert size(x) == map(loc->size(y, loc), x_in_y_locs)
     indexer = dynamic_indexer(x_in_y_locs, size(x))
     _compactify!(y, x, indexer)
@@ -134,7 +134,7 @@ end
 function duplicate(x, ix, iy, size_dict) where {Nx,Ny,T}
     y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
     # compute same locs
-    x_in_y_locs = ([findfirst(==(l), ix) for l in iy]...,)
+    x_in_y_locs = (Int[findfirst(==(l), ix) for l in iy]...,)
     indexer = dynamic_indexer(x_in_y_locs, size(y))
     _duplicate!(y, x, indexer)
 end
@@ -157,7 +157,7 @@ end
 # overhead ~ 0.15us
 # @benchmark OMEinsum.einsum(Permutedims(), $(('a', 'b')), $(('b','a')), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Permutedims, ix, iy, x, size_dict)
-    perm = map(i -> findfirst(==(i), ix), iy)
+    perm = ntuple(i -> findfirst(==(iy[i]), ix)::Int, length(iy))
     @debug "Permutedims" ix => iy size(x) perm
     return tensorpermute(x, perm)
 end

@@ -18,10 +18,10 @@ true
 ```
 """
 struct EinCode{ixs, iy} end
-EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
+EinCode(@nospecialize(ixs::NTuple{N, NTuple{M, T} where M}),@nospecialize(iy::NTuple{<:Any,T})) where {N, T} = EinCode{ixs, iy}()
 
-getixs(code::EinCode{ixs,iy}) where {ixs, iy} = ixs
-getiy(code::EinCode{ixs,iy}) where {ixs, iy} = iy
+getixs(@nospecialize(code::EinCode{ixs,iy})) where {ixs, iy} = ixs
+getiy(@nospecialize(code::EinCode{ixs,iy})) where {ixs, iy} = iy
 
 """
     EinIndexer{locs,N}
