@@ -37,7 +37,7 @@ function ein(s::AbstractString)
     end
 end
 
-function (code::EinCode)(xs...; size_info=nothing)
+function (@nospecialize(code::EinCode))(xs...; size_info=nothing)
     LT = labeltype(code)
     size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
     einsum(code, xs, size_dict)
