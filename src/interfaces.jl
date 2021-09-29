@@ -3,7 +3,7 @@ export @ein_str, @ein, ein
     ein"ij,jk -> ik"(A,B)
 
 String macro interface which understands `numpy.einsum`'s notation.
-Translates strings into `EinCode`-structs that can be called to evaluate
+Translates strings into `StaticEinCode`-structs that can be called to evaluate
 an `einsum`.
 To control evaluation order, use parentheses - instead of an `EinCode`,
 a `NestedEinsum` is returned which evaluates the expression
@@ -45,7 +45,7 @@ end
 
 # 2us overheads if @nospecialize
 @doc raw"
-    get_size_dict!(LT, ixs, xs, size_info)
+    get_size_dict!(ixs, xs, size_info)
 
 return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
@@ -156,9 +156,10 @@ end
 
 @doc raw"
     einsum(code::EinCode, xs, size_dict)
+    einsum(rule, ixs, iy, xs, size_dict)
 
 return the tensor that results from contracting the tensors `xs` according
-to their indices `ixs`, where all indices that do not appear in the output `iy` are
+to their indices `ixs` (`getixs(code)`), where all indices that do not appear in the output `iy` (`getiy(code)`) are
 summed over.
 The result is permuted according to `out`.
 
