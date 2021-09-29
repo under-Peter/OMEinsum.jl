@@ -10,4 +10,5 @@ function Iterators.flatten(c::Union{NestedEinsum,EinCode})
 end
 
 @deprecate dynamic_einsum(ixs, xs, iy; size_info=nothing) einsum(DynamicEinCode(ixs, iy), xs; size_info=size_info)
-@deprecate dynamic_einsum(code::EinCode, xs; size_info=nothing) einsum(DynamicEinCode(getixs(code), getiy(code)), xs; size_info=size_info)
+@deprecate dynamic_einsum(code::EinCode, xs; size_info=nothing) code(xs...; size_info=size_info)
+@deprecate dynamic_einsum(code::NestedEinsum, xs; size_info=nothing) code(xs...; size_info=size_info)

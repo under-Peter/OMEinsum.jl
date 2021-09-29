@@ -38,40 +38,61 @@ function ein(s::AbstractString)
 end
 
 function (code::EinCode)(xs...; size_info=nothing)
-    size_dict = get_size_dict(labeltype(code), getixs(code), xs, size_info)
+    LT = labeltype(code)
+    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
     einsum(code, xs, size_dict)
 end
 
+# 2us overheads if @nospecialize
 @doc raw"
-    get_size_dict(LT, ixs, xs, size_info=nothing)
+    get_size_dict!(LT, ixs, xs, size_info)
 
 return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict(::Type{LT}, @nospecialize(ixs), @nospecialize(xs), size_info=nothing) where LT
-    # check size of input tuples
-    length(xs)<1 && error("empty input tensors")
-    d = size_info === nothing ? Dict{LT,Int}() : size_info
-    length(ixs) != length(xs) && throw(ArgumentError("$(length(xs)) tensors labelled by $(length(ixs)) indices"))
+function get_size_dict!(@nospecialize(ixs::Tuple), @nospecialize(xs::Tuple), size_info::Dict{LT}) where LT
+    get_size_dict!([collect(LT, ix) for ix in ixs], [collect(Int, size(x)) for x in xs], size_info)
+end
 
+function get_size_dict!(ixs::AbstractVector{<:AbstractVector{LT}}, sizes::AbstractVector, size_info::Dict{LT}) where LT
+    # check size of input tuples
+    length(sizes)<1 && error("empty input tensors")
+    length(ixs) != length(sizes) && throw(ArgumentError("$(length(sizes)) tensors labelled by $(length(ixs)) indices"))
     # check tensor orders
-    for i=1:length(xs)
-        ix, x = ixs[i], xs[i]
-        length(ix) == ndims(x) || throw(
-            ArgumentError("indices $ix invalid for tensor with ndims = $(ndims(x))"))
+    for i=1:length(sizes)
+        @inbounds ix, s = ixs[i], sizes[i]
+        length(ix) == length(s) || throw(
+            ArgumentError("indices $ix invalid for tensor with ndims = $(length(s))"))
         for j = 1:length(ix)
-            k = ix[j]
-            if haskey(d, k)
-                @assert size(x, j) == d[k] || throw(DimensionMismatch("$k = $(d[k]) or $(size(x,j))?"))
+            @inbounds k = ix[j]
+            if haskey(size_info, k)
+                @inbounds s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
             else
-                d[k] = size(x, j)
+                @inbounds size_info[k] = s[j]
             end
         end
     end
-    return d
+    return size_info
 end
-get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing) = get_size_dict(promote_type(eltype.(ixs)...), ixs, xs, size_info)
+# to speed up unary operations
+function get_size_dict!(ixs::NTuple{1}, xs::NTuple{1}, size_info::Dict{LT}) where LT
+    ix, s = ixs[1], size(xs[1])
+    for j = 1:length(ix)
+        @inbounds k = ix[j]
+        if haskey(size_info, k)
+            @inbounds s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
+        else
+            @inbounds size_info[k] = s[j]
+        end
+    end
+    return size_info
+end
+
+function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
+    LT = promote_type(eltype.(ixs)...)
+    return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
+end
 
 using MacroTools
 """
@@ -173,7 +194,7 @@ end
 
 
 function einsum(@nospecialize(code::EinCode), @nospecialize(xs))
-    einsum(code, xs, get_size_dict(labeltype(code), getixs(code), xs))
+    einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
 end
 
 # the fallback

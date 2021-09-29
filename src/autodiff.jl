@@ -45,3 +45,5 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, xs::NTuple{N,T wh
     einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())
     return y, einsum_pullback
 end
+
+@non_differentiable get_size_dict!(::Any, ::Any, ::Any)

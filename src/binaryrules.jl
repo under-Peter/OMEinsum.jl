@@ -219,6 +219,7 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
     end
 end
 
+# there are too many combination in the binary case, so nospecialize
 function einsum(::DefaultRule, @nospecialize(ixs), @nospecialize(iy), @nospecialize(xs::NTuple{2, Any}), size_dict::Dict{LT}) where LT
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
