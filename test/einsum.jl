@@ -204,9 +204,9 @@ end
     # index-sum
     a = rand(2,2,5)
     ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs[1],(1,2),xs[1], get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
     a = rand(5,5)
-    @test einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
+    @test einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
     t = rand(5,5,5,5)
     a = rand(5,5)
     size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
@@ -217,9 +217,9 @@ end
     # index-sum
     a = Basic.(rand(2,2,5))
     ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs[1],(1,2),xs[1], get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
+    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
     a = Basic.(rand(5,5))
-    @test isapprox(einsum(Tr(), (1,1),(), a, get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
+    @test isapprox(einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
     t = Basic.(rand(5,5,5,5))
     a = Basic.(rand(5,5))
     size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
@@ -244,5 +244,5 @@ end
     size_dict = Dict(1=>3,2=>3,3=>3)
     x = randn(3,3,3)
     @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
-    @test OMEinsum.einsum(Duplicate(), ix, iy, x, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test OMEinsum.einsum(Duplicate(), (ix,), iy, (x,), size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
 end

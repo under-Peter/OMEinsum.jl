@@ -1,8 +1,16 @@
 export EinCode, EinIndexer, EinArray
 export einarray
 
+abstract type EinCode end
+
+struct StaticEinCode{ixs, iy} <: EinCode end
+
+getixs(@nospecialize(code::StaticEinCode{ixs})) where ixs = ixs
+getiy(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = iy
+labeltype(@nospecialize(code::StaticEinCode{ixs,iy})) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+
 """
-    EinCode{LT, NX, DY}
+    DynamicEinCode{LT, NX, DY}
 
 Wrapper to `eincode`-specification that creates a callable object
 to evaluate the `eincode` `ixs -> iy` where `ixs` are the index-labels
@@ -13,20 +21,27 @@ of the input-tensors and `iy` are the index-labels of the output
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
 
-julia> EinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
+julia> DynamicEinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
 true
 ```
 """
-struct EinCode{LT, TX<:NTuple{NX, NTuple{M, LT} where {M}} where NX, DY}
+struct DynamicEinCode{LT, TX<:NTuple{NX, NTuple{M, LT} where {M}} where NX, DY} <: EinCode
     ixs::TX
     iy::NTuple{DY, LT}
 end
-#EinCode(ixs::TX, iy::NTuple{NY,LT}) where {LT, NX, TX<:NTuple{NX, NTuple{M, LT} where M}, NY} = EinCode{LT, TX, NY}(ixs, iy)
-EinCode(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = EinCode{Int, NTuple{N,Tuple{}}, 0}(ixs, iy)
-EinCode(ixs::Tuple{}, iy::Tuple{}) where N = EinCode{Int, Tuple{}, 0}(ixs, iy)
+# forward the previous constructor to the dynamic version
+EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
+# to avoid ambiguity error
+EinCode(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = DynamicEinCode{Union{}, NTuple{N,Tuple{}}, 0}(ixs, iy)
+EinCode(ixs::Tuple{}, iy::Tuple{}) = error("empty input tensor is not allowed!")
 
-getixs(code::EinCode) = code.ixs
-getiy(code::EinCode) = code.iy
+getixs(@nospecialize(code::DynamicEinCode)) = code.ixs
+getiy(@nospecialize(code::DynamicEinCode)) = code.iy
+labeltype(@nospecialize(code::DynamicEinCode{LT})) where LT = LT
+
+# conversion
+DynamicEinCode(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = DynamicEinCode(ixs, iy)
+StaticEinCode(@nospecialize(code::DynamicEinCode)) = StaticEinCode{code.ixs, code.iy}()
 
 """
     EinIndexer{locs,N}

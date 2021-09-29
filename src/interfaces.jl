@@ -33,12 +33,12 @@ function ein(s::AbstractString)
     else
         iy  = Tuple(siy)
         ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
-        return EinCode(ixs, iy)
+        return StaticEinCode{ixs, iy}()
     end
 end
 
-function (code::EinCode{LT})(xs...; size_info=nothing) where LT
-    size_dict = get_size_dict(LT, getixs(code), xs, size_info)
+function (code::EinCode)(xs...; size_info=nothing)
+    size_dict = get_size_dict(labeltype(code), getixs(code), xs, size_info)
     einsum(code, xs, size_dict)
 end
 
@@ -161,34 +161,20 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::EinCode{LT1,XT,DY}, xs, size_dict::Dict{LT}) where {LT1, LT,NX,XT<:NTuple{NX,Any},DY}
-    if NX == 1
-        :(rule = match_rule(getixs(code), getiy(code)); einsum(rule, getixs(code)[1], getiy(code), xs[1], size_dict))
-    else
-        :(rule = match_rule(getixs(code), getiy(code)); einsum(rule, getixs(code), getiy(code), xs, size_dict))
-    end
-end
-
-function einsum(code::EinCode{LT}, xs) where LT
-    einsum(code, xs, get_size_dict(LT, getixs(code), xs))
-end
-
-function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy); size_info=nothing)
-    LT = promote_type(eltype.(ixs)..., eltype(iy))
-    size_dict = get_size_dict(LT, ixs, xs, size_info)
-    dynamic_einsum(ixs, xs, iy, size_dict)
-end
-
-function dynamic_einsum(@nospecialize(ixs), @nospecialize(xs), @nospecialize(iy), size_dict)
+@generated function einsum(code::StaticEinCode{ixs, iy}, xs, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
-    if length(ixs) == 1
-        einsum(rule, ixs[1], iy, xs[1], size_dict)
-    else
-        einsum(rule, ixs, iy, (xs...,), size_dict)
-    end
+    :(einsum($rule, $ixs, $iy, xs, size_dict))
 end
 
-dynamic_einsum(@nospecialize(code::EinCode), @nospecialize(xs); kwargs...) = dynamic_einsum(getixs(code), xs, getiy(code); kwargs...)
+function einsum(@nospecialize(code::DynamicEinCode), @nospecialize(xs), size_dict::Dict)
+    rule = match_rule(getixs(code), getiy(code))
+    einsum(rule, getixs(code), getiy(code), xs, size_dict)
+end
+
+
+function einsum(@nospecialize(code::EinCode), @nospecialize(xs))
+    einsum(code, xs, get_size_dict(labeltype(code), getixs(code), xs))
+end
 
 # the fallback
 function einsum(::DefaultRule, ixs, iy, xs, size_dict)

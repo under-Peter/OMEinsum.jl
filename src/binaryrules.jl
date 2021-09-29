@@ -238,16 +238,16 @@ function simplify_unary(ix::Vector{T}, iy::Vector{T}, x, size_dict::Dict{T}) whe
     if ix == iy
         return x
     elseif length(ix) == length(iy) # permutation
-        return einsum(Permutedims(), ix, iy, x, size_dict)
+        return einsum(Permutedims(), ((ix...,),), (iy...,), (x,), size_dict)
     else
         # diag
         ix_ = unique(ix)
-        x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, ix_, x, size_dict) : x
+        x_ = length(ix_) != length(ix) ? einsum(Diag(), ((ix...,),), (ix_...,), (x,), size_dict) : x
         # sum
         if length(ix_) != length(iy)
-            return einsum(Sum(), ix_, iy, x_, size_dict)
+            return einsum(Sum(), ((ix_...,),), (iy...,), (x_,), size_dict)
         elseif ix_ != iy
-            return einsum(Permutedims(), ix_, iy, x_, size_dict)
+            return einsum(Permutedims(), ((ix_...,),), (iy...,), (x_,), size_dict)
         else
             return x_
         end
@@ -258,14 +258,14 @@ function expand_unary(ix::Vector{T}, iy::Vector{T}, x::AbstractArray, size_dict:
     iy_b = unique(iy)
     iy_a = filter(i->i ∈ ix, iy_b)
     y_a = if ix != iy_a
-        einsum(Permutedims(), ix, (iy_a...,), x, size_dict)
+        einsum(Permutedims(), ((ix...,),), (iy_a...,), (x,), size_dict)
     else
         x
     end
     # repeat
-    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
+    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), ((iy_a...,),), (iy_b...,), (y_a,), size_dict) : y_a
     # duplicate
-    length(iy_b) != length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
+    length(iy_b) != length(iy) ? einsum(Duplicate(), ((iy_b...,),), (iy...,), (y_b,), size_dict) : y_b
 end
 
 """
