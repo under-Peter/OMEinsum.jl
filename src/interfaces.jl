@@ -51,11 +51,11 @@ return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict!(@nospecialize(ixs::Tuple), @nospecialize(xs::Tuple), size_info::Dict{LT}) where LT
-    get_size_dict!([collect(LT, ix) for ix in ixs], [collect(Int, size(x)) for x in xs], size_info)
+function get_size_dict!(@nospecialize(ixs), @nospecialize(xs), size_info::Dict{LT}) where LT
+    get_size_dict_!([collect(LT, ix) for ix in ixs], [collect(Int, size(x)) for x in xs], size_info)
 end
 
-function get_size_dict!(ixs::AbstractVector{<:AbstractVector{LT}}, sizes::AbstractVector, size_info::Dict{LT}) where LT
+function get_size_dict_!(ixs::AbstractVector{<:AbstractVector{LT}}, sizes::AbstractVector, size_info::Dict{LT}) where LT
     # check size of input tuples
     length(sizes)<1 && error("empty input tensors")
     length(ixs) != length(sizes) && throw(ArgumentError("$(length(sizes)) tensors labelled by $(length(ixs)) indices"))
