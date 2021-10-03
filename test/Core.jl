@@ -1,12 +1,36 @@
 using Test
 using OMEinsum
-using OMEinsum: subindex, dynamic_indexer
+using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs, getiy, labeltype
 
 @testset "EinCode" begin
     code = EinCode(((1,2), (2,3)), (1,3))
     @test code isa EinCode
     @test OMEinsum.getixs(code) == ((1,2), (2,3))
     @test OMEinsum.getiy(code) == (1,3)
+
+    code1 = ein"ab,bc->ac"
+    code2 = EinCode((('a', 'b'), ('b', 'c')), ('a', 'c'))
+    @test code2 isa DynamicEinCode
+    @test code1 isa StaticEinCode
+    @test DynamicEinCode(code1) === code2
+    @test StaticEinCode(code2) === code1
+    @test getixs(code1) == getixs(code2)
+    @test getiy(code1) == getiy(code2)
+    @test labeltype(code1) == labeltype(code2)
+
+    code1 = ein",->"
+    code2 = EinCode(((), ()), ())
+    @test getixs(code1) == getixs(code2)
+    @test getiy(code1) == getiy(code2)
+    @test labeltype(code1) == labeltype(code2)
+
+    code1 = ein"->"
+    code2 = EinCode(((),), ())
+    @test getixs(code1) == getixs(code2)
+    @test getiy(code1) == getiy(code2)
+    @test labeltype(code1) == labeltype(code2)
+
+    @test_throws ErrorException EinCode((), ())
 end
 
 @testset "indexer" begin
@@ -33,7 +57,7 @@ end
     iy = (1,3)
     x1 = randn(8, 8)
     x2 = randn(8, 8)
-    arr = einarray(EinCode(ixs, iy), (x1, x2), OMEinsum.get_size_dict(ixs, (x1, x2)))
+    arr = einarray(Val(ixs), Val(iy), (x1, x2), OMEinsum.get_size_dict!(ixs, (x1, x2), Dict{Int,Int}()))
     @test size(arr) == (8,8,8)
     # inner first, then outer
     @test arr[CartesianIndex((3,4,2))] == x1[4,3]*x2[3,2]

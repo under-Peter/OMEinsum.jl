@@ -8,8 +8,9 @@ evaluates the eincode specified by `EinCode` and the tensors `xs` by looping
 over all possible indices and calculating the contributions ot the result.
 Scales exponentially in the number of distinct index-labels.
 """
-function loop_einsum(code::EinCode{ixs, iy}, xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                size_dict) where {N, ixs, iy}
+function loop_einsum(code::EinCode, xs::NTuple{N, AbstractArray{<:Any,M} where M},
+                size_dict) where {N}
+    iy = getiy(code)
     size = getindex.(Ref(size_dict), iy)
     loop_einsum!(code, xs, get_output_array(xs, size; has_repeated_indices=!allunique(iy)), size_dict)
 end
@@ -20,11 +21,11 @@ end
 inplace-version of `loop_einsum`, saving the result in a preallocated tensor
 of correct size `y`.
 """
-function loop_einsum!(code::EinCode{ixs, iy},
+function loop_einsum!(code::EinCode,
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
-                y::AbstractArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}, ixs, iy}
+                y::AbstractArray{T,L}, size_dict) where {N,L,T,IT <: Union{AbstractChar,Integer}}
     ALLOW_LOOPS[] || @error "using `loop_einsum` to evaluate" code size.(xs) size(y)
-    A = einarray(code, xs, size_dict)
+    A = einarray(Val(getixs(code)), Val(getiy(code)), xs, size_dict)
     reduce_einarray!(A, y)
 end
 

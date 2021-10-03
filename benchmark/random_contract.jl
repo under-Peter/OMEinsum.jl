@@ -1,5 +1,6 @@
 using OMEinsum, StatsBase
 using DelimitedFiles
+using OMEinsum: DynamicEinCode, StaticEinCode
 
 function random_contract(D, dynamic, uniqueindex, nodangling)
     Ds = [rand(1:D) for _=1:3]
@@ -14,9 +15,9 @@ function random_contract(D, dynamic, uniqueindex, nodangling)
     end
     xs = (randn(fill(2, Ds[1])...), randn(fill(2, Ds[2])...))
     if dynamic
-        OMEinsum.dynamic_einsum(ixs, xs, iy)
+        DynamicEinCode(ixs, iy)(xs...)
     else
-        EinCode{ixs,iy}()(xs...)
+        StaticEinCode{ixs,iy}()(xs...)
     end
 end
 
@@ -33,7 +34,7 @@ function benchmark_compiletime(; D, nrepeat, dynamic, uniqueindex, nodangling, w
     return times
 end
 
-times = benchmark_compiletime(D=8, nrepeat=1000, dynamic=true, uniqueindex=true, nodangling=true, write=false)
+times = benchmark_compiletime(D=8, nrepeat=1000, dynamic=true, uniqueindex=true, nodangling=true, write=true)
 
 #using Profile
 #@profile for i=1:10 random_contract(8, true, true, true) end

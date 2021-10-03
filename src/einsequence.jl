@@ -162,7 +162,7 @@ end
 function construct(nein::NestedEinsumConstructor{T}) where T
     ixs = Tuple(map(extractixs, nein.args))
     iy = Tuple(nein.iy)
-    eins = EinCode{ixs,iy}()
+    eins = StaticEinCode{ixs,iy}()
     args = Tuple(map(x -> x isa NestedEinsumConstructor ? construct(x) : x.n,nein.args))
     return NestedEinsum(args, eins)
 end
@@ -203,15 +203,15 @@ function AbstractTrees.printnode(io::IO, x::NestedEinsum)
     print(io, x.eins)
 end
 
-function Base.show(io::IO, e::EinCode{ixs, iy}) where {ixs, iy}
-    s = join([_join(ix) for ix in ixs], ", ") * " -> " * _join(iy)
+function Base.show(io::IO, @nospecialize(e::EinCode))
+    s = join([_join(ix) for ix in getixs(e)], ", ") * " -> " * _join(getiy(e))
     print(io, s)
 end
 function Base.show(io::IO, e::NestedEinsum)
     print_tree(io, e)
 end
 Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
-Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
+Base.show(io::IO, ::MIME"text/plain", @nospecialize(e::EinCode)) = show(io, e)
 _join(ix::NTuple{0}) = ""
 _join(ix::NTuple{N,Char}) where N = join(ix, "")
 _join(ix::NTuple{N,Int}) where N = join(ix, "∘")
@@ -228,15 +228,8 @@ function _flatten(code::NestedEinsum, iy=nothing)
 end
 _flatten(i::Int, iy) = [i=>iy]
 
-flatten(code::EinCode) = code
+flatten(@nospecialize(code::EinCode)) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
     EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
-end
-
-dynamic_extractxs(xs, x::NestedEinsum; size_info) = dynamic_einsum(x, xs; size_info=size_info)
-dynamic_extractxs(xs, x::Int; size_info) = xs[x]
-function dynamic_einsum(ne::NestedEinsum, xs; size_info=nothing)
-    mxs = map(x->dynamic_extractxs(xs, x; size_info=size_info), ne.args)
-    dynamic_einsum(getixs(ne.eins), mxs, getiy(ne.eins); size_info=size_info)
 end

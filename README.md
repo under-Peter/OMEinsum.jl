@@ -136,7 +136,7 @@ julia> allow_loops(false);
 
 julia> Zl = ein"is, oij, js -> os"(x, W, y);
 ┌ Error: using `loop_einsum` to evaluate
-│   code = EinCode{((1, 2), (3, 1, 4), (4, 2)),(3, 2)}()
+│   code = is, oij, js -> os
 │   size.(xs) = ((10, 50), (20, 10, 10), (10, 50))
 │   size(y) = (20, 50)
 └ @ OMEinsum ~/.julia/dev/OMEinsum/src/loop_einsum.jl:26

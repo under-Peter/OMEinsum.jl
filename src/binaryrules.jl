@@ -1,6 +1,7 @@
 # binary operations that can not be simplified by a unitary operations
 struct SimpleBinaryRule{ix1,ix2,iy} <: EinRule{2} end
-function SimpleBinaryRule(code::EinCode{ixs,iy}) where {ixs, iy}
+function SimpleBinaryRule(code::EinCode)
+    ixs, iy = getixs(code), getiy(code)
     @assert length(ixs)==2 "fail to construct simple binary rule from $code"
     SimpleBinaryRule{ixs[1], ixs[2], iy}()
 end
@@ -218,6 +219,7 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
     end
 end
 
+# there are too many combination in the binary case, so nospecialize
 function einsum(::DefaultRule, @nospecialize(ixs), @nospecialize(iy), @nospecialize(xs::NTuple{2, Any}), size_dict::Dict{LT}) where LT
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
@@ -237,16 +239,16 @@ function simplify_unary(ix::Vector{T}, iy::Vector{T}, x, size_dict::Dict{T}) whe
     if ix == iy
         return x
     elseif length(ix) == length(iy) # permutation
-        return einsum(Permutedims(), ix, iy, x, size_dict)
+        return einsum(Permutedims(), ((ix...,),), (iy...,), (x,), size_dict)
     else
         # diag
         ix_ = unique(ix)
-        x_ = length(ix_) != length(ix) ? einsum(Diag(), ix, ix_, x, size_dict) : x
+        x_ = length(ix_) != length(ix) ? einsum(Diag(), ((ix...,),), (ix_...,), (x,), size_dict) : x
         # sum
         if length(ix_) != length(iy)
-            return einsum(Sum(), ix_, iy, x_, size_dict)
+            return einsum(Sum(), ((ix_...,),), (iy...,), (x_,), size_dict)
         elseif ix_ != iy
-            return einsum(Permutedims(), ix_, iy, x_, size_dict)
+            return einsum(Permutedims(), ((ix_...,),), (iy...,), (x_,), size_dict)
         else
             return x_
         end
@@ -257,14 +259,14 @@ function expand_unary(ix::Vector{T}, iy::Vector{T}, x::AbstractArray, size_dict:
     iy_b = unique(iy)
     iy_a = filter(i->i ∈ ix, iy_b)
     y_a = if ix != iy_a
-        einsum(Permutedims(), ix, (iy_a...,), x, size_dict)
+        einsum(Permutedims(), ((ix...,),), (iy_a...,), (x,), size_dict)
     else
         x
     end
     # repeat
-    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), (iy_a...,), (iy_b...,), y_a, size_dict) : y_a
+    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), ((iy_a...,),), (iy_b...,), (y_a,), size_dict) : y_a
     # duplicate
-    length(iy_b) != length(iy) ? einsum(Duplicate(), (iy_b...,), iy, y_b, size_dict) : y_b
+    length(iy_b) != length(iy) ? einsum(Duplicate(), ((iy_b...,),), (iy...,), (y_b,), size_dict) : y_b
 end
 
 """

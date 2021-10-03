@@ -29,7 +29,7 @@ function bpcheck(f, args...; η = 1e-5, verbose = false)
         x isa Tuple && (dy_ref += η * mapreduce(y -> y == nothing ? 0 : sum(abs2,y), +, x))
         x isa AbstractArray && (dy_ref += η * sum(abs2,x))
     end
-    dy = f(args...) - f([gi == nothing ? arg : arg .- η .* gi for (arg, gi) in zip(args,g)]...)
+    dy = f(args...) - f([gi === nothing ? arg : arg .- η .* gi for (arg, gi) in zip(args,g)]...)
 
     verbose && @show dy
     verbose && @show dy_ref
@@ -48,8 +48,8 @@ end
             @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (1,4)), (a,b,c)) |> abs ∘ sum ,a,b,c)
             @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (4,1)), (a,b,c)) |> abs ∘ sum ,a,b,c)
             @test bpcheck((a,v) -> einsum(EinCode(((1,2),(2,)), (1,)), (a,v)) |> abs ∘ sum , a, v)
-            @test bpcheck((a,v) -> dynamic_einsum(((1,2),(2,)), (a,v), (1,)) |> abs ∘ sum , a, v)
-            @test bpcheck((a,t,v) -> dynamic_einsum(ein"(ab,abcd),c->ad", (a,t,v)) |> abs ∘ sum ,a,T.(t),v)
+            @test bpcheck((a,v) -> einsum(StaticEinCode{((1,2),(2,)), (1,)}(), (a,v)) |> abs ∘ sum , a, v)
+            @test bpcheck((a,t,v) -> ein"(ab,abcd),c->ad"(a,t,v) |> abs ∘ sum ,a,T.(t),v)
 
             # contract to 0-dim array
             @test bpcheck((a,b) -> einsum(EinCode(((1,2),(1,2)), ()), (a,b)) |> abs ∘ sum , a,b)

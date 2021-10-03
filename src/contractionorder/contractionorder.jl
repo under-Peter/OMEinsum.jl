@@ -56,19 +56,18 @@ Greedy optimizing the contraction order and return a `NestedEinsum` object. Meth
 * `MinSpaceOut`, always choose the next contraction that produces the minimum output tensor.
 * `MinSpaceDiff`, always choose the next contraction that minimizes the total space.
 """
-function optimize_greedy(@nospecialize(code::EinCode{ixs, iy}), size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {ixs, iy, L, T}
-    optimize_greedy(collect(ixs), collect(iy), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
+function optimize_greedy(@nospecialize(code::EinCode), size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {L, T}
+    optimize_greedy([collect(L, c) for c in getixs(code)], collect(L, getiy(code)), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
 end
-function optimize_greedy(ixs::AbstractVector, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {L, TI}
+function optimize_greedy(ixs::AbstractVector{<:AbstractVector}, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {L, TI}
     if length(ixs) <= 2
-        return NestedEinsum((1:length(ixs)...,), EinCode{(ixs...,), (iy...,)}())
+        return NestedEinsum((1:length(ixs)...,), EinCode(ntuple(i->(ixs[i]...,), length(ixs)), (iy...,)))
     end
-    T = promote_type(eltype.(ixs)...)
     log2_edge_sizes = Dict{L,Float64}()
     for (k, v) in size_dict
         log2_edge_sizes[k] = log2(v)
     end
-    incidence_list = ContractionOrder.IncidenceList(Dict([i=>collect(T,ixs[i]) for i=1:length(ixs)]); openedges=collect(T,iy))
+    incidence_list = ContractionOrder.IncidenceList(Dict([i=>ixs[i] for i=1:length(ixs)]); openedges=iy)
     tree, _, _ = tree_greedy(incidence_list, log2_edge_sizes; method=method, nrepeat=nrepeat)
     parse_eincode!(incidence_list, tree, 1:length(ixs))[2]
 end
@@ -102,9 +101,9 @@ function timespace_complexity(ei::NestedEinsum, size_dict)
     _timespace_complexity(ei, log2_sizes)
 end
 
-function timespace_complexity(@nospecialize(ei::EinCode{ixs, iy}), size_dict) where {ixs, iy}
+function timespace_complexity(@nospecialize(ei::EinCode), size_dict)
     log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
-    _timespace_complexity(collect(ixs), collect(iy), log2_sizes)
+    _timespace_complexity(collect(getixs(ei)), collect(getiy(ei)), log2_sizes)
 end
 
 function _timespace_complexity(ei::NestedEinsum, log2_sizes)

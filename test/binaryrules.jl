@@ -28,7 +28,7 @@ end
                     i3_ = has_batch ? (i3..., 'l') : i3
                     a = randn(fill(5, length(i1_))...) |> OMEinsum.asarray
                     b = randn(fill(5, length(i2_))...) |> OMEinsum.asarray
-                    code = EinCode{(i1_,i2_),i3_}()
+                    code = EinCode((i1_,i2_),i3_)
                     rule = match_rule(code)
                     if rule isa SimpleBinaryRule
                         nmatch += 1
@@ -75,6 +75,6 @@ end
 
 @testset "regression test" begin
     x, y = randn(fill(2, 8)...), randn(fill(2, 5)...)
-    code = EinCode{((10, 5, 4, 2, 6, 6, 7, 9), (1, 9, 8, 2, 10)), (4, 10, 9, 7, 10)}()
+    code = EinCode(((10, 5, 4, 2, 6, 6, 7, 9), (1, 9, 8, 2, 10)), (4, 10, 9, 7, 10))
     @test code(x, y) ≈ loop_einsum(code, (x, y), OMEinsum.get_size_dict(OMEinsum.getixs(code), (x, y)))
 end

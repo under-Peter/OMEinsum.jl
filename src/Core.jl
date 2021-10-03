@@ -2,26 +2,60 @@ export EinCode, EinIndexer, EinArray
 export einarray
 
 """
-    EinCode{ixs, iy}
+    EinCode
+    EinCode(ixs, iy)
+
+Abstract type for sum-product contraction code.
+The constructor returns a `DynamicEinCode` instance.
+"""
+abstract type EinCode end
+
+"""
+    StaticEinCode{ixs, iy}
+
+The static version of `DynamicEinCode` that matches the contraction rule at compile time.
+It is the default return type of `@ein_str` macro.
+"""
+struct StaticEinCode{ixs, iy} <: EinCode end
+
+getixs(@nospecialize(code::StaticEinCode{ixs})) where ixs = ixs
+getiy(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = iy
+labeltype(@nospecialize(code::StaticEinCode{ixs,iy})) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+
+"""
+    DynamicEinCode{LT, TX, DY}
+    DynamicEinCode(ixs, iy)
 
 Wrapper to `eincode`-specification that creates a callable object
 to evaluate the `eincode` `ixs -> iy` where `ixs` are the index-labels
-of the input-tensors and `iy` are the index-labels of the output
+of the input-tensors and `iy` are the index-labels of the output.
 
 # example
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
 
-julia> EinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
+julia> OMEinsum.DynamicEinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
 true
 ```
 """
-struct EinCode{ixs, iy} end
-EinCode(ixs::NTuple{N, NTuple{M, T} where M},iy::NTuple{<:Any,T}) where {N, T} = EinCode{ixs, iy}()
+struct DynamicEinCode{LT, TX<:NTuple{NX, NTuple{M, LT} where {M}} where NX, DY} <: EinCode
+    ixs::TX
+    iy::NTuple{DY, LT}
+end
+# forward the previous constructor to the dynamic version
+EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
+# to avoid ambiguity error
+EinCode(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = DynamicEinCode{Union{}, NTuple{N,Tuple{}}, 0}(ixs, iy)
+EinCode(ixs::Tuple{}, iy::Tuple{}) = error("empty input tensor is not allowed!")
 
-getixs(code::EinCode{ixs,iy}) where {ixs, iy} = ixs
-getiy(code::EinCode{ixs,iy}) where {ixs, iy} = iy
+getixs(@nospecialize(code::DynamicEinCode)) = code.ixs
+getiy(@nospecialize(code::DynamicEinCode)) = code.iy
+labeltype(@nospecialize(code::DynamicEinCode{LT})) where LT = LT
+
+# conversion
+DynamicEinCode(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = DynamicEinCode(ixs, iy)
+StaticEinCode(@nospecialize(code::DynamicEinCode)) = StaticEinCode{code.ixs, code.iy}()
 
 """
     EinIndexer{locs,N}
@@ -85,7 +119,7 @@ struct EinArray{T, N, TT, LX, LY, ICT, OCT} <: AbstractArray{T, N}
 end
 
 """
-    einarray(::EinCode, xs, size_dict) -> EinArray
+    einarray(::Val{ixs}, Val{iy}, xs, size_dict) -> EinArray
 
 Constructor of `EinArray` from an `EinCode`, a tuple of tensors `xs` and a `size_dict` that assigns each index-label a size.
 The returned `EinArray` holds an intermediate result of the `einsum` specified by the
@@ -102,13 +136,13 @@ julia> a, b = rand(2,2), rand(2,2);
 
 julia> sd = get_size_dict((('i','j'),('j','k')), (a, b));
 
-julia> ea = OMEinsum.einarray(EinCode((('i','j'),('j','k')),('i','k')), (a,b), sd);
+julia> ea = OMEinsum.einarray(Val((('i','j'),('j','k'))),Val(('i','k')), (a,b), sd);
 
 julia> dropdims(sum(ea, dims=1), dims=1) ≈ a * b
 true
 ```
 """
-@generated function einarray(::EinCode{ixs, iy}, xs::TT, size_dict) where {ixs, iy, NI, TT<:NTuple{NI,AbstractArray}}
+@generated function einarray(::Val{ixs}, ::Val{iy}, xs::TT, size_dict) where {ixs, iy, NI, TT<:NTuple{NI,AbstractArray}}
     inner_indices, outer_indices, locs_xs, locs_y = indices_and_locs(ixs, iy)
     inner_indices = (inner_indices...,)
     outer_indices = (outer_indices...,)
