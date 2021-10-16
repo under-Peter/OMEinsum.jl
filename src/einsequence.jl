@@ -170,13 +170,9 @@ extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
 function (neinsum::NestedEinsum)(xs...; size_info = nothing)
-    mxs = map(x -> extractxs(xs, x), neinsum.args)
+    mxs = [x isa Int ? xs[x] : x(xs...) for x in neinsum.args]
     neinsum.eins(mxs...; size_info=size_info)
 end
-
-extractxs(xs, x::NestedEinsum) = x(xs...)
-extractxs(xs, i::Int) = xs[i]
-
 
 function match_rule(code::NestedEinsum)
     return (match_rule(code.eins), match_rule.(code.args))
