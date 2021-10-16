@@ -170,8 +170,28 @@ extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
 function (neinsum::NestedEinsum)(xs...; size_info = nothing)
-    mxs = [x isa Int ? xs[x] : x(xs...) for x in neinsum.args]
-    neinsum.eins(mxs...; size_info=size_info)
+    LT = labeltype(neinsum.eins)
+    d = collect_ixs!(neinsum, Dict{Int,Vector{LT}}())
+    ixs = [d[i] for i=1:length(d)]
+    size_dict = get_size_dict_!(ixs, [collect(Int, size(x)) for x in xs], size_info===nothing ? Dict{LT,Int}() : copy(size_info))
+    return einsum(neinsum, collect(Any, xs), size_dict)
+end
+
+function collect_ixs!(ne::NestedEinsum, d::Dict)
+    @inbounds for i=1:length(ne.args)
+        arg = ne.args[i]
+        if arg isa Integer
+            d[arg] = collect((OMEinsum.getixs(ne.eins)::Tuple)[i])
+        else
+            collect_ixs!(arg, d)
+        end
+    end
+    return d
+end
+
+function einsum(neinsum::NestedEinsum, xs, size_dict::Dict)
+    mxs = map(x->x isa Int ? xs[x] : einsum(x, xs, size_dict), neinsum.args)
+    return einsum(neinsum.eins, mxs, size_dict)
 end
 
 function match_rule(code::NestedEinsum)
