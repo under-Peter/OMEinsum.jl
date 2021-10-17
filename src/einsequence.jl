@@ -172,8 +172,9 @@ extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 function (neinsum::NestedEinsum)(xs...; size_info = nothing)
     LT = labeltype(neinsum.eins)
     d = collect_ixs!(neinsum, Dict{Int,Vector{LT}}())
-    ixs = [d[i] for i=1:length(d)]
-    size_dict = get_size_dict_!(ixs, [collect(Int, size(x)) for x in xs], size_info===nothing ? Dict{LT,Int}() : copy(size_info))
+    ks = sort!(collect(keys(d)))
+    ixs = [d[i] for i in ks]
+    size_dict = get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info===nothing ? Dict{LT,Int}() : copy(size_info))
     return einsum(neinsum, collect(Any, xs), size_dict)
 end
 
