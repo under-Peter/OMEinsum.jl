@@ -194,7 +194,7 @@ function collect_ixs!(ne::NestedEinsum, d::Dict)
     return d
 end
 
-function einsum(neinsum::NestedEinsum, xs, size_dict::Dict)
+function einsum(neinsum::NestedEinsum, @nospecialize(xs), size_dict::Dict)
     mxs = map(x->x isa Int ? xs[x] : einsum(x, xs, size_dict), neinsum.args)
     return einsum(neinsum.eins, mxs, size_dict)
 end
