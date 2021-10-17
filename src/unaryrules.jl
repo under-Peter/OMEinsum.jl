@@ -172,7 +172,7 @@ end
 # @benchmark OMEinsum.einsum(Identity(), $((('a', 'b'),)), $(('a','b')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Identity, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict)
     @debug "Identity" ixs[1] => iy size(xs[1])
-    xs[1]
+    copy(xs[1])  # must copy, otherwise AD may fail!
 end
 
 # for unary operations
