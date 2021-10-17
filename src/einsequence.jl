@@ -170,12 +170,16 @@ extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
 function (neinsum::NestedEinsum)(xs...; size_info = nothing)
-    LT = labeltype(neinsum.eins)
-    d = collect_ixs!(neinsum, Dict{Int,Vector{LT}}())
+    size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
+    get_size_dict!(neinsum, xs, size_dict)
+    return einsum(neinsum, xs, size_dict)
+end
+
+function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}) where LT
+    d = collect_ixs!(ne, Dict{Int,Vector{LT}}())
     ks = sort!(collect(keys(d)))
     ixs = [d[i] for i in ks]
-    size_dict = get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info===nothing ? Dict{LT,Int}() : copy(size_info))
-    return einsum(neinsum, collect(Any, xs), size_dict)
+    return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
 function collect_ixs!(ne::NestedEinsum, d::Dict)
