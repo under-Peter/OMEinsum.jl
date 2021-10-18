@@ -251,5 +251,5 @@ _flatten(i::Int, iy) = [i=>iy]
 flatten(code::EinCode) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
-    EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
+    EinCode([ixd[i] for i=1:length(ixd)], OMEinsum.getiy(code.eins))
 end
