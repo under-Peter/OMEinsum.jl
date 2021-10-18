@@ -67,7 +67,6 @@ function _tree_greedy(incidence_list::IncidenceList{VT,ET}, log2_edge_sizes; met
     elseif n == 1
         return collect(vertices(incidence_list))[1]
     end
-    #tree_dict = collect(Any, 1:n)
     log2_tcs = Float64[] # time complexity
     log2_scs = Float64[]
 

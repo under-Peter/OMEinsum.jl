@@ -35,7 +35,7 @@ end
     contract_tree!(copy(incidence_list), tree, log2_edge_sizes, tcs_, scs_)
     @test all((log2sumexp2(tcs_), maximum(scs_)) .<= (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11))
     vertices = ['A', 'B', 'C', 'D', 'E']
-    optcode1 = parse_eincode(incidence_list, tree, vertices=vertices)
+    optcode1 = parse_eincode(StaticEinCode, incidence_list, tree, vertices=vertices)
     @test optcode1 isa OMEinsum.NestedEinsum
     tree2 = OMEinsum.parse_tree(optcode1, vertices)
     @test tree2 == tree

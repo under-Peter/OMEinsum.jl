@@ -103,5 +103,4 @@ end
 
 @testset "match_rule eye candies" begin
     @test match_rule(ein"ij,jk,kl->il") == DefaultRule()
-    @test match_rule(ein"(ij,jk),kl->il") == (OMEinsum.SimpleBinaryRule(ein"ij,jk->ik"), ((OMEinsum.SimpleBinaryRule(ein"ij,jk->ik"), (1, 2)), 3))
 end

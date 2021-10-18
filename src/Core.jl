@@ -21,6 +21,8 @@ struct StaticEinCode{ixs, iy} <: EinCode end
 getixs(::StaticEinCode{ixs}) where ixs = ixs
 getiy(::StaticEinCode{ixs, iy}) where {ixs, iy} = iy
 labeltype(::StaticEinCode{ixs,iy}) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+getixsv(code::StaticEinCode) = [collect(labeltype(code), ix) for ix in getixs(code)]
+getiyv(code::StaticEinCode) = collect(labeltype(code), getiy(code))
 
 """
     DynamicEinCode{LT}
@@ -51,6 +53,7 @@ function DynamicEinCode(ixs, iy)
     end
     DynamicEinCode(_tovec(ixs, iy)...)
 end
+_tovec(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = [collect(Union{}, ix) for ix in ixs], collect(Union{}, iy)
 _tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [collect(LT, ix) for ix in ixs], collect(LT, iy)
 _tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
 
@@ -61,6 +64,8 @@ EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
 getixs(code::DynamicEinCode) = code.ixs
 getiy(code::DynamicEinCode) = code.iy
 labeltype(::DynamicEinCode{LT}) where LT = LT
+getixsv(code::DynamicEinCode) = code.ixs
+getiyv(code::DynamicEinCode) = code.iy
 
 # conversion
 DynamicEinCode(::StaticEinCode{ixs, iy}) where {ixs, iy} = DynamicEinCode(ixs, iy)
@@ -122,7 +127,7 @@ struct EinArray{T, N, TT, LX, LY, ICT, OCT} <: AbstractArray{T, N}
     size::NTuple{N, Int}
     ICIS::ICT
     OCIS::OCT
-    function EinArray{T}(xs::TT, x_indexers::LX, y_indexer::LY, size::NTuple{N, Int}, ICIS::ICT, OCIS::OCT) where {T,N,TT,LX,LY,ICT,OCT}
+    function EinArray{T}(xs::TT, x_indexers::LX, y_indexer::LY, size::NTuple{N, Int}, ICIS::ICT, OCIS::OCT) where {T,N,TT<:Tuple,LX<:Tuple,LY<:EinIndexer,ICT,OCT}
         new{T,N,TT,LX,LY,ICT,OCT}(xs,x_indexers,y_indexer,size,ICIS,OCIS)
     end
 end

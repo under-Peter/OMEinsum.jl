@@ -155,10 +155,35 @@ function parse_nested_expr(expr, tensors, allinds)
 end
 
 struct NestedEinsum{ET}
-    args
+    args::Vector{NestedEinsum{ET}}
+    tensorindex::Int  # -1 if not leaf
     eins::ET
+
+    NestedEinsum(args::Vector{NestedEinsum{DynamicEinCode{LT}}}, eins::DynamicEinCode{LT}) where LT = new{DynamicEinCode{LT}}(args, -1, eins)
+    NestedEinsum{DynamicEinCode{LT}}(arg::Int) where LT = new(NestedEinsum{DynamicEinCode{LT}}[], arg)
+    function NestedEinsum(args::Tuple, eins::DynamicEinCode{LT}) where LT
+        new{DynamicEinCode{LT}}([arg isa Int ? NestedEinsum{DynamicEinCode{LT}}(arg) : arg for arg in args], -1, eins)
+    end
+
+    NestedEinsum(args::Vector{NestedEinsum{StaticEinCode}}, eins::StaticEinCode) = new{StaticEinCode}(args, -1, eins)
+    NestedEinsum{StaticEinCode}(arg::Int) = new{StaticEinCode}(NestedEinsum{StaticEinCode}[], arg)
+    function NestedEinsum(args::Tuple, eins::StaticEinCode)
+        new{StaticEinCode}([arg isa Int ? NestedEinsum{StaticEinCode}(arg) : arg for arg in args], -1, eins)
+    end
 end
-Base.:(==)(a::NestedEinsum, b::NestedEinsum) = a.args == b.args && a.eins == b.eins
+
+isleaf(ne::NestedEinsum) = ne.tensorindex != -1
+
+function Base.:(==)(a::NestedEinsum, b::NestedEinsum)
+    ex = a.args == b.args && a.tensorindex == b.tensorindex
+    if isdefined(a, :eins) && isdefined(b, :eins)
+        return ex && a.eins == b.eins
+    elseif !(isdefined(a, :eins)) && !(isdefined(b, :eins))
+        return ex
+    else
+        return false
+    end
+end
 
 function construct(nein::NestedEinsumConstructor{T}) where T
     ixs = Tuple(map(extractixs, nein.args))
@@ -186,8 +211,8 @@ end
 function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
     @inbounds for i=1:length(ne.args)
         arg = ne.args[i]
-        if arg isa Integer
-            d[arg] = _collect(LT, OMEinsum.getixs(ne.eins)[i])
+        if isleaf(arg)
+            d[arg.tensorindex] = _collect(LT, OMEinsum.getixs(ne.eins)[i])
         else
             collect_ixs!(arg, d)
         end
@@ -196,16 +221,9 @@ function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
 end
 
 function einsum(neinsum::NestedEinsum, @nospecialize(xs), size_dict::Dict)
-    mxs = map(x->x isa Int ? xs[x] : einsum(x, xs, size_dict), neinsum.args)
-    return einsum(neinsum.eins, mxs, size_dict)
+    mxs = map(x->isleaf(x) ? xs[x.tensorindex] : einsum(x, xs, size_dict), neinsum.args)
+    return einsum(neinsum.eins, (mxs...,), size_dict)
 end
-
-function match_rule(code::NestedEinsum)
-    return (match_rule(code.eins), match_rule.(code.args))
-end
-
-match_rule(code::Int64) = code
-
 
 # Better printing
 using AbstractTrees
@@ -213,7 +231,7 @@ using AbstractTrees
 function AbstractTrees.children(ne::NestedEinsum)
     d = Dict()
     for (k,item) in enumerate(ne.args)
-        d[k] = item isa Integer ? _join(OMEinsum.getixs(ne.eins)[k]) : item
+        d[k] = isleaf(item) ? _join(OMEinsum.getixs(ne.eins)[k]) : item
     end
     d
 end
@@ -222,7 +240,7 @@ function AbstractTrees.printnode(io::IO, x::String)
     print(io, x)
 end
 function AbstractTrees.printnode(io::IO, x::NestedEinsum)
-    print(io, x.eins)
+    isleaf(x) ? print(io, x.tensorindex) : print(io, x.eins)
 end
 
 function Base.show(io::IO, e::EinCode)
@@ -235,18 +253,19 @@ end
 Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
 Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
 _join(ix) = isempty(ix) ? "" : join(ix, connector(eltype(ix)))
-connector(::Type{Char}) = "-"
+connector(::Type{Char}) = ""
 connector(::Type{Int}) = "∘"
+connector(::Type) = "-"
 
 # flattten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
+    isleaf(code) && return [code.tensorindex=>iy]
     ixs = []
     for i=1:length(code.args)
-        append!(ixs, _flatten(code.args[i], OMEinsum.getixs(code.eins)[i]))
+        append!(ixs, _flatten(code.args[i], OMEinsum.getixsv(code.eins)[i]))
     end
     return ixs
 end
-_flatten(i::Int, iy) = [i=>iy]
 
 flatten(code::EinCode) = code
 function flatten(code::NestedEinsum)
