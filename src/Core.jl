@@ -45,12 +45,15 @@ struct DynamicEinCode{LT} <: EinCode
 end
 # to avoid ambiguity error, support tuple inputs
 function DynamicEinCode(ixs, iy)
+    @debug "generating dynamic eincode ..."
     if isempty(ixs)
         error("number of input tensors must be greater than 0")
     end
-    LT = promote_type(eltype.(ixs)..., eltype(iy))
-    DynamicEinCode(Vector{LT}[collect(LT, ix) for ix in ixs], collect(LT, iy))
+    DynamicEinCode(_tovec(ixs, iy)...)
 end
+_tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [collect(LT, ix) for ix in ixs], collect(LT, iy)
+_tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
+
 Base.:(==)(x::DynamicEinCode, y::DynamicEinCode) = x.ixs == y.ixs && x.iy == y.iy
 # forward from EinCode, for compatibility
 EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
