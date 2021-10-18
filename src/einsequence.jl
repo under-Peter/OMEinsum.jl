@@ -236,7 +236,7 @@ Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
 Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
 _join(ix) = isempty(ix) ? "" : join(ix, connector(eltype(ix)))
 connector(::Type{Char}) = "-"
-connector(::Type{Int}) = join(ix, "∘")
+connector(::Type{Int}) = "∘"
 
 # flattten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
