@@ -47,11 +47,5 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs)
 end
 
 @non_differentiable get_size_dict!(::Any, ::Any, ::Any)
-@non_differentiable _insertat(::Any, ::Any, ::Any)
-@non_differentiable _collect(::Any)
-@non_differentiable _collect(::Any, ::Any)
-@non_differentiable indices_and_locs(::Any, ::Any)
-@non_differentiable get_size_dict!(::Any, ::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any)
-@non_differentiable collect_ixs!(::Any, ::Any)
