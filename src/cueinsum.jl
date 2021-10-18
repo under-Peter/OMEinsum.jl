@@ -73,8 +73,7 @@ function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArra
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-tensorpermute(A::DenseCuArray, perm) = permutedims(A, perm)
-tensorpermute(A::DenseCuArray, perm::Tuple{}) = A
+tensorpermute(A::DenseCuArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
 
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])

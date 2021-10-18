@@ -56,7 +56,7 @@ Greedy optimizing the contraction order and return a `NestedEinsum` object. Meth
 * `MinSpaceOut`, always choose the next contraction that produces the minimum output tensor.
 * `MinSpaceDiff`, always choose the next contraction that minimizes the total space.
 """
-function optimize_greedy(@nospecialize(code::EinCode), size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {L, T}
+function optimize_greedy(code::EinCode, size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {L, T}
     optimize_greedy([collect(L, c) for c in getixs(code)], collect(L, getiy(code)), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
 end
 function optimize_greedy(ixs::AbstractVector{<:AbstractVector}, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {L, TI}
@@ -101,7 +101,7 @@ function timespace_complexity(ei::NestedEinsum, size_dict)
     _timespace_complexity(ei, log2_sizes)
 end
 
-function timespace_complexity(@nospecialize(ei::EinCode), size_dict)
+function timespace_complexity(ei::EinCode, size_dict)
     log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
     _timespace_complexity(collect(getixs(ei)), collect(getiy(ei)), log2_sizes)
 end

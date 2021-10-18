@@ -7,16 +7,12 @@ function SimpleBinaryRule(code::EinCode)
 end
 SimpleBinaryRule(ix1, ix2, iy) = SimpleBinaryRule{ix1, ix2, iy}()
 
-@inline function match_rule(ixs::Tuple{NTuple{Nx1,T},NTuple{Nx2,T}}, iy::NTuple{Ny,T}) where {Nx1,Nx2,Ny,T}
-    match_simplebinary(ixs..., iy)
-end
-
 @inline function _add_patch(::SimpleBinaryRule{ix1,ix2,iy}) where {ix1,ix2,iy}
     SimpleBinaryRule{(ix1...,'l'), (ix2...,'l'), (iy...,'l')}()
 end
 @inline _add_patch(::DefaultRule) = DefaultRule()
 
-function match_simplebinary(ix1, ix2, iy)
+function match_rule_binary(ix1, ix2, iy)
     Nx1, Nx2, Ny = length(ix1), length(ix2), length(iy)
     if (Nx1 + Nx2 + Ny) % 2 == 0 # no batch
         _match_simple2(ix1,ix2,iy,Nx1,Nx2,Ny)
@@ -220,19 +216,19 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
 end
 
 # there are too many combination in the binary case, so nospecialize
-function einsum(::DefaultRule, @nospecialize(ixs), @nospecialize(iy), @nospecialize(xs::NTuple{2, Any}), size_dict::Dict{LT}) where LT
+function einsum(::DefaultRule, ixs, iy, @nospecialize(xs::NTuple{2, Any}), size_dict::Dict{LT}) where LT
     @debug "DefaultRule binary" ixs => iy size.(xs)
     ix1, ix2 = ixs
     x1, x2 = xs
-    c1, c2, cy, s1, s2, sy, i1, i2, iyb = analyze_binary(collect(LT,ix1), collect(LT,ix2), collect(LT,iy), size_dict)
+    c1, c2, cy, s1, s2, sy, i1, i2, iyb = analyze_binary(_collect(LT,ix1), _collect(LT,ix2), _collect(LT,iy), size_dict)
     rule = SimpleBinaryRule{(i1...,), (i2...,), (iyb...,)}()
-    x1 = simplify_unary(collect(LT,ix1), c1, x1, size_dict)
-    x2 = simplify_unary(collect(LT,ix2), c2, x2, size_dict)
+    x1 = simplify_unary(_collect(LT,ix1), c1, x1, size_dict)
+    x2 = simplify_unary(_collect(LT,ix2), c2, x2, size_dict)
     x1_ = reshape(x1, s1...)
     x2_ = reshape(x2, s2...)
     @debug rule size.((x1_, x2_))
     y_ = reshape(einsum(rule, (x1_, x2_)), sy...)
-    return expand_unary(cy, collect(LT,iy), y_, size_dict)
+    return expand_unary(cy, _collect(LT,iy), y_, size_dict)
 end
 
 function simplify_unary(ix::Vector{T}, iy::Vector{T}, x, size_dict::Dict{T}) where T

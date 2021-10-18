@@ -23,12 +23,19 @@ struct DefaultRule <: EinRule{Any} end
 
 Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
 "
-function match_rule(@nospecialize(ixs::NTuple{Nx,NTuple} where Nx), @nospecialize(iy::Tuple))
-    DefaultRule()
+function match_rule(ixs, iy)
+    if length(ixs) == 1
+        return match_rule_unary(ixs[1], iy)
+    elseif length(ixs) == 2
+        return match_rule_binary(ixs[1], ixs[2], iy)
+    else
+        return DefaultRule()
+    end
 end
 
-function match_rule(@nospecialize(ixs::Tuple{NTuple{Nx,T}}), @nospecialize(iy::NTuple{Ny,T})) where {Nx, Ny, T}
-    ix, = ixs
+function match_rule_unary(ix, iy)
+    Nx = length(ix)
+    Ny = length(iy)
     # the first rule with the higher the priority
     if Ny == 0 && Nx == 2 && ix[1] == ix[2]
         return Tr()
@@ -71,12 +78,12 @@ function match_rule(@nospecialize(ixs::Tuple{NTuple{Nx,T}}), @nospecialize(iy::N
     end
 end
 
-match_rule(@nospecialize(code::EinCode)) = match_rule(getixs(code), getiy(code))
+match_rule(code::EinCode) = match_rule(getixs(code), getiy(code))
 
 # trace
 # overhead ~ 0.07us
 # @benchmark OMEinsum.einsum(Tr(), $(('a', 'a')), $(()), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Tr, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict::Dict)
+function einsum(::Tr, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     x = xs[1]
     @debug "Tr" size(x)
     asarray(tr(x), x)
@@ -84,7 +91,7 @@ end
 
 # overhead ~ 0.55us
 # @benchmark OMEinsum.einsum(Sum(), $(('a', 'b')), $(('b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Sum, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT}) where LT
+function einsum(::Sum, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT}) where LT
     ix, x = ixs[1], xs[1]
     @debug "Sum" ix => iy size(x)
     dims = (findall(i -> i ∉ iy, ix)...,)::NTuple{length(ix)-length(iy),Int}
@@ -99,7 +106,7 @@ end
 
 # overhead ~ 0.53us
 # @benchmark OMEinsum.einsum(OMEinsum.Repeat(), $(('a',)), $(('a', 'b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1))
-function einsum(::Repeat, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict::Dict)
+function einsum(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     ix, x = ixs[1], xs[1]
     @debug "Repeat" ix => iy size(x)
     ix1f = filter(i -> i ∈ ix, iy)
@@ -115,7 +122,7 @@ end
 
 # overhead ~ 0.28us
 # @benchmark OMEinsum.einsum(Diag(), $(('a', 'a')), $(('a',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Diag, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict::Dict)
+function einsum(::Diag, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     ix, x = ixs[1], xs[1]
     @debug "Diag" ix => iy size.(x)
     compactify!(get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=false),x,ix, iy)
@@ -153,7 +160,7 @@ end
 # e.g. 'ij'->'iij', left indices are unique, right are not
 # overhead ~ 0.29us
 # @benchmark OMEinsum.einsum(Duplicate(), $((('a', ),)), $(('a','a')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1))
-function einsum(::Duplicate, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict)
+function einsum(::Duplicate, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     ix, x = ixs[1], xs[1]
     @debug "Duplicate" ix => iy size(x)
     duplicate(x, ix, iy, size_dict)
@@ -161,7 +168,7 @@ end
 
 # overhead ~ 0.15us
 # @benchmark OMEinsum.einsum(Permutedims(), $((('a', 'b'),)), $(('b','a')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Permutedims, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict)
+function einsum(::Permutedims, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     ix, x = ixs[1], xs[1]
     perm = ntuple(i -> findfirst(==(iy[i]), ix)::Int, length(iy))
     @debug "Permutedims" ix => iy size(x) perm
@@ -170,7 +177,7 @@ end
 
 # overhead ~0.04us
 # @benchmark OMEinsum.einsum(Identity(), $((('a', 'b'),)), $(('a','b')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Identity, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict)
+function einsum(::Identity, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     @debug "Identity" ixs[1] => iy size(xs[1])
     copy(xs[1])  # must copy, otherwise AD may fail!
 end
@@ -178,7 +185,7 @@ end
 # for unary operations
 # overhead ~ 2.3us
 # @benchmark OMEinsum.einsum(DefaultRule(), $((('a', 'a', 'b'),)), $(('c', 'b','a')), (x,), $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
-function einsum(::DefaultRule, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT}) where LT
+function einsum(::DefaultRule, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT}) where LT
     ix, x = ixs[1], xs[1]
     @debug "DefaultRule unary" ix => iy size(x)
     # diag

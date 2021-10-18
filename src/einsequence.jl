@@ -154,10 +154,11 @@ function parse_nested_expr(expr, tensors, allinds)
     end
 end
 
-struct NestedEinsum
+struct NestedEinsum{ET}
     args
-    eins
+    eins::ET
 end
+Base.:(==)(a::NestedEinsum, b::NestedEinsum) = a.args == b.args && a.eins == b.eins
 
 function construct(nein::NestedEinsumConstructor{T}) where T
     ixs = Tuple(map(extractixs, nein.args))
@@ -182,11 +183,11 @@ function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
-function collect_ixs!(ne::NestedEinsum, d::Dict)
+function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
     @inbounds for i=1:length(ne.args)
         arg = ne.args[i]
         if arg isa Integer
-            d[arg] = collect((OMEinsum.getixs(ne.eins)::Tuple)[i])
+            d[arg] = _collect(LT, OMEinsum.getixs(ne.eins)[i])
         else
             collect_ixs!(arg, d)
         end
@@ -224,7 +225,7 @@ function AbstractTrees.printnode(io::IO, x::NestedEinsum)
     print(io, x.eins)
 end
 
-function Base.show(io::IO, @nospecialize(e::EinCode))
+function Base.show(io::IO, e::EinCode)
     s = join([_join(ix) for ix in getixs(e)], ", ") * " -> " * _join(getiy(e))
     print(io, s)
 end
@@ -232,12 +233,10 @@ function Base.show(io::IO, e::NestedEinsum)
     print_tree(io, e)
 end
 Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
-Base.show(io::IO, ::MIME"text/plain", @nospecialize(e::EinCode)) = show(io, e)
-_join(ix::NTuple{0}) = ""
-_join(ix::NTuple{N,Char}) where N = join(ix, "")
-_join(ix::NTuple{N,Int}) where N = join(ix, "∘")
-_join(ix::NTuple{N,Any}) where N = join(ix, "-")
-
+Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
+_join(ix) = isempty(ix) ? "" : join(ix, connector(eltype(ix)))
+connector(::Type{Char}) = "-"
+connector(::Type{Int}) = join(ix, "∘")
 
 # flattten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
@@ -249,7 +248,7 @@ function _flatten(code::NestedEinsum, iy=nothing)
 end
 _flatten(i::Int, iy) = [i=>iy]
 
-flatten(@nospecialize(code::EinCode)) = code
+flatten(code::EinCode) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
     EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))

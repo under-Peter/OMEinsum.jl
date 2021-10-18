@@ -1,7 +1,8 @@
 using OMEinsum, LightGraphs, BenchmarkTools
+using OMEinsum: getixs, getiy
 
-function uniformsize(@nospecialize(code::EinCode{ixs,iy}), size::Int) where {ixs, iy}
-    Dict([c=>size for c in [OMEinsum.flatten(ixs)..., iy...]])
+function uniformsize(code::EinCode, size::Int)
+    Dict([c=>size for c in [OMEinsum.flatten(getixs(code))..., getiy(code)...]])
 end
 uniformsize(ne::OMEinsum.NestedEinsum, size::Int) = uniformsize(OMEinsum.flatten(ne), size)
 

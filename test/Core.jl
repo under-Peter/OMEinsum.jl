@@ -5,29 +5,29 @@ using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs
 @testset "EinCode" begin
     code = EinCode(((1,2), (2,3)), (1,3))
     @test code isa EinCode
-    @test OMEinsum.getixs(code) == ((1,2), (2,3))
-    @test OMEinsum.getiy(code) == (1,3)
+    @test OMEinsum.getixs(code) == [[1,2], [2,3]]
+    @test OMEinsum.getiy(code) == [1,3]
 
     code1 = ein"ab,bc->ac"
     code2 = EinCode((('a', 'b'), ('b', 'c')), ('a', 'c'))
     @test code2 isa DynamicEinCode
     @test code1 isa StaticEinCode
-    @test DynamicEinCode(code1) === code2
+    @test DynamicEinCode(code1) == code2
     @test StaticEinCode(code2) === code1
-    @test getixs(code1) == getixs(code2)
-    @test getiy(code1) == getiy(code2)
+    @test collect(collect.(getixs(code1))) == getixs(code2)
+    @test collect(getiy(code1)) == getiy(code2)
     @test labeltype(code1) == labeltype(code2)
 
     code1 = ein",->"
     code2 = EinCode(((), ()), ())
-    @test getixs(code1) == getixs(code2)
-    @test getiy(code1) == getiy(code2)
+    @test collect(collect.(getixs(code1))) == getixs(code2)
+    @test collect(getiy(code1)) == getiy(code2)
     @test labeltype(code1) == labeltype(code2)
 
     code1 = ein"->"
     code2 = EinCode(((),), ())
-    @test getixs(code1) == getixs(code2)
-    @test getiy(code1) == getiy(code2)
+    @test collect(collect.(getixs(code1))) == getixs(code2)
+    @test collect(getiy(code1)) == getiy(code2)
     @test labeltype(code1) == labeltype(code2)
 
     @test_throws ErrorException EinCode((), ())
