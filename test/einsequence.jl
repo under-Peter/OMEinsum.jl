@@ -1,5 +1,5 @@
 using Test, OMEinsum
-using OMEinsum: IndexGroup, NestedEinsum, parse_nested
+using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf
 @testset "einsequence" begin
     @test push!(IndexGroup([],1), 'c').inds == IndexGroup(['c'], 1).inds
     @test isempty(IndexGroup([],1))
@@ -23,4 +23,12 @@ end
     @ein a[i,j] := b[i,k] * c[k,k,l] * d[l,m,m,j]
     @ein a2[i,j] := b[i,k] * (c[k,k,l] * d[l,m,m,j])
     @test a ≈ a2
+end
+
+@testset "flatten" begin
+    ne = ein"(ij,j),k->"
+    OMEinsum.flatten(ne) === ein"ij,j,k->"
+    todynamic(ne::NestedEinsum) = isleaf(ne) ? NestedEinsum{DynamicEinCode{Char}}(ne.tensorindex) : NestedEinsum(todynamic.(ne.args), DynamicEinCode(ne.eins))
+    ne2 = todynamic(ne)
+    OMEinsum.flatten(ne2) isa DynamicEinCode && OMEinsum.flatten(ne2) == DynamicEinCode(ein"ij,j,k->")
 end
