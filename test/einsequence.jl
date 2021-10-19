@@ -1,5 +1,5 @@
 using Test, OMEinsum
-using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf
+using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, collect_ixs
 @testset "einsequence" begin
     @test push!(IndexGroup([],1), 'c').inds == IndexGroup(['c'], 1).inds
     @test isempty(IndexGroup([],1))
@@ -16,6 +16,7 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf
     size_info = Dict('k'=>2)
     a, b, c, d = randn(2), randn(2,2), randn(2), randn(2)
     @test ein"((i,ij),i),j->ik"(a, b, c, d; size_info=size_info) ≈ ein"i,ij,i,j->ik"(a, b, c, d; size_info=size_info)
+    @test collect_ixs(ein"((i,ij),i),j->ik") == collect_ixs(ein"i,ij,i,j->ik") == collect_ixs(DynamicEinCode(ein"i,ij,i,j->ik")) == [['i'], ['i','j'], ['i'], ['j']]
 end
 
 @testset "macro" begin
@@ -27,8 +28,8 @@ end
 
 @testset "flatten" begin
     ne = ein"(ij,j),k->"
-    OMEinsum.flatten(ne) === ein"ij,j,k->"
+    @test OMEinsum.flatten(ne) === ein"ij,j,k->"
     todynamic(ne::NestedEinsum) = isleaf(ne) ? NestedEinsum{DynamicEinCode{Char}}(ne.tensorindex) : NestedEinsum(todynamic.(ne.args), DynamicEinCode(ne.eins))
     ne2 = todynamic(ne)
-    OMEinsum.flatten(ne2) isa DynamicEinCode && OMEinsum.flatten(ne2) == DynamicEinCode(ein"ij,j,k->")
+    @test OMEinsum.flatten(ne2) isa DynamicEinCode && OMEinsum.flatten(ne2) == DynamicEinCode(ein"ij,j,k->")
 end

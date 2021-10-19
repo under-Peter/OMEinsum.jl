@@ -210,6 +210,12 @@ function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
+collect_ixs(ne::EinCode) = [_collect(ix) for ix in getixs(ne)]
+function collect_ixs(ne::NestedEinsum)
+    d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{OMEinsum.labeltype(ne.eins)}}())
+    ks = sort!(collect(keys(d)))
+    return @inbounds [d[i] for i in ks]
+end
 function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
     @inbounds for i=1:length(ne.args)
         arg = ne.args[i]
