@@ -195,13 +195,13 @@ end
 extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
-function (neinsum::NestedEinsum)(xs...; size_info = nothing)
+function (neinsum::NestedEinsum)(@nospecialize(xs::AbstractArray...); size_info = nothing)
     size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
     get_size_dict!(neinsum, xs, size_dict)
     return einsum(neinsum, xs, size_dict)
 end
 
-function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}) where LT
+function get_size_dict!(ne::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_info::Dict{LT}) where LT
     d = collect_ixs!(ne, Dict{Int,Vector{LT}}())
     ks = sort!(collect(keys(d)))
     ixs = [d[i] for i in ks]
@@ -220,9 +220,10 @@ function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
     return d
 end
 
-function einsum(neinsum::NestedEinsum, @nospecialize(xs), size_dict::Dict)
-    mxs = map(x->isleaf(x) ? xs[x.tensorindex] : einsum(x, xs, size_dict), neinsum.args)
-    return einsum(neinsum.eins, (mxs...,), size_dict)
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
+    # do not use map because the overhead is too large
+    mxs = ntuple(i->isleaf(neinsum.args[i]) ? xs[neinsum.args[i].tensorindex] : einsum(neinsum.args[i], xs, size_dict), length(neinsum.args))
+    return einsum(neinsum.eins, mxs, size_dict)
 end
 
 # Better printing

@@ -37,9 +37,13 @@ function ein(s::AbstractString)
     end
 end
 
-function (code::EinCode)(@nospecialize(xs...); size_info=nothing)
-    LT = labeltype(code)
+function (code::DynamicEinCode{LT})(@nospecialize(xs...); size_info=nothing) where LT
     size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
+    einsum(code, xs, size_dict)
+end
+
+function (code::StaticEinCode)(xs...; size_info=nothing)
+    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{labeltype(code),Int}() : copy(size_info))
     einsum(code, xs, size_dict)
 end
 
@@ -51,7 +55,7 @@ return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict!(ixs, @nospecialize(xs), size_info::Dict{LT}) where LT
+@inline function get_size_dict!(ixs, xs, size_info::Dict{LT}) where LT
     if length(ixs) == 1
         get_size_dict_unary!(ixs[1], size(xs[1]), size_info)
     else
@@ -92,7 +96,7 @@ function get_size_dict_unary!(ix, s, size_info::Dict{LT}) where LT
     return size_info
 end
 
-function get_size_dict(ixs, @nospecialize(xs), size_info=nothing)
+@inline function get_size_dict(ixs, xs, size_info=nothing)
     LT = promote_type(eltype.(ixs)...)
     return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
 end
@@ -195,7 +199,6 @@ function einsum(code::DynamicEinCode, @nospecialize(xs), size_dict::Dict)
     rule = match_rule(getixs(code), getiy(code))
     einsum(rule, getixs(code), getiy(code), xs, size_dict)
 end
-
 
 function einsum(code::EinCode, @nospecialize(xs))
     einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))

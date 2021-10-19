@@ -55,6 +55,7 @@ function DynamicEinCode(ixs, iy)
 end
 _tovec(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = [collect(Union{}, ix) for ix in ixs], collect(Union{}, iy)
 _tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [collect(LT, ix) for ix in ixs], collect(LT, iy)
+_tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), iy
 _tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
 
 Base.:(==)(x::DynamicEinCode, y::DynamicEinCode) = x.ixs == y.ixs && x.iy == y.iy

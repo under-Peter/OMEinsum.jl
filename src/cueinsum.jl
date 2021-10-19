@@ -14,7 +14,7 @@ CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_i
 CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
-    @eval function einsum(::$TP, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
+    @eval function einsum(::$TP, ixs, iy, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
         loop_einsum(EinCode(ixs, iy), xs, size_dict)
     end
 end
