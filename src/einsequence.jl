@@ -154,9 +154,35 @@ function parse_nested_expr(expr, tensors, allinds)
     end
 end
 
-struct NestedEinsum
-    args
-    eins
+struct NestedEinsum{ET}
+    args::Vector{NestedEinsum{ET}}
+    tensorindex::Int  # -1 if not leaf
+    eins::ET
+
+    NestedEinsum(args::Vector{NestedEinsum{DynamicEinCode{LT}}}, eins::DynamicEinCode{LT}) where LT = new{DynamicEinCode{LT}}(args, -1, eins)
+    NestedEinsum{DynamicEinCode{LT}}(arg::Int) where LT = new(NestedEinsum{DynamicEinCode{LT}}[], arg)
+    function NestedEinsum(args::Tuple, eins::DynamicEinCode{LT}) where LT
+        new{DynamicEinCode{LT}}([arg isa Int ? NestedEinsum{DynamicEinCode{LT}}(arg) : arg for arg in args], -1, eins)
+    end
+
+    NestedEinsum(args::Vector{NestedEinsum{StaticEinCode}}, eins::StaticEinCode) = new{StaticEinCode}(args, -1, eins)
+    NestedEinsum{StaticEinCode}(arg::Int) = new{StaticEinCode}(NestedEinsum{StaticEinCode}[], arg)
+    function NestedEinsum(args::Tuple, eins::StaticEinCode)
+        new{StaticEinCode}([arg isa Int ? NestedEinsum{StaticEinCode}(arg) : arg for arg in args], -1, eins)
+    end
+end
+
+isleaf(ne::NestedEinsum) = ne.tensorindex != -1
+
+function Base.:(==)(a::NestedEinsum, b::NestedEinsum)
+    ex = a.args == b.args && a.tensorindex == b.tensorindex
+    if isdefined(a, :eins) && isdefined(b, :eins)
+        return ex && a.eins == b.eins
+    elseif !(isdefined(a, :eins)) && !(isdefined(b, :eins))
+        return ex
+    else
+        return false
+    end
 end
 
 function construct(nein::NestedEinsumConstructor{T}) where T
@@ -169,21 +195,36 @@ end
 extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
-function (neinsum::NestedEinsum)(xs...; size_info = nothing)
-    mxs = map(x -> extractxs(xs, x), neinsum.args)
-    neinsum.eins(mxs...; size_info=size_info)
+function (neinsum::NestedEinsum)(@nospecialize(xs::AbstractArray...); size_info = nothing)
+    size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
+    get_size_dict!(neinsum, xs, size_dict)
+    return einsum(neinsum, xs, size_dict)
 end
 
-extractxs(xs, x::NestedEinsum) = x(xs...)
-extractxs(xs, i::Int) = xs[i]
-
-
-function match_rule(code::NestedEinsum)
-    return (match_rule(code.eins), match_rule.(code.args))
+function get_size_dict!(ne::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_info::Dict{LT}) where LT
+    d = collect_ixs!(ne, Dict{Int,Vector{LT}}())
+    ks = sort!(collect(keys(d)))
+    ixs = [d[i] for i in ks]
+    return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
-match_rule(code::Int64) = code
+function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
+    @inbounds for i=1:length(ne.args)
+        arg = ne.args[i]
+        if isleaf(arg)
+            d[arg.tensorindex] = _collect(LT, OMEinsum.getixs(ne.eins)[i])
+        else
+            collect_ixs!(arg, d)
+        end
+    end
+    return d
+end
 
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
+    # do not use map because the overhead is too large
+    mxs = ntuple(i->isleaf(neinsum.args[i]) ? xs[neinsum.args[i].tensorindex] : einsum(neinsum.args[i], xs, size_dict), length(neinsum.args))
+    return einsum(neinsum.eins, mxs, size_dict)
+end
 
 # Better printing
 using AbstractTrees
@@ -191,7 +232,7 @@ using AbstractTrees
 function AbstractTrees.children(ne::NestedEinsum)
     d = Dict()
     for (k,item) in enumerate(ne.args)
-        d[k] = item isa Integer ? _join(OMEinsum.getixs(ne.eins)[k]) : item
+        d[k] = isleaf(item) ? _join(OMEinsum.getixs(ne.eins)[k]) : item
     end
     d
 end
@@ -200,10 +241,10 @@ function AbstractTrees.printnode(io::IO, x::String)
     print(io, x)
 end
 function AbstractTrees.printnode(io::IO, x::NestedEinsum)
-    print(io, x.eins)
+    isleaf(x) ? print(io, x.tensorindex) : print(io, x.eins)
 end
 
-function Base.show(io::IO, @nospecialize(e::EinCode))
+function Base.show(io::IO, e::EinCode)
     s = join([_join(ix) for ix in getixs(e)], ", ") * " -> " * _join(getiy(e))
     print(io, s)
 end
@@ -211,25 +252,24 @@ function Base.show(io::IO, e::NestedEinsum)
     print_tree(io, e)
 end
 Base.show(io::IO, ::MIME"text/plain", e::NestedEinsum) = show(io, e)
-Base.show(io::IO, ::MIME"text/plain", @nospecialize(e::EinCode)) = show(io, e)
-_join(ix::NTuple{0}) = ""
-_join(ix::NTuple{N,Char}) where N = join(ix, "")
-_join(ix::NTuple{N,Int}) where N = join(ix, "∘")
-_join(ix::NTuple{N,Any}) where N = join(ix, "-")
-
+Base.show(io::IO, ::MIME"text/plain", e::EinCode) = show(io, e)
+_join(ix) = isempty(ix) ? "" : join(ix, connector(eltype(ix)))
+connector(::Type{Char}) = ""
+connector(::Type{Int}) = "∘"
+connector(::Type) = "-"
 
 # flattten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
+    isleaf(code) && return [code.tensorindex=>iy]
     ixs = []
     for i=1:length(code.args)
-        append!(ixs, _flatten(code.args[i], OMEinsum.getixs(code.eins)[i]))
+        append!(ixs, _flatten(code.args[i], OMEinsum.getixsv(code.eins)[i]))
     end
     return ixs
 end
-_flatten(i::Int, iy) = [i=>iy]
 
-flatten(@nospecialize(code::EinCode)) = code
+flatten(code::EinCode) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
-    EinCode(([ixd[i] for i=1:length(ixd)]...,), OMEinsum.getiy(code.eins))
+    EinCode([ixd[i] for i=1:length(ixd)], OMEinsum.getiy(code.eins))
 end

@@ -37,9 +37,13 @@ function ein(s::AbstractString)
     end
 end
 
-function (@nospecialize(code::EinCode))(xs...; size_info=nothing)
-    LT = labeltype(code)
+function (code::DynamicEinCode{LT})(@nospecialize(xs...); size_info=nothing) where LT
     size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
+    einsum(code, xs, size_dict)
+end
+
+function (code::StaticEinCode)(xs...; size_info=nothing)
+    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{labeltype(code),Int}() : copy(size_info))
     einsum(code, xs, size_dict)
 end
 
@@ -51,11 +55,15 @@ return a dictionary that is used to get the size of an index-label
 in the einsum-specification with input-indices `ixs` and tensors `xs` after
 consistency within `ixs` and between `ixs` and `xs` has been verified.
 "
-function get_size_dict!(@nospecialize(ixs), @nospecialize(xs), size_info::Dict{LT}) where LT
-    get_size_dict_!([collect(LT, ix) for ix in ixs], [collect(Int, size(x)) for x in xs], size_info)
+@inline function get_size_dict!(ixs, xs, size_info::Dict{LT}) where LT
+    if length(ixs) == 1
+        get_size_dict_unary!(ixs[1], size(xs[1]), size_info)
+    else
+        get_size_dict_!(ixs, [collect(Int, size(x)) for x in xs], size_info)
+    end
 end
 
-function get_size_dict_!(ixs::AbstractVector{<:AbstractVector{LT}}, sizes::AbstractVector, size_info::Dict{LT}) where LT
+function get_size_dict_!(ixs, sizes::AbstractVector, size_info::Dict{LT}) where LT
     # check size of input tuples
     length(sizes)<1 && error("empty input tensors")
     length(ixs) != length(sizes) && throw(ArgumentError("$(length(sizes)) tensors labelled by $(length(ixs)) indices"))
@@ -76,8 +84,7 @@ function get_size_dict_!(ixs::AbstractVector{<:AbstractVector{LT}}, sizes::Abstr
     return size_info
 end
 # to speed up unary operations
-function get_size_dict!(ixs::NTuple{1}, xs::NTuple{1}, size_info::Dict{LT}) where LT
-    ix, s = ixs[1], size(xs[1])
+function get_size_dict_unary!(ix, s, size_info::Dict{LT}) where LT
     for j = 1:length(ix)
         @inbounds k = ix[j]
         if haskey(size_info, k)
@@ -89,7 +96,7 @@ function get_size_dict!(ixs::NTuple{1}, xs::NTuple{1}, size_info::Dict{LT}) wher
     return size_info
 end
 
-function get_size_dict(@nospecialize(ixs), @nospecialize(xs), size_info=nothing)
+@inline function get_size_dict(ixs, xs, size_info=nothing)
     LT = promote_type(eltype.(ixs)...)
     return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
 end
@@ -188,13 +195,12 @@ true
     :(einsum($rule, $ixs, $iy, xs, size_dict))
 end
 
-function einsum(@nospecialize(code::DynamicEinCode), @nospecialize(xs), size_dict::Dict)
+function einsum(code::DynamicEinCode, @nospecialize(xs), size_dict::Dict)
     rule = match_rule(getixs(code), getiy(code))
     einsum(rule, getixs(code), getiy(code), xs, size_dict)
 end
 
-
-function einsum(@nospecialize(code::EinCode), @nospecialize(xs))
+function einsum(code::EinCode, @nospecialize(xs))
     einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
 end
 

@@ -7,14 +7,14 @@ asscalar(x::DenseCuArray) = Array(x)[]
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
 function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
-    CUDA.zeros(promote_type(map(eltype,xs)...), size)
+    CUDA.zeros(promote_type(map(eltype,xs)...), size...)
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
-    @eval function einsum(::$TP, ixs::NTuple{1}, iy::NTuple, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
+    @eval function einsum(::$TP, ixs, iy, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
         loop_einsum(EinCode(ixs, iy), xs, size_dict)
     end
 end
@@ -26,10 +26,11 @@ end
 function loop_einsum!(code::EinCode,
                 xs::NTuple{N, DenseCuArray{<:Any,M} where M},
                 y::DenseCuArray{T,L}, size_dict::Dict{LT}) where {N,L,T, LT}
-    iy = getiy(code)
+    iy = (getiy(code)...,)
+    ixs = (Tuple.(getixs(code))...,)
     iy_ = _unique(LT,iy)
     NO = length(iy_)
-    A = einarray(Val((getixs(code)...,)), Val(iy), xs, size_dict)
+    A = einarray(Val(ixs), Val(iy), xs, size_dict)
     if NO == length(iy)
         y = reshape(y, fill(1, ndims(A)-NO)...,size(y)...)
         raw = Base.mapreducedim!(x->x, +, y, A)
@@ -73,8 +74,7 @@ function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArra
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-tensorpermute(A::DenseCuArray, perm) = permutedims(A, perm)
-tensorpermute(A::DenseCuArray, perm::Tuple{}) = A
+tensorpermute(A::DenseCuArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
 
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])

@@ -12,6 +12,12 @@ asarray(x, arr::AbstractArray) = fill(x, ())
 asarray(x::AbstractArray, y::Array) = x
 asscalar(x) = x
 asscalar(x::AbstractArray) = x[]
+_collect(x) = collect(x)
+_collect(x::Vector) = x
+_collect(::Type{T}, x::Vector{T}) where T = x
+_collect(::Type{T}, x) where T = collect(T, x)
+_insertat(lst::Tuple, i, item) = TupleTools.insertat(lst, i, (item,))
+_insertat(lst::AbstractVector, i, item) = (lst=copy(lst); lst[i]=item; lst)
 
 """
     nopermute(ix,iy)
@@ -77,8 +83,7 @@ end
 
 Aliasing `permutedims(A, perm)`.
 """
-tensorpermute(A::AbstractArray, perm) = permutedims(A, perm)
-tensorpermute(A::AbstractArray, perm::Tuple{}) = A
+tensorpermute(A::AbstractArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
 
 # reload this function for GPU support!
 function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}

@@ -3,13 +3,12 @@ using OMEinsum: SimpleBinaryRule, match_rule
 
 @testset "analyse binary" begin
     size_dict = Dict(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
-    c1, c2, cy, s1, s2, sy, is, js, ys = OMEinsum.analyze_binary([1,2,3,4,8], [2,6,6,8,4,2], [7,2,1,2,2,6], size_dict)
+    c1, c2, cy, s1, s2, is, js, ys = OMEinsum.analyze_binary([1,2,3,4,8], [2,6,6,8,4,2], [7,2,1,2,2,6], size_dict)
     @test c1 == [1,4,8,2]
     @test c2 == [4,8,6,2]
     @test cy == [1,6,2]
     @test s1 == [1,32,2]
     @test s2 == [32,6,2]
-    @test sy == [1,6,2]
     @test is == ['i', 'j', 'l']
     @test js == ['j', 'k', 'l']
     @test ys == ['i', 'k', 'l']

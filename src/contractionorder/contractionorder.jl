@@ -20,32 +20,34 @@ end
 using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy
 export parse_eincode, ContractionOrder, optimize_greedy
 
-function parse_eincode!(::IncidenceList, tree, vertices_order, level=0)
+function parse_eincode!(::Type{ET}, ::IncidenceList, tree, vertices_order, level=0) where ET
     ti = findfirst(==(tree), vertices_order)
-    ti, ti
+    ti, NestedEinsum{ET}(ti)
 end
 
-function parse_eincode!(incidence_list::IncidenceList, tree::ContractionTree, vertices_order, level=0)
-    ti, codei = parse_eincode!(incidence_list, tree.left, vertices_order, level+1)
-    tj, codej = parse_eincode!(incidence_list, tree.right, vertices_order, level+1)
+function parse_eincode!(::Type{EIT}, incidence_list::IncidenceList, tree::ContractionTree, vertices_order, level=0) where EIT
+    ti, codei = parse_eincode!(EIT, incidence_list, tree.left, vertices_order, level+1)
+    tj, codej = parse_eincode!(EIT, incidence_list, tree.right, vertices_order, level+1)
     dummy = Dict([e=>0 for e in keys(incidence_list.e2v)])
     _, _, code = contract_pair!(incidence_list, vertices_order[ti], vertices_order[tj], dummy)
-    ti, NestedEinsum((codei, codej), EinCode(Tuple.(code.first), Tuple(level==0 ? incidence_list.openedges : code.second)))
+    ti, NestedEinsum((codei, codej), _eincode(EIT, [code.first...], level==0 ? incidence_list.openedges : code.second))
 end
+_eincode(::Type{DynamicEinCode{LT}}, ixs::Vector, iy::Vector) where LT = DynamicEinCode(ixs, iy)
+_eincode(::Type{StaticEinCode}, ixs::Vector, iy::Vector) = StaticEinCode{(Tuple.(ixs)...,), (iy...,)}()
 
-function parse_eincode(incidence_list::IncidenceList{VT,ET}, tree::ContractionTree; vertices = collect(keys(incidence_list.v2e))) where {VT,ET}
-    parse_eincode!(copy(incidence_list), tree, vertices)[2]
+function parse_eincode(::Type{EIT}, incidence_list::IncidenceList{VT,ET}, tree::ContractionTree; vertices = collect(keys(incidence_list.v2e))) where {EIT,VT,ET}
+    parse_eincode!(EIT, copy(incidence_list), tree, vertices)[2]
 end
 
 function parse_tree(ein, vertices)
-    if ein isa NestedEinsum
+    if isleaf(ein)
+        vertices[ein.tensorindex]
+    else
         if length(ein.args) != 2
             error("This eincode is not a binary tree.")
         end
         left, right = parse_tree.(ein.args, Ref(vertices))
         ContractionTree(left, right)
-    else
-        vertices[ein]
     end
 end
 
@@ -56,12 +58,15 @@ Greedy optimizing the contraction order and return a `NestedEinsum` object. Meth
 * `MinSpaceOut`, always choose the next contraction that produces the minimum output tensor.
 * `MinSpaceDiff`, always choose the next contraction that minimizes the total space.
 """
-function optimize_greedy(@nospecialize(code::EinCode), size_dict::Dict{L,T}; method=MinSpaceOut(), nrepeat=10) where {L, T}
-    optimize_greedy([collect(L, c) for c in getixs(code)], collect(L, getiy(code)), size_dict; method=MinSpaceOut(), nrepeat=nrepeat)
+function optimize_greedy(code::DynamicEinCode{L}, size_dict::Dict; method=MinSpaceOut(), nrepeat=10) where {L}
+    optimize_greedy(DynamicEinCode{L}, getixsv(code), getiyv(code), size_dict; method=method, nrepeat=nrepeat)
 end
-function optimize_greedy(ixs::AbstractVector{<:AbstractVector}, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {L, TI}
+function optimize_greedy(code::StaticEinCode, size_dict::Dict; method=MinSpaceOut(), nrepeat=10)
+    optimize_greedy(StaticEinCode, getixsv(code), getiyv(code), size_dict; method=method, nrepeat=nrepeat)
+end
+function optimize_greedy(::Type{ET}, ixs::AbstractVector{<:AbstractVector}, iy::AbstractVector, size_dict::Dict{L,TI}; method=MinSpaceOut(), nrepeat=10) where {ET, L, TI}
     if length(ixs) <= 2
-        return NestedEinsum((1:length(ixs)...,), EinCode(ntuple(i->(ixs[i]...,), length(ixs)), (iy...,)))
+        return NestedEinsum((1:length(ixs)...,), _eincode(ET, ixs, iy))
     end
     log2_edge_sizes = Dict{L,Float64}()
     for (k, v) in size_dict
@@ -69,10 +74,10 @@ function optimize_greedy(ixs::AbstractVector{<:AbstractVector}, iy::AbstractVect
     end
     incidence_list = ContractionOrder.IncidenceList(Dict([i=>ixs[i] for i=1:length(ixs)]); openedges=iy)
     tree, _, _ = tree_greedy(incidence_list, log2_edge_sizes; method=method, nrepeat=nrepeat)
-    parse_eincode!(incidence_list, tree, 1:length(ixs))[2]
+    parse_eincode!(ET, incidence_list, tree, 1:length(ixs))[2]
 end
-optimize_greedy(code::Int, size_dict; method=MinSpaceOut(), nrepeat=10) = code
 function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut(), nrepeat=10)
+    isleaf(code) && return code
     args = optimize_greedy.(code.args, Ref(size_dict); method=method, nrepeat=nrepeat)
     if length(code.args) > 2
         # generate coarse grained hypergraph.
@@ -83,10 +88,10 @@ function optimize_greedy(code::NestedEinsum, size_dict; method=MinSpaceOut(), nr
     end
 end
 
-function replace_args(nested::NestedEinsum, trueargs)
+function replace_args(nested::NestedEinsum{ET}, trueargs) where ET
+    isleaf(nested) && return trueargs[nested.tensorindex]
     NestedEinsum(replace_args.(nested.args, Ref(trueargs)), nested.eins)
 end
-replace_args(nested::Int, trueargs) = trueargs[nested]
 
 export timespace_complexity
 """
@@ -101,12 +106,13 @@ function timespace_complexity(ei::NestedEinsum, size_dict)
     _timespace_complexity(ei, log2_sizes)
 end
 
-function timespace_complexity(@nospecialize(ei::EinCode), size_dict)
+function timespace_complexity(ei::EinCode, size_dict)
     log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
-    _timespace_complexity(collect(getixs(ei)), collect(getiy(ei)), log2_sizes)
+    _timespace_complexity(getixsv(ei), getiyv(ei), log2_sizes)
 end
 
-function _timespace_complexity(ei::NestedEinsum, log2_sizes)
+function _timespace_complexity(ei::NestedEinsum, log2_sizes::Dict{L}) where L
+    isleaf(ei) && return (-Inf, -Inf)
     tcs = Float64[]
     scs = Float64[]
     for arg in ei.args
@@ -114,12 +120,11 @@ function _timespace_complexity(ei::NestedEinsum, log2_sizes)
         push!(tcs, tc)
         push!(scs, sc)
     end
-    tc2, sc2 = _timespace_complexity(collect(getixs(ei.eins)), collect(getiy(ei.eins)), log2_sizes)
+    tc2, sc2 = _timespace_complexity(getixsv(ei.eins), getiyv(ei.eins), log2_sizes)
     tc = ContractionOrder.log2sumexp2([tcs..., tc2])
     sc = max(reduce(max, scs), sc2)
     return tc, sc
 end
-_timespace_complexity(ei::Int, size_dict) = -Inf, -Inf
 
 function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L}) where {T, L}
     # remove redundant legs

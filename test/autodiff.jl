@@ -1,5 +1,6 @@
 using Test
 using OMEinsum
+using OMEinsum: StaticEinCode, DynamicEinCode
 using Zygote
 
 @doc raw"

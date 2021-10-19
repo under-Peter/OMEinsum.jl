@@ -18,12 +18,14 @@ It is the default return type of `@ein_str` macro.
 """
 struct StaticEinCode{ixs, iy} <: EinCode end
 
-getixs(@nospecialize(code::StaticEinCode{ixs})) where ixs = ixs
-getiy(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = iy
-labeltype(@nospecialize(code::StaticEinCode{ixs,iy})) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+getixs(::StaticEinCode{ixs}) where ixs = ixs
+getiy(::StaticEinCode{ixs, iy}) where {ixs, iy} = iy
+labeltype(::StaticEinCode{ixs,iy}) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+getixsv(code::StaticEinCode) = [collect(labeltype(code), ix) for ix in getixs(code)]
+getiyv(code::StaticEinCode) = collect(labeltype(code), getiy(code))
 
 """
-    DynamicEinCode{LT, TX, DY}
+    DynamicEinCode{LT}
     DynamicEinCode(ixs, iy)
 
 Wrapper to `eincode`-specification that creates a callable object
@@ -39,23 +41,36 @@ julia> OMEinsum.DynamicEinCode((('i','j'),('j','k')),('i','k'))(a, b) ≈ a * b
 true
 ```
 """
-struct DynamicEinCode{LT, TX<:NTuple{NX, NTuple{M, LT} where {M}} where NX, DY} <: EinCode
-    ixs::TX
-    iy::NTuple{DY, LT}
+struct DynamicEinCode{LT} <: EinCode
+    ixs::Vector{Vector{LT}}
+    iy::Vector{LT}
 end
-# forward the previous constructor to the dynamic version
-EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
-# to avoid ambiguity error
-EinCode(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = DynamicEinCode{Union{}, NTuple{N,Tuple{}}, 0}(ixs, iy)
-EinCode(ixs::Tuple{}, iy::Tuple{}) = error("empty input tensor is not allowed!")
+# to avoid ambiguity error, support tuple inputs
+function DynamicEinCode(ixs, iy)
+    @debug "generating dynamic eincode ..."
+    if isempty(ixs)
+        error("number of input tensors must be greater than 0")
+    end
+    DynamicEinCode(_tovec(ixs, iy)...)
+end
+_tovec(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = [collect(Union{}, ix) for ix in ixs], collect(Union{}, iy)
+_tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [collect(LT, ix) for ix in ixs], collect(LT, iy)
+_tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), iy
+_tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
 
-getixs(@nospecialize(code::DynamicEinCode)) = code.ixs
-getiy(@nospecialize(code::DynamicEinCode)) = code.iy
-labeltype(@nospecialize(code::DynamicEinCode{LT})) where LT = LT
+Base.:(==)(x::DynamicEinCode, y::DynamicEinCode) = x.ixs == y.ixs && x.iy == y.iy
+# forward from EinCode, for compatibility
+EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
+
+getixs(code::DynamicEinCode) = code.ixs
+getiy(code::DynamicEinCode) = code.iy
+labeltype(::DynamicEinCode{LT}) where LT = LT
+getixsv(code::DynamicEinCode) = code.ixs
+getiyv(code::DynamicEinCode) = code.iy
 
 # conversion
-DynamicEinCode(@nospecialize(code::StaticEinCode{ixs, iy})) where {ixs, iy} = DynamicEinCode(ixs, iy)
-StaticEinCode(@nospecialize(code::DynamicEinCode)) = StaticEinCode{code.ixs, code.iy}()
+DynamicEinCode(::StaticEinCode{ixs, iy}) where {ixs, iy} = DynamicEinCode(ixs, iy)
+StaticEinCode(code::DynamicEinCode) = StaticEinCode{(Tuple.(code.ixs)...,), (code.iy...,)}()
 
 """
     EinIndexer{locs,N}
@@ -113,7 +128,7 @@ struct EinArray{T, N, TT, LX, LY, ICT, OCT} <: AbstractArray{T, N}
     size::NTuple{N, Int}
     ICIS::ICT
     OCIS::OCT
-    function EinArray{T}(xs::TT, x_indexers::LX, y_indexer::LY, size::NTuple{N, Int}, ICIS::ICT, OCIS::OCT) where {T,N,TT,LX,LY,ICT,OCT}
+    function EinArray{T}(xs::TT, x_indexers::LX, y_indexer::LY, size::NTuple{N, Int}, ICIS::ICT, OCIS::OCT) where {T,N,TT<:Tuple,LX<:Tuple,LY<:EinIndexer,ICT,OCT}
         new{T,N,TT,LX,LY,ICT,OCT}(xs,x_indexers,y_indexer,size,ICIS,OCIS)
     end
 end
@@ -200,7 +215,7 @@ where the list of all index-labels is simply the first  and the second output ca
 function indices_and_locs(ixs, iy)
     # outer legs and inner legs
     outer_indices = unique!(collect(iy))
-    inner_indices = setdiff!(collect(TupleTools.vcat(ixs...)), outer_indices)
+    inner_indices = setdiff!(collect(vcat(_collect.(ixs)...)), outer_indices)
 
     # for indexing tensors (leg binding)
     indices = (inner_indices...,outer_indices...)

@@ -21,9 +21,9 @@ julia> einsum_grad((('i','j'),('j','k')), (a,b), ('i','k'), sd, c, 1) ≈ c * tr
 true
 ```
 "
-function einsum_grad(ixs, xs, iy, size_dict, cdy, i)
-    nixs = TupleTools.insertat(ixs, i, (iy,))
-    nxs  = TupleTools.insertat( xs, i, (cdy,))
+function einsum_grad(ixs, @nospecialize(xs), iy, size_dict, cdy, i)
+    nixs = _insertat(ixs, i, iy)
+    nxs  = _insertat( xs, i, cdy)
     niy = ixs[i]
     y = einsum(DynamicEinCode(nixs, niy), nxs, size_dict)
     try
@@ -36,10 +36,10 @@ function einsum_grad(ixs, xs, iy, size_dict, cdy, i)
     convert(typeof(xs[i]), y)
 end
 
-function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, xs::NTuple{N,T where T}, size_dict) where {N}
+function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs), size_dict)
     y = einsum(code, xs, size_dict)
     function einsum_pullback(dy)
-        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, map(conj, dy), i), N)
+        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, map(conj, dy), i), length(xs))
         return (NoTangent(), NoTangent(), dxs, NoTangent())
     end
     einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())
@@ -47,3 +47,5 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, xs::NTuple{N,T wh
 end
 
 @non_differentiable get_size_dict!(::Any, ::Any, ::Any)
+@non_differentiable DynamicEinCode(::Any, ::Any)
+@non_differentiable DynamicEinCode(::Any)
