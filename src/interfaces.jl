@@ -68,16 +68,16 @@ function get_size_dict_!(ixs, sizes::AbstractVector, size_info::Dict{LT}) where 
     length(sizes)<1 && error("empty input tensors")
     length(ixs) != length(sizes) && throw(ArgumentError("$(length(sizes)) tensors labelled by $(length(ixs)) indices"))
     # check tensor orders
-    for i=1:length(sizes)
-        @inbounds ix, s = ixs[i], sizes[i]
+    @inbounds for i=1:length(sizes)
+        ix, s = ixs[i], sizes[i]
         length(ix) == length(s) || throw(
             ArgumentError("indices $ix invalid for tensor with ndims = $(length(s))"))
         for j = 1:length(ix)
-            @inbounds k = ix[j]
+            k = ix[j]
             if haskey(size_info, k)
-                @inbounds s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
+                s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
             else
-                @inbounds size_info[k] = s[j]
+                size_info[k] = s[j]
             end
         end
     end
@@ -85,12 +85,12 @@ function get_size_dict_!(ixs, sizes::AbstractVector, size_info::Dict{LT}) where 
 end
 # to speed up unary operations
 function get_size_dict_unary!(ix, s, size_info::Dict{LT}) where LT
-    for j = 1:length(ix)
-        @inbounds k = ix[j]
+    @inbounds for j = 1:length(ix)
+        k = ix[j]
         if haskey(size_info, k)
-            @inbounds s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
+            s[j] == size_info[k] || throw(DimensionMismatch("$k = $(size_info[k]) or $(s[j]))?"))
         else
-            @inbounds size_info[k] = s[j]
+            size_info[k] = s[j]
         end
     end
     return size_info
@@ -190,22 +190,22 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::StaticEinCode{ixs, iy}, xs, size_dict::Dict{LT}) where {LT, ixs, iy}
+@generated function einsum(code::StaticEinCode{ixs, iy}, xs::Tuple, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
     :(einsum($rule, $ixs, $iy, xs, size_dict))
 end
 
-function einsum(code::DynamicEinCode, @nospecialize(xs), size_dict::Dict)
+function einsum(code::DynamicEinCode, @nospecialize(xs::Tuple), size_dict::Dict)
     rule = match_rule(getixs(code), getiy(code))
     einsum(rule, getixs(code), getiy(code), xs, size_dict)
 end
 
-function einsum(code::EinCode, @nospecialize(xs))
+function einsum(code::EinCode, @nospecialize(xs::Tuple))
     einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
 end
 
 # the fallback
-function einsum(::DefaultRule, ixs, iy, xs, size_dict)
+function einsum(::DefaultRule, ixs, iy, xs::Tuple, size_dict)
     @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
     loop_einsum(EinCode(ixs, iy), (xs...,), size_dict)
 end

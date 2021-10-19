@@ -162,12 +162,14 @@ struct NestedEinsum{ET}
     NestedEinsum(args::Vector{NestedEinsum{DynamicEinCode{LT}}}, eins::DynamicEinCode{LT}) where LT = new{DynamicEinCode{LT}}(args, -1, eins)
     NestedEinsum{DynamicEinCode{LT}}(arg::Int) where LT = new(NestedEinsum{DynamicEinCode{LT}}[], arg)
     function NestedEinsum(args::Tuple, eins::DynamicEinCode{LT}) where LT
+        @assert length(args) == length(getixs(eins))
         new{DynamicEinCode{LT}}([arg isa Int ? NestedEinsum{DynamicEinCode{LT}}(arg) : arg for arg in args], -1, eins)
     end
 
     NestedEinsum(args::Vector{NestedEinsum{StaticEinCode}}, eins::StaticEinCode) = new{StaticEinCode}(args, -1, eins)
     NestedEinsum{StaticEinCode}(arg::Int) = new{StaticEinCode}(NestedEinsum{StaticEinCode}[], arg)
     function NestedEinsum(args::Tuple, eins::StaticEinCode)
+        @assert length(args) == length(getixs(eins))
         new{StaticEinCode}([arg isa Int ? NestedEinsum{StaticEinCode}(arg) : arg for arg in args], -1, eins)
     end
 end
@@ -201,13 +203,19 @@ function (neinsum::NestedEinsum)(@nospecialize(xs::AbstractArray...); size_info 
     return einsum(neinsum, xs, size_dict)
 end
 
-function get_size_dict!(ne::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_info::Dict{LT}) where LT
+function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}) where LT
     d = collect_ixs!(ne, Dict{Int,Vector{LT}}())
     ks = sort!(collect(keys(d)))
     ixs = [d[i] for i in ks]
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
+collect_ixs(ne::EinCode) = [_collect(ix) for ix in getixs(ne)]
+function collect_ixs(ne::NestedEinsum)
+    d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{OMEinsum.labeltype(ne.eins)}}())
+    ks = sort!(collect(keys(d)))
+    return @inbounds [d[i] for i in ks]
+end
 function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
     @inbounds for i=1:length(ne.args)
         arg = ne.args[i]
@@ -271,5 +279,9 @@ end
 flatten(code::EinCode) = code
 function flatten(code::NestedEinsum)
     ixd = Dict(_flatten(code))
-    EinCode([ixd[i] for i=1:length(ixd)], OMEinsum.getiy(code.eins))
+    if code.eins isa DynamicEinCode
+        DynamicEinCode([ixd[i] for i=1:length(ixd)], collect(OMEinsum.getiy(code.eins)))
+    else
+        StaticEinCode{ntuple(i->(ixd[i]...,), length(ixd)), OMEinsum.getiy(code.eins)}()
+    end
 end
