@@ -46,6 +46,15 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs)
     return y, einsum_pullback
 end
 
+function ChainRulesCore.rrule(::typeof(_safe_set), lst, i, x)
+    y = _safe_set(lst, i, x)
+    function set_pullback(dy)
+        return (NoTangent(), dy, NoTangent(), dy[i])
+    end
+    set_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())
+    return y, set_pullback
+end
+
 @non_differentiable get_size_dict!(::Any, ::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any)
