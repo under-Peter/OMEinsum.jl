@@ -229,10 +229,16 @@ function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
 end
 
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
-    # do not use map because the overhead is too large
-    mxs = ntuple(i->isleaf(neinsum.args[i]) ? xs[neinsum.args[i].tensorindex] : einsum(neinsum.args[i], xs, size_dict), length(neinsum.args))
-    return einsum(neinsum.eins, mxs, size_dict)
+    # do not use map because the static overhead is too large
+    # do not use `setindex!` because we need to make the AD work
+    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
+    for (i, arg) in enumerate(neinsum.args)
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict))
+    end
+    return einsum(neinsum.eins, (mxs...,), size_dict)
 end
+
+_safe_set(lst, i, y) = (lst[i] = y; lst)
 
 # Better printing
 using AbstractTrees

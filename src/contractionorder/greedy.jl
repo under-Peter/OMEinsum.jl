@@ -193,7 +193,7 @@ function greedy_loss(::MinSpaceDiff, incidence_list, log2_edge_sizes, vi, vj)
     log2dim(legs) = isempty(legs) ? 0 : sum(l->log2_edge_sizes[l], legs)  # for 1.5, you need this patch because `init` kw is not allowed.
     legs = analyze_contraction(incidence_list, vi, vj)
     D1,D2,D12,D01,D02,D012 = log2dim.(getfield.(Ref(legs), 1:6))
-    exp2(D01+D02+D012) - exp2(D1+D01+D12) - exp2(D2+D02+D12)  # out - in
+    exp2(D01+D02+D012) - exp2(D01+D12+D012) - exp2(D02+D12+D012)  # out - in
 end
 
 function space_complexity(incidence_list, log2_sizes)
