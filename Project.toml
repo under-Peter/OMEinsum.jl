@@ -1,7 +1,7 @@
 name = "OMEinsum"
 uuid = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
-version = "0.6.1"
+version = "0.6.2"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
