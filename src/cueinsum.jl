@@ -15,6 +15,7 @@ CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_index
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
     @eval function einsum(::$TP, ixs, iy, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
+        @debug "cueinsum fallback to loop_einsum" rule ixs => iy size.(xs)
         loop_einsum(EinCode(ixs, iy), xs, size_dict)
     end
 end
