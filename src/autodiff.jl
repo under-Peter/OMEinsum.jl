@@ -26,11 +26,7 @@ function einsum_grad(ixs, @nospecialize(xs), iy, size_dict, cdy, i)
     nxs  = _insertat( xs, i, cdy)
     niy = ixs[i]
     y = einsum(DynamicEinCode(nixs, niy), nxs, size_dict)
-    try
-        conj!(y)
-    catch e
-        y = conj(y)
-    end
+    y = conj(y)  # do not use `conj!` to help computing Hessians.
     typeof(y) == typeof(xs[i]) && return y
     xs[i] isa Array{<:Real} && return convert(typeof(xs[i]), real(y))
     convert(typeof(xs[i]), y)
