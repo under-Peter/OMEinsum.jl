@@ -1,7 +1,7 @@
 using Test
 using OMEinsum
 using OMEinsum: StaticEinCode, DynamicEinCode
-using Zygote
+using Zygote, ForwardDiff
 
 @doc raw"
     bpcheck(f, args...; η = 1e-5, verbose=false)
@@ -118,4 +118,10 @@ end
     a, b, c = rand(2,2), rand(2,2), rand(2,2)
     @test all(gradient(sum ∘ ein"ij,jk,kl -> il", a, b, c) .≈
           gradient(sum ∘ ein"(ij,(jk,kl)) -> il", a, b, c))
+end
+
+@testset "hessian" begin
+    loss(x) = sin(ein"ij->"(x)[])
+    x = randn(2, 2)
+    @test Zygote.hessian(loss, x) == ForwardDiff.hessian(loss, x)
 end
