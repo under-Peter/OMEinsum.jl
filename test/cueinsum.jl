@@ -52,7 +52,7 @@ end
     xs = (T,U,U,T,U,U)
     M = code(xs...)
     # mapreducedim! calls to dynamic tuple splatting.
-    @test_broken M |> Array ≈ loop_einsum(_code, xs, OMEinsum.get_size_dict(OMEinsum.getixs(_code), xs)) |> Array
+    @test M |> Array ≈ loop_einsum(_code, xs, OMEinsum.get_size_dict(OMEinsum.getixs(_code), xs)) |> Array
 end
 
 @testset "binary einsum" begin
@@ -103,4 +103,9 @@ end
         @test res1 isa CuArray
         @test res0 ≈ Array(res1)
     end
+end
+
+@testset "permutedims for high dimensional tensors" begin
+    c = CUDA.rand(4, [2 for _ = 2:18]...);
+    @test Array(permutedims(c, 18:-1:1)) ≈ permutedims(Array(c), 18:-1:1)
 end
