@@ -1,5 +1,5 @@
 export EinCode, EinIndexer, EinArray
-export einarray
+export einarray, getiyv, getixsv
 
 """
     EinCode

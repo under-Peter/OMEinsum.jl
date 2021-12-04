@@ -1,5 +1,5 @@
 using Test, OMEinsum
-using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, collect_ixs
+using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, getixsv, getiyv
 @testset "einsequence" begin
     @test push!(IndexGroup([],1), 'c').inds == IndexGroup(['c'], 1).inds
     @test isempty(IndexGroup([],1))
@@ -16,7 +16,8 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, 
     size_info = Dict('k'=>2)
     a, b, c, d = randn(2), randn(2,2), randn(2), randn(2)
     @test ein"((i,ij),i),j->ik"(a, b, c, d; size_info=size_info) ≈ ein"i,ij,i,j->ik"(a, b, c, d; size_info=size_info)
-    @test collect_ixs(ein"((i,ij),i),j->ik") == collect_ixs(ein"i,ij,i,j->ik") == collect_ixs(DynamicEinCode(ein"i,ij,i,j->ik")) == [['i'], ['i','j'], ['i'], ['j']]
+    @test getixsv(ein"((i,ij),i),j->ik") == getixsv(ein"i,ij,i,j->ik") == getixsv(DynamicEinCode(ein"i,ij,i,j->ik")) == [['i'], ['i','j'], ['i'], ['j']]
+    @test getiyv(ein"((i,ij),i),j->ik") == getiyv(ein"i,ij,i,j->ik") == getiyv(DynamicEinCode(ein"i,ij,i,j->ik")) == ['i','k']
 end
 
 @testset "macro" begin
