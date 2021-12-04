@@ -210,8 +210,7 @@ function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
-collect_ixs(ne::EinCode) = [_collect(ix) for ix in getixs(ne)]
-function collect_ixs(ne::NestedEinsum)
+function getixsv(ne::NestedEinsum)
     d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{OMEinsum.labeltype(ne.eins)}}())
     ks = sort!(collect(keys(d)))
     return @inbounds [d[i] for i in ks]
@@ -291,3 +290,6 @@ function flatten(code::NestedEinsum)
         StaticEinCode{ntuple(i->(ixd[i]...,), length(ixd)), OMEinsum.getiy(code.eins)}()
     end
 end
+
+labeltype(ne::NestedEinsum) = labeltype(ne.eins)
+getiyv(ne::NestedEinsum) = getiyv(ne.eins)

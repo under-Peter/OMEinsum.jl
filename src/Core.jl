@@ -1,5 +1,5 @@
 export EinCode, EinIndexer, EinArray
-export einarray
+export einarray, getiyv, getixsv
 
 """
     EinCode
@@ -21,7 +21,33 @@ struct StaticEinCode{ixs, iy} <: EinCode end
 getixs(::StaticEinCode{ixs}) where ixs = ixs
 getiy(::StaticEinCode{ixs, iy}) where {ixs, iy} = iy
 labeltype(::StaticEinCode{ixs,iy}) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+"""
+    getixsv(code)
+
+Get labels of input tensors for `EinCode`, `NestedEinsum` and some other einsum like objects.
+Returns a vector of vector.
+
+```jldoctest; setup = :(using OMEinsum)
+julia> getixsv(ein"(ij,jk),k->i")
+3-element Vector{Vector{Char}}:
+ ['i', 'j']
+ ['j', 'k']
+ ['k']
+```
+"""
 getixsv(code::StaticEinCode) = [collect(labeltype(code), ix) for ix in getixs(code)]
+"""
+    getiy(code)
+
+Get labels of the output tensor for `EinCode`, `NestedEinsum` and some other einsum like objects.
+Returns a vector.
+
+```jldoctest; setup = :(using OMEinsum)
+julia> getiyv(ein"(ij,jk),k->i")
+1-element Vector{Char}:
+ 'i': ASCII/Unicode U+0069 (category Ll: Letter, lowercase)
+```
+"""
 getiyv(code::StaticEinCode) = collect(labeltype(code), getiy(code))
 
 """
