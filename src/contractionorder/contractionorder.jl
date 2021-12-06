@@ -18,7 +18,7 @@ include("greedy.jl")
 end
 
 using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy
-export parse_nested, ContractionOrder, optimize_greedy, ContractionTree
+export parse_nested, ContractionOrder, optimize_greedy, ContractionTree, label_elimination_order
 
 function parse_eincode!(::Type{ET}, ::IncidenceList, tree, vertices_order, level=0) where ET
     ti = findfirst(==(tree), vertices_order)
@@ -180,7 +180,7 @@ export flop
 Returns the number of iterations, which is different with the true floating point operations (FLOP) by a factor of 2.
 """
 function flop(ei::EinCode, size_dict::Dict{LT,VT}) where {LT,VT}
-    loop_inds = unique(vcat(getixsv(ei)..., getiyv(ei)))
+    loop_inds = uniquelabels(ei)
     return isempty(loop_inds) ? zero(VT) : prod(l->size_dict[l], loop_inds)
 end
 
@@ -189,4 +189,20 @@ function flop(ei::NestedEinsum, size_dict::Dict{L,VT}) where {L,VT}
     return sum(ei.args) do arg
         flop(arg, size_dict)
     end + flop(ei.eins, size_dict)
+end
+
+"""
+    label_elimination_order(code)
+
+Returns a vector of labels sorted by the order they are eliminated in the contraction tree.
+The contraction tree is specified by `code`, which e.g. can be a `NestedEinsum` instance.
+"""
+label_elimination_order(code::NestedEinsum) = label_elimination_order!(code, labeltype(code)[])
+function label_elimination_order!(code, eliminated_vertices)
+    OMEinsum.isleaf(code) && return eliminated_vertices
+    for arg in code.args
+        label_elimination_order!(arg, eliminated_vertices)
+    end
+    append!(eliminated_vertices, setdiff(vcat(getixsv(code.eins)...), getiyv(code.eins)))
+    return eliminated_vertices
 end

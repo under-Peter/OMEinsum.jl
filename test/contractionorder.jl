@@ -1,6 +1,6 @@
 using OMEinsum
 using OMEinsum.ContractionOrder
-using OMEinsum: StaticEinCode
+using OMEinsum: parse_eincode
 using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs, contract_tree!, log2sumexp2
 using TropicalNumbers
 
@@ -47,8 +47,8 @@ end
     optcode2 = optimize_greedy(eincode, size_dict) 
     tc, sc = timespace_complexity(optcode2, edge_sizes)
     # test flop
-    @test tc ≈ log2(flops(optcode2, edge_sizes))
-    @test flops(ein"i->", Dict('i'=>4)) == 4
+    @test tc ≈ log2(flop(optcode2, edge_sizes))
+    @test flop(ein"i->", Dict('i'=>4)) == 4
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
     @test sc == 11
     @test optcode1 == optcode2
@@ -126,4 +126,10 @@ end
     @test ne1(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
     @test ne2(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
     @test ne3(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
+    @test flop(code, Dict([l=>2 for l in uniquelabels(code)])) == 2^4
+    @test flop(ne1, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
+    @test flop(ne2, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
+
+    # label elimination order
+    @test label_elimination_order(ein"(ij,jk),kl->il") == ['j', 'k']
 end

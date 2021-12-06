@@ -1,14 +1,26 @@
-export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode
-export einarray, getiyv, getixsv
+export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum
+export einarray, getiyv, getixsv, uniquelabels, labeltype
+
+# include `EinCode`, `NestedEinsum` and `SlicedEinsum` (defined in OMEinsumContractionOrders).
+#
+# Required interfaces are:
+# * labeltype
+# * getixsv
+# * getiyv
+#
+# Optional interfaces are:
+# * uniquelabels
+abstract type AbstractEinsum end
+uniquelabels(code::AbstractEinsum) = unique!(vcat(getixsv(code)..., getiyv(code)))
 
 """
-    EinCode
+    EinCode <: AbstractEinsum
     EinCode(ixs, iy)
 
 Abstract type for sum-product contraction code.
 The constructor returns a `DynamicEinCode` instance.
 """
-abstract type EinCode end
+abstract type EinCode <: AbstractEinsum end
 
 """
     StaticEinCode{ixs, iy}

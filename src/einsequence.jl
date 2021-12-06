@@ -154,7 +154,7 @@ function parse_nested_expr(expr, tensors, allinds)
     end
 end
 
-struct NestedEinsum{ET}
+struct NestedEinsum{ET} <: AbstractEinsum
     args::Vector{NestedEinsum{ET}}
     tensorindex::Int  # -1 if not leaf
     eins::ET
