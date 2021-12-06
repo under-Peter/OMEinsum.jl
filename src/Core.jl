@@ -1,4 +1,4 @@
-export EinCode, EinIndexer, EinArray
+export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode
 export einarray, getiyv, getixsv
 
 """

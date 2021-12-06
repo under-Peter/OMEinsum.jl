@@ -93,7 +93,6 @@ end
 
 function contract_pair!(incidence_list, vi, vj, log2_edge_sizes)
     log2dim(legs) = isempty(legs) ? 0 : sum(l->log2_edge_sizes[l], legs)  # for 1.5, you need this patch because `init` kw is not allowed.
-    @assert vj > vi
     # compute time complexity and output tensor
     legsets = analyze_contraction(incidence_list, vi, vj)
     D12,D01,D02,D012 = log2dim.(getfield.(Ref(legsets),3:6))

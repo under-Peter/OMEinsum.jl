@@ -18,7 +18,7 @@ include("greedy.jl")
 end
 
 using .ContractionOrder: IncidenceList, ContractionTree, contract_pair!, MinSpaceOut, MinSpaceDiff, tree_greedy
-export parse_eincode, ContractionOrder, optimize_greedy
+export parse_nested, ContractionOrder, optimize_greedy, ContractionTree
 
 function parse_eincode!(::Type{ET}, ::IncidenceList, tree, vertices_order, level=0) where ET
     ti = findfirst(==(tree), vertices_order)
@@ -37,6 +37,14 @@ _eincode(::Type{StaticEinCode}, ixs::Vector, iy::Vector) = StaticEinCode{(Tuple.
 
 function parse_eincode(::Type{EIT}, incidence_list::IncidenceList{VT,ET}, tree::ContractionTree; vertices = collect(keys(incidence_list.v2e))) where {EIT,VT,ET}
     parse_eincode!(EIT, copy(incidence_list), tree, vertices)[2]
+end
+
+parse_nested(code::StaticEinCode, tree::ContractionTree) = parse_nested(StaticEinCode, code, tree)
+parse_nested(code::DynamicEinCode{LT}, tree::ContractionTree) where LT = parse_nested(DynamicEinCode{LT}, code, tree)
+function parse_nested(::Type{ET}, code::EinCode, tree::ContractionTree) where ET
+    ixs, iy = OMEinsum.getixsv(code), OMEinsum.getiyv(code)
+    incidence_list = ContractionOrder.IncidenceList(Dict([i=>ixs[i] for i=1:length(ixs)]); openedges=iy)
+    parse_eincode!(ET, incidence_list, tree, 1:length(ixs))[2]
 end
 
 function parse_tree(ein, vertices)
@@ -97,7 +105,7 @@ export timespace_complexity
 """
     timespace_complexity(eincode, size_dict)
 
-Return the time and space complexity of the einsum contraction.
+Returns the time and space complexity of the einsum contraction.
 The time complexity is defined as `log2(number of element multiplication)`.
 The space complexity is defined as `log2(size of the maximum intermediate tensor)`.
 """
@@ -111,10 +119,10 @@ function timespace_complexity(ei::EinCode, size_dict)
     _timespace_complexity(getixsv(ei), getiyv(ei), log2_sizes)
 end
 
-function _timespace_complexity(ei::NestedEinsum, log2_sizes::Dict{L}) where L
-    isleaf(ei) && return (-Inf, -Inf)
-    tcs = Float64[]
-    scs = Float64[]
+function _timespace_complexity(ei::NestedEinsum, log2_sizes::Dict{L,VT}) where {L,VT}
+    isleaf(ei) && return (VT(-Inf), VT(-Inf))
+    tcs = VT[]
+    scs = VT[]
     for arg in ei.args
         tc, sc = _timespace_complexity(arg, log2_sizes)
         push!(tcs, tc)
@@ -126,9 +134,16 @@ function _timespace_complexity(ei::NestedEinsum, log2_sizes::Dict{L}) where L
     return tc, sc
 end
 
-function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L}) where {T, L}
+function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L,VT}) where {T, L, VT}
+    loop_inds = get_loop_inds(ixs, iy)
+    tc = isempty(loop_inds) ? VT(-Inf) : sum(l->log2_sizes[l], loop_inds)
+    sc = isempty(iy) ? zero(VT) : sum(l->log2_sizes[l], iy)
+    return tc, sc
+end
+
+function get_loop_inds(ixs::AbstractVector, iy::AbstractVector{LT}) where {LT}
     # remove redundant legs
-    counts = Dict{L,Int}()
+    counts = Dict{LT,Int}()
     for ix in ixs
         for l in ix
             if haskey(counts, l)
@@ -145,7 +160,7 @@ function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_
             counts[l] = 1
         end
     end
-    loop_inds = L[]
+    loop_inds = LT[]
     for ix in ixs
         for l in ix
             c = count(==(l), ix)
@@ -154,7 +169,24 @@ function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_
             end
         end
     end
-    tc = isempty(loop_inds) ? -Inf : sum(l->log2_sizes[l], loop_inds)
-    sc = isempty(iy) ? 0.0 : sum(l->log2_sizes[l], iy)
-    return tc, sc
+    return loop_inds
+end
+
+
+export flop
+"""
+    flop(eincode, size_dict)
+
+Returns the number of iterations, which is different with the true floating point operations (FLOP) by a factor of 2.
+"""
+function flop(ei::EinCode, size_dict::Dict{LT,VT}) where {LT,VT}
+    loop_inds = unique(vcat(getixsv(ei)..., getiyv(ei)))
+    return isempty(loop_inds) ? zero(VT) : prod(l->size_dict[l], loop_inds)
+end
+
+function flop(ei::NestedEinsum, size_dict::Dict{L,VT}) where {L,VT}
+    isleaf(ei) && return zero(VT)
+    return sum(ei.args) do arg
+        flop(arg, size_dict)
+    end + flop(ei.eins, size_dict)
 end
