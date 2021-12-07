@@ -1,5 +1,6 @@
 using OMEinsum
 using OMEinsum.ContractionOrder
+using OMEinsum: parse_eincode
 using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs, contract_tree!, log2sumexp2
 using TropicalNumbers
 
@@ -45,6 +46,9 @@ end
     Random.seed!(2)
     optcode2 = optimize_greedy(eincode, size_dict) 
     tc, sc = timespace_complexity(optcode2, edge_sizes)
+    # test flop
+    @test tc ≈ log2(flop(optcode2, edge_sizes))
+    @test flop(ein"i->", Dict('i'=>4)) == 4
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
     @test sc == 11
     @test optcode1 == optcode2
@@ -108,4 +112,24 @@ end
     @test optcode isa NestedEinsum
     a, b, c = [rand(3,3) for i=1:3]
     @test optcode(a, b, c) ≈ code(a, b, c)
+end
+
+@testset "contructing contraction tree manually" begin
+    code = ein"ij,jk,kl->ijl"
+    dcode = DynamicEinCode(ein"ij,jk,kl->ijl")
+    a, b, c = randn(2, 2), randn(2,2), randn(2,2)
+    ne1 = parse_nested(code, ContractionTree(ContractionTree(1, 2), 3))
+    ne2 = parse_nested(dcode, ContractionTree(ContractionTree(1, 2), 3))
+    ne3 = parse_nested(code, ContractionTree(ContractionTree(1, 3), 2))
+    @test typeof(ne1) == NestedEinsum{StaticEinCode}
+    @test typeof(ne2) == NestedEinsum{DynamicEinCode{Char}}
+    @test ne1(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
+    @test ne2(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
+    @test ne3(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
+    @test flop(code, Dict([l=>2 for l in uniquelabels(code)])) == 2^4
+    @test flop(ne1, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
+    @test flop(ne2, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
+
+    # label elimination order
+    @test label_elimination_order(ein"(ij,jk),kl->il") == ['j', 'k']
 end
