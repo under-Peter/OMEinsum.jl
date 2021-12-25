@@ -92,7 +92,7 @@ end
 # S = 1
 # T = 1
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any})
-    asarray(asscalar(xs[1]) * xs[2], xs[1])
+    asarray(asscalar(xs[1]) * asscalar(xs[2]), xs[1])
 end
 
 # i,->i : 100

@@ -1,5 +1,6 @@
 using OMEinsum, Test
 using OMEinsum: SimpleBinaryRule, match_rule
+using Polynomials: Polynomial
 
 @testset "analyse binary" begin
     size_dict = Dict(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
@@ -76,4 +77,8 @@ end
     x, y = randn(fill(2, 8)...), randn(fill(2, 5)...)
     code = EinCode(((10, 5, 4, 2, 6, 6, 7, 9), (1, 9, 8, 2, 10)), (4, 10, 9, 7, 10))
     @test code(x, y) ≈ loop_einsum(code, (x, y), OMEinsum.get_size_dict(OMEinsum.getixs(code), (x, y)))
+end
+
+@testset "polynomial scalar mul" begin
+    @test ein",->"(OMEinsum.asarray(Polynomial([1.0])), OMEinsum.asarray(Polynomial([1.0]))) isa AbstractArray
 end
