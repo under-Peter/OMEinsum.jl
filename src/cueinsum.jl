@@ -81,22 +81,26 @@ function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
 end
 
-using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call
+using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call, @linearidx
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-@inline @generated function map_index(dest, src, I, perm::NTuple{N,T}) where {N,T}
-    Expr(:(=), Expr(:ref, :dest, [:(@inbounds I[perm[$i]]) for i in 1:N]...), Expr(:ref, :src, :I))
+@inline @generated function map_index(I::NTuple{N}, dest_strides::NTuple{N,T}) where {N,T}
+    Expr(:call, :+, one(T), [:(@inbounds (I[$i]-1) * dest_strides[$i]) for i in 1:N]...)
 end
 function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArray,
-                                    perm::NTuple)
+                                    perm::NTuple{N}) where N
     Base.checkdims_perm(dest, src, perm)
-    function permutedims_kernel(ctx, dest, src, perm)
+    dest_strides = ntuple(k->k==1 ? 1 : prod(i->size(dest, i), 1:k-1), N)
+    dest_strides_perm = ntuple(i->dest_strides[findfirst(==(i), perm)], N)
+    function permutedims_kernel(ctx, dest, src, dest_strides_perm)
         I = @cartesianidx src
-        map_index(dest, src, I, perm)
+        LI = @linearidx src
+        dest_index = map_index(I.I, dest_strides_perm)
+        @inbounds dest[dest_index] = src[LI]
         return
     end
-    gpu_call(permutedims_kernel, dest, src, perm)
+    gpu_call(permutedims_kernel, dest, src, dest_strides_perm)
     return dest
 end
 
