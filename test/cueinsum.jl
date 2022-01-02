@@ -106,6 +106,6 @@ end
 end
 
 @testset "permutedims for high dimensional tensors" begin
-    c = CUDA.rand(4, [2 for _ = 2:18]...);
+    c = CUDA.rand(4, [rand(1:3) for _ = 2:18]...);
     @test Array(permutedims(c, 18:-1:1)) ≈ permutedims(Array(c), 18:-1:1)
 end

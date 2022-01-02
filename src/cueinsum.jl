@@ -88,6 +88,20 @@ Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 @inline @generated function map_index(I::NTuple{N}, dest_strides::NTuple{N,T}) where {N,T}
     Expr(:call, :+, one(T), [:(@inbounds (I[$i]-1) * dest_strides[$i]) for i in 1:N]...)
 end
+@inline @generated function cartesianindex(I::NTuple{N}, dest_strides::NTuple{N,T}) where {N,T}
+    Expr(:call, :+, one(T), [:(@inbounds (I[$i]-1) * dest_strides[$i]) for i in 1:N]...)
+end
+@generated function permute_linearindex(size::NTuple{N, Int}, l::Int, strides::NTuple{N,Int}) where N
+    quote
+        l -= 1
+        res = 1
+        @nexprs $(N-1) i->begin
+            @inbounds l, s = divrem(l, size[i])
+            res += s * strides[i]
+        end
+        return res + strides[N] * l
+    end
+end
 function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArray,
                                     perm::NTuple{N}) where N
     Base.checkdims_perm(dest, src, perm)
@@ -95,11 +109,11 @@ function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArra
     dest_strides_perm = ntuple(i->dest_strides[findfirst(==(i), perm)], N)
     function permutedims_kernel(dest, src, dest_strides_perm)
         LI = (blockIdx().x-1) * blockDim().x + threadIdx().x
-        if LI <= length(src)
-            CIS = CartesianIndices(src)
-            dest_index = map_index(CIS[LI].I, dest_strides_perm)
-            @inbounds dest[dest_index] = src[LI]
-        end
+        LI > length(src) && return
+        #CIS = CartesianIndices(src)
+        #dest_index = map_index(CIS[LI].I, dest_strides_perm)
+        dest_index = permute_linearindex(size(src), LI, dest_strides_perm)
+        @inbounds dest[dest_index] = src[LI]
         return
     end
     @cuda threads=256 blocks=ceil(Int, length(dest)/256) permutedims_kernel(dest, src, dest_strides_perm)
