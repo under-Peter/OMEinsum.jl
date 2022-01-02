@@ -101,7 +101,7 @@ function replace_args(nested::NestedEinsum{ET}, trueargs) where ET
     NestedEinsum(replace_args.(nested.args, Ref(trueargs)), nested.eins)
 end
 
-export timespace_complexity
+export timespace_complexity, timespacereadwrite_complexity
 """
     timespace_complexity(eincode, size_dict)
 
@@ -109,36 +109,53 @@ Returns the time and space complexity of the einsum contraction.
 The time complexity is defined as `log2(number of element multiplication)`.
 The space complexity is defined as `log2(size of the maximum intermediate tensor)`.
 """
-function timespace_complexity(ei::NestedEinsum, size_dict)
-    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
-    _timespace_complexity(ei, log2_sizes)
-end
-
-function timespace_complexity(ei::EinCode, size_dict)
-    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
-    _timespace_complexity(getixsv(ei), getiyv(ei), log2_sizes)
-end
-
-function _timespace_complexity(ei::NestedEinsum, log2_sizes::Dict{L,VT}) where {L,VT}
-    isleaf(ei) && return (VT(-Inf), VT(-Inf))
-    tcs = VT[]
-    scs = VT[]
-    for arg in ei.args
-        tc, sc = _timespace_complexity(arg, log2_sizes)
-        push!(tcs, tc)
-        push!(scs, sc)
-    end
-    tc2, sc2 = _timespace_complexity(getixsv(ei.eins), getiyv(ei.eins), log2_sizes)
-    tc = ContractionOrder.log2sumexp2([tcs..., tc2])
-    sc = max(reduce(max, scs), sc2)
+function timespace_complexity(code, size_dict)
+    tc,sc,rw = timespacereadwrite_complexity(code, size_dict)
     return tc, sc
 end
 
-function _timespace_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L,VT}) where {T, L, VT}
+"""
+    timespacereadwrite_complexity(eincode, size_dict)
+
+Returns the time, space and read-write complexity of the einsum contraction.
+The time complexity is defined as `log2(number of element-wise multiplication)`.
+The space complexity is defined as `log2(size of the maximum intermediate tensor)`.
+The read-write complexity is defined as `log2(the number of read-write operations)`.
+"""
+function timespacereadwrite_complexity(ei::NestedEinsum, size_dict)
+    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
+    _timespacereadwrite_complexity(ei, log2_sizes)
+end
+
+function timespacereadwrite_complexity(ei::EinCode, size_dict)
+    log2_sizes = Dict([k=>log2(v) for (k,v) in size_dict])
+    _timespacereadwrite_complexity(getixsv(ei), getiyv(ei), log2_sizes)
+end
+
+function _timespacereadwrite_complexity(ei::NestedEinsum, log2_sizes::Dict{L,VT}) where {L,VT}
+    isleaf(ei) && return (VT(-Inf), VT(-Inf), VT(-Inf))
+    tcs = VT[]
+    scs = VT[]
+    rws = VT[]
+    for arg in ei.args
+        tc, sc, rw = _timespacereadwrite_complexity(arg, log2_sizes)
+        push!(tcs, tc)
+        push!(scs, sc)
+        push!(rws, rw)
+    end
+    tc2, sc2, rw2 = _timespacereadwrite_complexity(getixsv(ei.eins), getiyv(ei.eins), log2_sizes)
+    tc = ContractionOrder.log2sumexp2([tcs..., tc2])
+    sc = max(reduce(max, scs), sc2)
+    rw = ContractionOrder.log2sumexp2([rws..., rw2])
+    return tc, sc, rw
+end
+
+function _timespacereadwrite_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L,VT}) where {T, L, VT}
     loop_inds = get_loop_inds(ixs, iy)
     tc = isempty(loop_inds) ? VT(-Inf) : sum(l->log2_sizes[l], loop_inds)
     sc = isempty(iy) ? zero(VT) : sum(l->log2_sizes[l], iy)
-    return tc, sc
+    rw = ContractionOrder.log2sumexp2([[isempty(ix) ? zero(VT) : sum(l->log2_sizes[l], ix) for ix in ixs]..., sc])
+    return tc, sc, rw
 end
 
 function get_loop_inds(ixs::AbstractVector, iy::AbstractVector{LT}) where {LT}

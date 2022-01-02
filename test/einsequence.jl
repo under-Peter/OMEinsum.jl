@@ -34,3 +34,11 @@ end
     ne2 = todynamic(ne)
     @test OMEinsum.flatten(ne2) isa DynamicEinCode && OMEinsum.flatten(ne2) == DynamicEinCode(ein"ij,j,k->")
 end
+
+@testset "time, space, rw complexity" begin
+    ne = ein"(ij,jkc),klc->il"
+    tc, sc, rw = timespacereadwrite_complexity(ne, Dict([l=>10 for l in "ijklc"]))
+    @test tc ≈ log2(10000+10000)
+    @test sc ≈ log2(1000)
+    @test rw ≈ log2(100+1000+1000+1000+1000+100)
+end
