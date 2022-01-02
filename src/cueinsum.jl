@@ -93,14 +93,16 @@ function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArra
     Base.checkdims_perm(dest, src, perm)
     dest_strides = ntuple(k->k==1 ? 1 : prod(i->size(dest, i), 1:k-1), N)
     dest_strides_perm = ntuple(i->dest_strides[findfirst(==(i), perm)], N)
-    function permutedims_kernel(ctx, dest, src, dest_strides_perm)
-        I = @cartesianidx src
-        LI = @linearidx src
-        dest_index = map_index(I.I, dest_strides_perm)
-        @inbounds dest[dest_index] = src[LI]
+    function permutedims_kernel(dest, src, dest_strides_perm)
+        LI = (blockIdx().x-1) * blockDim().x + threadIdx().x
+        if LI <= length(src)
+            CIS = CartesianIndices(src)
+            dest_index = map_index(CIS[LI].I, dest_strides_perm)
+            @inbounds dest[dest_index] = src[LI]
+        end
         return
     end
-    gpu_call(permutedims_kernel, dest, src, dest_strides_perm)
+    @cuda threads=256 blocks=ceil(Int, length(dest)/256) permutedims_kernel(dest, src, dest_strides_perm)
     return dest
 end
 
