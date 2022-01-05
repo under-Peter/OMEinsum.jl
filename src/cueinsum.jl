@@ -75,15 +75,14 @@ function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArra
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-tensorpermute(A::DenseCuArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
-
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
 end
 
-using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call, @linearidx
-
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
+
+#=
+using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call, @linearidx
 
 @inline @generated function permute_linearindex(size::NTuple{N,T}, l::Integer, strides::NTuple{N,T}) where {N,T}
     quote
@@ -113,5 +112,6 @@ function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArra
     @cuda threads=NTHREADS blocks=ceil(Int, length(dest)/NTHREADS) permutedims_kernel(dest, src, dest_strides_perm, LEN)
     return dest
 end
+=#
 
 @info("OMEinsum loaded the CUDA module successfully")
