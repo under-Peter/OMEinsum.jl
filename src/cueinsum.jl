@@ -86,9 +86,9 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} 
     # do not use `setindex!` because we need to make the AD work
     mxs = Vector{AbstractArray}(undef, length(neinsum.args))
     for (i, arg) in enumerate(neinsum.args)
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict))
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
-    res = einsum(neinsum.eins, (mxs...,), size_dict; active_free=active_free)
+    res = einsum(neinsum.eins, (mxs...,), size_dict)
     active_free && for mx in mxs  # free CuArray aggresively.
         CUDA.unsafe_free!(mx)
     end
