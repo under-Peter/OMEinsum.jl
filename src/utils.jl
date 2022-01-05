@@ -81,9 +81,38 @@ end
 """
     tensorpermute(A, perm)
 
-Aliasing `permutedims(A, perm)`.
+`permutedims(A, perm)` with grouped dimensions.
 """
-tensorpermute(A::AbstractArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
+function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
+    @assert N == length(perm) && all(p->1<=p<=N, perm)
+    N == 0 && return copy(A)
+    # group `perm`s
+    permshape = ntuple(i->size(A, @inbounds perm[i]), N)
+    newshape_slots = ones(Int, N)
+    dk = 1  # the size of dimension-batch
+    @inbounds begin
+        permk = perm[1]
+        newperm = [permk]
+        newshape_slots[permk] *= size(A, permk)
+    end
+    @inbounds for i=2:N
+        permi = perm[i]
+        if permi == permk + dk  # same group
+            newshape_slots[permk] *= size(A, permi)
+            dk += 1
+        else
+            permk = permi
+            newshape_slots[permk] *= size(A, permi)
+            push!(newperm, permk)
+            dk = 1
+        end
+    end
+    newshape = filter(!isone, newshape_slots)
+    newperm = sortperm(sortperm(newperm))
+    A_ = reshape(A, newshape...)
+    A__ = permutedims(A_, newperm)
+    return reshape(A__, permshape...)
+end
 
 # reload this function for GPU support!
 function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
