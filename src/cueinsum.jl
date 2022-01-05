@@ -81,37 +81,21 @@ function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
 end
 
-using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call, @linearidx
-
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-@inline @generated function permute_linearindex(size::NTuple{N,T}, l::Integer, strides::NTuple{N,T}) where {N,T}
-    quote
-        l -= one(T)
-        res = one(T)
-        @nexprs $(N-1) i->begin
-            @inbounds l, s = divrem(l, size[i])
-            @inbounds res += s * strides[i]
-        end
-        return @inbounds res + strides[N] * l
+# does not support AD
+function fast_contract(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N); size_info=nothing)
+    size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
+    get_size_dict!(neinsum, xs, size_dict)
+    # do not use map because the static overhead is too large
+    # do not use `setindex!` because we need to make the AD work
+    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
+    for (i, arg) in enumerate(neinsum.args)
+        mxs = _safe_set(mxs, i, isleaf(arg) ? copy(xs[arg.tensorindex]) : einsum(arg, xs, size_dict))
     end
-end
-function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArray,
-                                    perm::NTuple{N}) where N
-    Base.checkdims_perm(dest, src, perm)
-    dest_strides = ntuple(k->k==1 ? 1 : prod(i->size(dest, i), 1:k-1), N)
-    dest_strides_perm = ntuple(i->dest_strides[findfirst(==(i), perm)], N)
-    LEN = length(src)
-    function permutedims_kernel(dest, src, dest_strides_perm, LEN)
-        LI = (blockIdx().x-1) * blockDim().x + threadIdx().x
-        LI > LEN && return
-        dest_index = permute_linearindex(size(src), LI, dest_strides_perm)
-        @inbounds dest[dest_index] = src[LI]
-        return
-    end
-    NTHREADS = 256
-    @cuda threads=NTHREADS blocks=ceil(Int, length(dest)/NTHREADS) permutedims_kernel(dest, src, dest_strides_perm, LEN)
-    return dest
+    res = einsum(neinsum.eins, (mxs...,), size_dict)
+    CUDA.unsafe_free!.(mxs)
+    return res
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
