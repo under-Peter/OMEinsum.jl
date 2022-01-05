@@ -2,6 +2,7 @@ using Test
 using OMEinsum
 using CUDA
 using DoubleFloats
+using Zygote
 
 CUDA.allowscalar(false)
 
@@ -106,6 +107,19 @@ end
 end
 
 @testset "permutedims for high dimensional tensors" begin
-    c = CUDA.rand(4, [2 for _ = 2:18]...);
+    c = CUDA.rand(4, [rand(1:3) for _ = 2:18]...);
     @test Array(permutedims(c, 18:-1:1)) ≈ permutedims(Array(c), 18:-1:1)
+end
+
+@testset "gradient type check - CUDA" begin
+    array_match(x, y) = typeof(x) == typeof(y) && size(x) == size(y)
+    a = CUDA.randn(3,3)
+    b = CUDA.randn(3,3)
+    @test array_match(gradient(a->Array(einsum(EinCode(((1,2), (2,1)), ()), (a, b)))[] |> abs, a)[1], a)
+    b = CUDA.randn(ComplexF64,3,3)
+    @test array_match(gradient(a->Array(einsum(EinCode(((1,2), (2,1)), ()), (a, b)))[] |> abs, a)[1], a)
+    a = CUDA.randn(ComplexF64,3,3)
+    @test array_match(gradient(a->Array(einsum(EinCode(((1,2), (2,3)), ()), (a, b)))[] |> abs, a)[1], a)
+    b = CUDA.randn(3,3)
+    @test array_match(gradient(a->Array(einsum(EinCode(((1,2), (2,3)), ()), (a, b)))[] |> abs, a)[1], a)
 end

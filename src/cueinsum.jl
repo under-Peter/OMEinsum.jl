@@ -75,33 +75,24 @@ function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArra
     CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
 end
 
-tensorpermute(A::DenseCuArray, perm) = length(perm) == 0 ? copy(A) : permutedims(A, perm)
-
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
     asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
 end
 
-using .CUDA: @cartesianidx, AbstractGPUArray, gpu_call, @linearidx
-
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-@inline @generated function map_index(I::NTuple{N}, dest_strides::NTuple{N,T}) where {N,T}
-    Expr(:call, :+, one(T), [:(@inbounds (I[$i]-1) * dest_strides[$i]) for i in 1:N]...)
-end
-function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArray,
-                                    perm::NTuple{N}) where N
-    Base.checkdims_perm(dest, src, perm)
-    dest_strides = ntuple(k->k==1 ? 1 : prod(i->size(dest, i), 1:k-1), N)
-    dest_strides_perm = ntuple(i->dest_strides[findfirst(==(i), perm)], N)
-    function permutedims_kernel(ctx, dest, src, dest_strides_perm)
-        I = @cartesianidx src
-        LI = @linearidx src
-        dest_index = map_index(I.I, dest_strides_perm)
-        @inbounds dest[dest_index] = src[LI]
-        return
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N), size_dict::Dict; active_free=false)
+    # do not use map because the static overhead is too large
+    # do not use `setindex!` because we need to make the AD work
+    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
+    for (i, arg) in enumerate(neinsum.args)
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
-    gpu_call(permutedims_kernel, dest, src, dest_strides_perm)
-    return dest
+    res = einsum(neinsum.eins, (mxs...,), size_dict)
+    active_free && for mx in mxs  # free CuArray aggresively.
+        CUDA.unsafe_free!(mx)
+    end
+    return res
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
