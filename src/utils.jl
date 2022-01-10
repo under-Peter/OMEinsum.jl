@@ -88,12 +88,12 @@ function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
     N == 0 && return copy(A)
     # group `perm`s
     permshape = ntuple(i->size(A, @inbounds perm[i]), N)
-    newshape_slots = ones(Int, N)
+    newshape_slots = fill(-1, N)
     dk = 1  # the size of dimension-batch
     @inbounds begin
         permk = perm[1]
         newperm = [permk]
-        newshape_slots[permk] *= size(A, permk)
+        newshape_slots[permk] = size(A, permk)
     end
     @inbounds for i=2:N
         permi = perm[i]
@@ -102,12 +102,12 @@ function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
             dk += 1
         else
             permk = permi
-            newshape_slots[permk] *= size(A, permi)
+            newshape_slots[permk] = size(A, permi)
             push!(newperm, permk)
             dk = 1
         end
     end
-    newshape = filter(!isone, newshape_slots)
+    newshape = filter(!=(-1), newshape_slots)
     newperm = sortperm(sortperm(newperm))
     A_ = reshape(A, newshape...)
     A__ = permutedims(A_, newperm)
