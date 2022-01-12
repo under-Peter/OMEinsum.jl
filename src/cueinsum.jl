@@ -91,7 +91,7 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} 
     end
     res = einsum(neinsum.eins, (mxs...,), size_dict)
     active_free && for i=1:narg  # free CuArray aggresively.
-        isleaf(neinsum.args[i]) || CUDA.unsafe_free!(mx)
+        isleaf(neinsum.args[i]) || CUDA.unsafe_free!(mxs[i])
     end
     return res
 end
