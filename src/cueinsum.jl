@@ -84,13 +84,14 @@ Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
-    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
+    narg = length(neinsum.args)
+    mxs = Vector{AbstractArray}(undef, narg)
     for (i, arg) in enumerate(neinsum.args)
         mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
     res = einsum(neinsum.eins, (mxs...,), size_dict)
-    active_free && for mx in mxs  # free CuArray aggresively.
-        CUDA.unsafe_free!(mx)
+    active_free && for i=1:narg  # free CuArray aggresively.
+        isleaf(neinsum.args[i]) || CUDA.unsafe_free!(mx)
     end
     return res
 end
