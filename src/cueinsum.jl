@@ -90,9 +90,6 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} 
         mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
     res = einsum(neinsum.eins, (mxs...,), size_dict)
-    active_free && for i=1:narg  # free CuArray aggresively.
-        isleaf(neinsum.args[i]) || CUDA.unsafe_free!(mxs[i])
-    end
     return res
 end
 
@@ -101,6 +98,7 @@ end
         l -= one(T)
         res = one(T)
         Base.Cartesian.@nexprs $(N-1) i->begin
+            CUDA.assume(size[i] > 0)
             @inbounds l, s = divrem(l, size[i])
             @inbounds res += s * strides[i]
         end
@@ -110,14 +108,16 @@ end
 using .CUDA: AbstractGPUArray, gpu_call
 function LinearAlgebra.permutedims!(dest::AbstractGPUArray, src::AbstractGPUArray,
                                     perm::NTuple{N}) where N
-    @assert length(src) < typemax(Int32)
+    @assert length(src) < typemax(UInt32)
     Base.checkdims_perm(dest, src, perm)
     dest_strides = ntuple(k->k==1 ? 1 : prod(i->size(dest, i), 1:k-1), N)
-    dest_strides_perm = ntuple(i->Int32(dest_strides[findfirst(==(i), perm)]), N)
-    size_src = Int32.(size(src))
-    LEN = Int32(length(src))
+    dest_strides_perm = ntuple(i->UInt32(dest_strides[findfirst(==(i), perm)]), N)
+    size_src = UInt32.(size(src))
+    LEN = UInt32(length(src))
     function permutedims_kernel(ctx, dest, src, size_src, dest_strides_perm, LEN)
-        LI = (blockIdx().x-one(Int32)) * blockDim().x + threadIdx().x
+        SLI = (blockIdx().x-one(Int32)) * blockDim().x + threadIdx().x
+        CUDA.assume(SLI > 0)
+        LI = UInt32(SLI)
         LI > LEN && return
         dest_index = permute_linearindex(size_src, LI, dest_strides_perm)
         @inbounds dest[dest_index] = src[LI]
