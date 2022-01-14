@@ -81,18 +81,6 @@ end
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N), size_dict::Dict; active_free=false)
-    # do not use map because the static overhead is too large
-    # do not use `setindex!` because we need to make the AD work
-    narg = length(neinsum.args)
-    mxs = Vector{AbstractArray}(undef, narg)
-    for (i, arg) in enumerate(neinsum.args)
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
-    end
-    res = einsum(neinsum.eins, (mxs...,), size_dict)
-    return res
-end
-
 @inline @generated function permute_linearindex(size::NTuple{N,T}, l::T, strides::NTuple{N,T}) where {N,T}
     quote
         l -= one(T)

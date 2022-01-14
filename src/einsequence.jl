@@ -197,7 +197,6 @@ end
 extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
-# For CuArrays, kwargs can be [`active_free`].
 function (neinsum::NestedEinsum)(@nospecialize(xs::AbstractArray...); size_info = nothing, kwargs...)
     size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
     get_size_dict!(neinsum, xs, size_dict)
