@@ -99,7 +99,7 @@ end
 # S = N
 # T = N
 function einsum(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any})
-    xs[1] .* asscalar(xs[2])
+    xs[1] .* Ref(asscalar(xs[2]))
 end
 
 # j,j-> : 010
