@@ -14,13 +14,27 @@ end
 
 function match_rule_binary(ix1, ix2, iy)
     Nx1, Nx2, Ny = length(ix1), length(ix2), length(iy)
-    if (Nx1 + Nx2 + Ny) % 2 == 0 # no batch
+    if !_isunique(ix1) || !_isunique(ix2) || !_isunique(iy)
+        DefaultRule()
+    elseif (Nx1 + Nx2 + Ny) % 2 == 0 # no batch
         _match_simple2(ix1,ix2,iy,Nx1,Nx2,Ny)
     elseif Nx1>0 && Nx2>0 && Ny>0 && ix1[Nx1]==ix2[Nx2]==iy[Ny]
         rule = _match_simple2(ix1,ix2,iy,Nx1-1,Nx2-1,Ny-1)
         _add_patch(rule)
     else
         DefaultRule()
+    end
+end
+@inline function _isunique(ix)
+    if length(ix) <= 1
+        return true
+    elseif length(ix) == 2
+        return @inbounds ix[1] != ix[2]
+    elseif length(ix) == 3
+        @inbounds a, b, c = ix
+        return a != c && a != c && a != b
+    else  # to default rules
+        return false
     end
 end
 
