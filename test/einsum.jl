@@ -253,6 +253,8 @@ end
 end
 
 @testset "fix rule cc,cb->bc" begin
+    @test OMEinsum.match_rule_binary([3], [1], [1,3]) isa OMEinsum.SimpleBinaryRule
+    @test OMEinsum.match_rule_binary([1,3], [2,3], [1,2,3]) isa OMEinsum.SimpleBinaryRule
     @test OMEinsum.match_rule_binary([3], [3], [3,3]) isa OMEinsum.DefaultRule
     @test OMEinsum.match_rule_binary([3], [3, 3], [3]) isa OMEinsum.DefaultRule
     @test OMEinsum.match_rule_binary([3, 3], [3], [3]) isa OMEinsum.DefaultRule
