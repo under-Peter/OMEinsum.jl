@@ -251,3 +251,23 @@ end
     @test EinCode(((1,2,3),(2,)),(1,3))(ones(2,2,1), ones(2)) == reshape([2,2.0], 2, 1)
     @test EinCode(((1,2,3),(2,)),(1,3))(ones(2,2,0), ones(2)) == reshape(zeros(0), 2, 0)
 end
+
+@testset "fix rule cc,cb->bc" begin
+    @test OMEinsum.match_rule_binary([3], [1], [1,3]) isa OMEinsum.SimpleBinaryRule
+    @test OMEinsum.match_rule_binary([1,3], [2,3], [1,2,3]) isa OMEinsum.SimpleBinaryRule
+    @test OMEinsum.match_rule_binary([3], [3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3], [3, 3], [3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3, 3], [3], [3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,3], [3, 3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3, 3], [3,2], [2,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,1], [1, 3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([1,3], [3, 3], [1,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
+    size_dict = Dict('a'=>2,'b'=>2,'c'=>2)
+    for code in [ein"c,c->cc", ein"c,cc->c", ein"cc,c->cc", ein"cc,cc->cc", ein"cc,cb->bc", ein"cb,bc->cc", ein"ac,cc->ac"]
+        @show code
+        a = randn(fill(2, length(getixsv(code)[1]))...)
+        b = randn(fill(2, length(getixsv(code)[2]))...)
+        @test code(a, b) ≈ OMEinsum.loop_einsum(code, (a,b), size_dict)
+    end
+end
