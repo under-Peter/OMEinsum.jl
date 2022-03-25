@@ -152,7 +152,7 @@ end
 
 function _timespacereadwrite_complexity(ixs::AbstractVector, iy::AbstractVector{T}, log2_sizes::Dict{L,VT}) where {T, L, VT}
     loop_inds = get_loop_inds(ixs, iy)
-    tc = isempty(loop_inds) ? VT(-Inf) : sum(l->log2_sizes[l], loop_inds)
+    tc = isempty(loop_inds) ? zero(VT) : sum(l->log2_sizes[l], loop_inds)
     sc = isempty(iy) ? zero(VT) : sum(l->log2_sizes[l], iy)
     rw = ContractionOrder.log2sumexp2([[isempty(ix) ? zero(VT) : sum(l->log2_sizes[l], ix) for ix in ixs]..., sc])
     return tc, sc, rw
