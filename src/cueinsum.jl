@@ -81,12 +81,16 @@ end
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N), size_dict::Dict; active_free=false)
+const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
+_unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::CuArray) = x
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
     mxs = Vector{AbstractArray}(undef, length(neinsum.args))
     for (i, arg) in enumerate(neinsum.args)
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
+        mxs = _safe_set(mxs, i, isleaf(arg) ? _unwrap(xs[arg.tensorindex]) : einsum(arg, xs, size_dict; active_free=active_free))
     end
     res = einsum(neinsum.eins, (mxs...,), size_dict)
     active_free && for mx in mxs  # free CuArray aggresively.
