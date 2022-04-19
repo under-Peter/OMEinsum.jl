@@ -123,3 +123,8 @@ end
     b = CUDA.randn(3,3)
     @test array_match(gradient(a->Array(einsum(EinCode(((1,2), (2,3)), ()), (a, b)))[] |> abs, a)[1], a)
 end
+
+@testset "adjoint dispatch" begin
+    u = CUDA.rand(2,2); A = CUDA.rand(2,2,3);
+    @test Array(ein"(ip,pql),qj -> ijl"(u', A, u)) ≈ ein"(ip,pql),qj -> ijl"(Array(CuArray(u')), Array(A), Array(u))
+end
