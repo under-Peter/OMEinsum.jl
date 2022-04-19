@@ -72,7 +72,7 @@ julia> ein"ik,kj -> ij"(catty, catty) # multiply two matrices `a` and `b`
 julia> ein"ij -> "(catty)[] # sum a matrix, output 0-dimensional array
 4*🐱
 
-julia> ein"->ii"(asarray(snake[1,1]), size_info=IndexSize('i'=>5)) # get 5 x 5 identity matrix
+julia> ein"->ii"(asarray(snake[1,1]), size_info=Dict('i'=>5)) # get 5 x 5 identity matrix
 5×5 Array{Basic,2}:
  🐍  0  0  0  0
  0  🐍  0  0  0
