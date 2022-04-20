@@ -125,6 +125,8 @@ end
 end
 
 @testset "adjoint dispatch" begin
-    u = CUDA.rand(2,2); A = CUDA.rand(2,2,3);
+    u = CUDA.rand(2,2); A = CUDA.rand(2,2,2);
     @test Array(ein"(ip,pql),qj -> ijl"(u', A, u)) ≈ ein"(ip,pql),qj -> ijl"(Array(CuArray(u')), Array(A), Array(u))
+    @test Array(DynamicEinCode(ein"mk, ijk -> ijm")(u', A)) ≈ DynamicEinCode(ein"mk, ijk -> ijm")(Array(u'), Array(A))
+    @test Array(ein"mk, ijk -> ijm"(u', A)) ≈ DynamicEinCode(ein"mk, ijk -> ijm")(Array(u'), Array(A))
 end

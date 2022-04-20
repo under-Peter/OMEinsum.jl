@@ -1,5 +1,10 @@
 using .CUDA
 
+const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
+_unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::CuArray) = x
+
 asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
 asscalar(x::DenseCuArray) = Array(x)[]
@@ -81,10 +86,6 @@ end
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
-_unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
-_unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
-_unwrap(x::CuArray) = x
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
@@ -97,6 +98,17 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
         CUDA.unsafe_free!(mx)
     end
     return res
+end
+
+# to dispatch Adjoint correctly
+@generated function einsum(code::StaticEinCode{ixs, iy}, xs::NTuple{N,CUDAArrayTypes} where N, size_dict::Dict{LT}) where {LT, ixs, iy}
+    rule = match_rule(ixs, iy)
+    :(einsum($rule, $ixs, $iy, _unwrap.(xs), size_dict))
+end
+
+function einsum(code::DynamicEinCode, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict)
+    rule = match_rule(getixs(code), getiy(code))
+    einsum(rule, getixs(code), getiy(code), _unwrap.(xs), size_dict)
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
