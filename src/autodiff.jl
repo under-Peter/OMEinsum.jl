@@ -32,6 +32,7 @@ end
 function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs), size_dict)
     y = einsum(code, xs, size_dict)
     function einsum_pullback(dy)
+        dy = convert(typeof(y), dy)  # for filled array/cuarray et al.
         dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, conj(dy), i), length(xs))
         return (NoTangent(), NoTangent(), dxs, NoTangent())
     end
