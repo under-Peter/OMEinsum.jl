@@ -1,5 +1,10 @@
 using .CUDA
 
+const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
+_unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
+_unwrap(x::CuArray) = x
+
 asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
 asscalar(x::DenseCuArray) = Array(x)[]
@@ -8,6 +13,9 @@ Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
 function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
     CUDA.zeros(promote_type(map(eltype,xs)...), size...)
+end
+function get_output_array(xs::NTuple{N, DenseCuArray{T,M} where M}, size; has_repeated_indices=true) where {T,N}
+    CUDA.zeros(T, size...)
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
@@ -81,7 +89,7 @@ end
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} where N), size_dict::Dict; active_free=false)
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
     mxs = Vector{AbstractArray}(undef, length(neinsum.args))
@@ -93,6 +101,17 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,DenseCuArray} 
         CUDA.unsafe_free!(mx)
     end
     return res
+end
+
+# to dispatch Adjoint correctly
+@generated function einsum(code::StaticEinCode{ixs, iy}, xs::NTuple{N,CUDAArrayTypes} where N, size_dict::Dict{LT}) where {LT, ixs, iy}
+    rule = match_rule(ixs, iy)
+    :(einsum($rule, $ixs, $iy, _unwrap.(xs), size_dict))
+end
+
+function einsum(code::DynamicEinCode, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict)
+    rule = match_rule(getixs(code), getiy(code))
+    einsum(rule, getixs(code), getiy(code), _unwrap.(xs), size_dict)
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
