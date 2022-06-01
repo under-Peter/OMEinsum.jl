@@ -14,6 +14,9 @@ Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
     CUDA.zeros(promote_type(map(eltype,xs)...), size...)
 end
+function get_output_array(xs::NTuple{N, DenseCuArray{T,M} where M}, size; has_repeated_indices=true) where {T,N}
+    CUDA.zeros(T, size...)
+end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
