@@ -1,4 +1,3 @@
-export @ein_str, @ein, ein
 """
     ein"ij,jk -> ik"(A,B)
 

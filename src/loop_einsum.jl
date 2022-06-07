@@ -1,6 +1,3 @@
-using TupleTools, Base.Cartesian
-export loop_einsum, loop_einsum!, allow_loops
-
 """
     loop_einsum(::EinCode, xs, size_dict)
 

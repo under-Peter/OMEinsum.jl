@@ -2,9 +2,12 @@
 
 An einsum specification should be given via the `ein_str` string-literal
 or with the `@ein`-macro as e.g.
-```julia
-julia> c = ein"ij,jk -> ik"(a,b)
-julia> @ein c[i,k] := a[i,j] * b[j,k]
+```@example 2
+using OMEinsum
+a, b = randn(2, 2), randn(2, 2)
+
+c = ein"ij,jk -> ik"(a,b)
+@ein c[i,k] := a[i,j] * b[j,k]
 ```
 where both specifications encode the same operation - a matrix multiplication.
 The `ein_str`-literal is parsed directly into an `EinCode` struct that holds
@@ -12,16 +15,14 @@ the indices of the input `ixs = (('i','j'),('j','k'))` and output `iy = ('i','k'
 as type parameters, making them accessible at compile time.
 
 The string-literal form gets turned into
-```julia
-julia> c = EinCode((('i','j'),('j','k')),('i','k'))(a,b)
+```@example 2
+c = EinCode((('i','j'),('j','k')),('i','k'))(a,b)
 ```
 Calling an `EinCode`-object gets lowered to
-```julia
-julia> c = einsum(EinCode((('i','j'),('j','k')),('i','k')), (a,b), size_dict = nothing)
+```@example 2
+c = einsum(EinCode((('i','j'),('j','k')),('i','k')), (a,b), Dict('i'=>2, 'j'=>2, 'k'=>2))
 ```
-where `nothing` is the default argument for the (as of yet not used during specification)
-`size_dict`, which could allow to provide dimensions for index-labels that only appear
-in the output.
+The third argument `size_dict` is a dictionary to specify the dimensions of degree of freedoms, which could also allow to provide dimensions for index-labels that only appear in the output.
 
 In the next step, a singleton-subtype of the abstract type `EinRule` is chosen which is later used for dispatch.
 Subtypes of `EinRule` specify the kind of operation and are created in such a way that they allow useful dispatch.
@@ -50,18 +51,18 @@ to efficient routines for most `Array`-types including `CuArray`.
 
 Whether with the `ein_str` string-literal or the `@ein` macro, nested expressions are mapped to a nested struct.
 Consider the example
-```julia
-julia> c = ein"(ij,jk),kl -> il"(a,b,c)
-julia> @ein c[i,l] := (a[i,j] * b[j,k]) * c[k,l]
+```@example 2
+c = ein"(ij,jk),kl -> il"(a,b,c)
+@ein c[i,l] := (a[i,j] * b[j,k]) * c[k,l]
 ```
 which is a simply a product of three matrices evaluated as
 two matrix products in sequence.
 
 This is equivalent to
-```julia
-julia> c = ein"ik,kl -> il"(ein"ij,jk -> ik"(a,b),c)
-julia> @ein ab[i,k] := a[i,j] * b[j,k]
-julia> @ein c[i,l] := ab[i,k] * c[k,l]
+```@example 2
+c = ein"ik,kl -> il"(ein"ij,jk -> ik"(a,b),c)
+@ein ab[i,k] := a[i,j] * b[j,k]
+@ein c[i,l] := ab[i,k] * c[k,l]
 ```
 and is expressed as a nested structure `NestedEinsum`
 which contains the `EinCode`s for the intermediate calculations
@@ -69,7 +70,7 @@ as well as some logic to assign the correct input and output tensors
 to the correct `EinCode`.
 
 `NestedEinsum` has the following definition:
-```julia
+```@example 2
 struct NestedEinsum
     args
     eins
@@ -83,9 +84,8 @@ If the argument is an integer `i`, the `i`th provided tensor is chosen,
 otherwise the `NestedEinsum` is evaluated.
 
 To make it more concrete, consider the `NestedEinsum` for the expression above, where for easier reading the type signatures were removed and the `EinCode`-structs were replaced by `ein`-string literals.
-```julia
-julia> ein"(ij,jk),kl -> il"
- NestedEinsum{...}((NestedEinsum{...}((1, 2), ein"ij,jk -> ik"), 3), ein"ik,kl -> il")
+```@example 2
+ein"(ij,jk),kl -> il"
 ```
 Evaluating this expression with three arguments leads to the inner `NestedEinsum` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
 as the first argument to `ein"ik,kl -> il"` with the third argument as the second input.

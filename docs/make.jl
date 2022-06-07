@@ -7,6 +7,7 @@ makedocs(;
         "Home" => "index.md",
         "Parsing" => "parsing.md",
         "Implementations" => "implementation.md",
+        "Contraction order optimization" => "contractionorder.md",
         "Extending OMEinsum" => "extending.md",
         "DocStrings" => "docstrings.md"
     ],
