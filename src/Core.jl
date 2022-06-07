@@ -1,6 +1,3 @@
-export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum
-export einarray, getiyv, getixsv, uniquelabels, labeltype
-
 # include `EinCode`, `NestedEinsum` and `SlicedEinsum` (defined in OMEinsumContractionOrders).
 #
 # Required interfaces are:

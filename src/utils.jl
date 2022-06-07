@@ -1,5 +1,3 @@
-export asarray, asscalar
-
 """
     asarray(x[, parent::AbstractArray]) -> AbstactArray
 

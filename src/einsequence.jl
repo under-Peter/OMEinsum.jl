@@ -1,5 +1,3 @@
-export NestedEinsum
-
 """
     parse_nested(s::AbstractString (, iy = []))
 
@@ -154,6 +152,15 @@ function parse_nested_expr(expr, tensors, allinds)
     end
 end
 
+"""
+    NestedEinsum{ET} <: AbstractEinsum
+    NestedEinsum(args, eins)
+    NestedEinsum(tensorindex::Int)
+
+Einsum with contraction order, where the type parameter `ET` and be a type `<:`[`StaticEinCode`](@ref) or [`DynamicEinCode`](@ref).
+It has two constructors. One takes a `tensorindex` as input, which represents the leaf node in a contraction tree.
+The other takes an iterable of type `NestedEinsum`, `args`, as the siblings, and `eins` to specify the contraction operation.
+"""
 struct NestedEinsum{ET} <: AbstractEinsum
     args::Vector{NestedEinsum{ET}}
     tensorindex::Int  # -1 if not leaf

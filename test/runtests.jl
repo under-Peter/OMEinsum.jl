@@ -2,6 +2,7 @@ using OMEinsum
 using Test
 using LinearAlgebra
 using CUDA
+import Documenter
 
 
 @testset "OMEinsum.jl" begin
@@ -18,4 +19,6 @@ using CUDA
     include("interfaces.jl")
 
     include("contractionorder.jl")
+
+    Documenter.doctest(OMEinsum; manual=false)
 end

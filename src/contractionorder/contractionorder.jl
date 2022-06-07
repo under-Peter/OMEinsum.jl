@@ -101,7 +101,6 @@ function replace_args(nested::NestedEinsum{ET}, trueargs) where ET
     NestedEinsum(replace_args.(nested.args, Ref(trueargs)), nested.eins)
 end
 
-export timespace_complexity, timespacereadwrite_complexity
 """
     timespace_complexity(eincode, size_dict)
 
@@ -190,7 +189,6 @@ function get_loop_inds(ixs::AbstractVector, iy::AbstractVector{LT}) where {LT}
 end
 
 
-export flop
 """
     flop(eincode, size_dict)
 

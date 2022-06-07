@@ -1,6 +1,6 @@
 # OMEinsum.jl
 
-This package exports one function, `einsum`, with three interfaces.
+This package mainly exports one function, `einsum`, with three interfaces.
 `einsum` implements functionality similar to the `einsum` function in `numpy`,
 although some details are different.
 

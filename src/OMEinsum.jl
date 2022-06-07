@@ -1,10 +1,18 @@
 module OMEinsum
-export einsum, dynamic_einsum
-export einsumopt
 
-using TupleTools, LinearAlgebra
+using TupleTools, Base.Cartesian, LinearAlgebra
 using BatchedRoutines
 import LinearAlgebra: BlasFloat
+
+export @ein_str, @ein, ein
+export einsum, dynamic_einsum
+export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum, NestedEinsum
+export getiyv, getixsv, uniquelabels, labeltype
+export timespace_complexity, timespacereadwrite_complexity
+export flop
+export loop_einsum, loop_einsum!, allow_loops
+export asarray, asscalar
+
 const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 
 include("Core.jl")
