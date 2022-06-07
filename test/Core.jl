@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs, getiy, labeltype
+using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs, getiy, labeltype, einarray
 
 @testset "EinCode" begin
     code = EinCode(((1,2), (2,3)), (1,3))
