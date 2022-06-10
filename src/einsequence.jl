@@ -244,11 +244,7 @@ _safe_set(lst, i, y) = (lst[i] = y; lst)
 using AbstractTrees
 
 function AbstractTrees.children(ne::NestedEinsum)
-    d = Dict()
-    for (k,item) in enumerate(ne.args)
-        d[k] = isleaf(item) ? _join(OMEinsum.getixs(ne.eins)[k]) : item
-    end
-    d
+    [isleaf(item) ? _join(OMEinsum.getixs(ne.eins)[k]) : item for (k,item) in enumerate(ne.args)]
 end
 
 function AbstractTrees.printnode(io::IO, x::String)
