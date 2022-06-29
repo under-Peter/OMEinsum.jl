@@ -114,7 +114,7 @@ end
     @test optcode(a, b, c) ≈ code(a, b, c)
 end
 
-@testset "contructing contraction tree manually" begin
+@testset "constructing contraction tree manually" begin
     code = ein"ij,jk,kl->ijl"
     dcode = DynamicEinCode(ein"ij,jk,kl->ijl")
     a, b, c = randn(2, 2), randn(2,2), randn(2,2)

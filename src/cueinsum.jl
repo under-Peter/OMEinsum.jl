@@ -97,7 +97,7 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
         mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
     res = einsum(neinsum.eins, (mxs...,), size_dict)
-    active_free && for mx in mxs  # free CuArray aggresively.
+    active_free && for mx in mxs  # free CuArray aggressively.
         CUDA.unsafe_free!(mx)
     end
     return res
