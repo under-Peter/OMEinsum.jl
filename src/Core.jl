@@ -34,7 +34,7 @@ labeltype(::StaticEinCode{ixs,iy}) where {ixs, iy} = promote_type(eltype.(ixs)..
     getixsv(code)
 
 Get labels of input tensors for `EinCode`, `NestedEinsum` and some other einsum like objects.
-Returns a vector of vector.
+Returns a vector of vectors.
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> getixsv(ein"(ij,jk),k->i")
@@ -225,7 +225,7 @@ return the lazily calculated entry of `A` at index `inds`.
 @inline Base.getindex(A::EinArray{T}, ind) where {T} = map_prod(A.xs, ind, A.x_indexers)
 @inline Base.getindex(A::EinArray{T}, inds::Int...) where {T} = map_prod(A.xs, inds, A.x_indexers)
 
-# get one element from each tensor, and multiple them
+# get one element from each tensor, and multiply them
 @doc raw"
     map_prod(xs, ind, indexers)
 

@@ -3,7 +3,7 @@
 ## Identity
 To test whether a specification `ixs,iy` is the identity, it is checked whether
 `ixs` is made up of _one_ tuple of index-labels that is equal to `iy` _and_
-that all index-labels in `iy` are unique - the latter to distuingish identity
+that all index-labels in `iy` are unique - the latter to distinguish identity
 from e.g. projection to the diagonal like `ein"ii -> ii"`.
 
 The identity operation simply returns the first (and only) tensor argument to `einsum`.
@@ -100,7 +100,7 @@ regular `Array`s and `CuArray`s.
 
 ## Debugging
 
-Calling `allow_loops(false)` will cause an error to be pinted when if the 
+Calling `allow_loops(false)` will cause an error to be printed when if the 
 fallback `loop_einsum` is used. This is an `@error` which does not interrupt execution. 
 
 Alternatively, a log of all methods used can be saved using `@debug` logging macro. 

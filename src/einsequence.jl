@@ -275,7 +275,7 @@ connector(::Type{Char}) = ""
 connector(::Type{Int}) = "∘"
 connector(::Type) = "-"
 
-# flattten nested einsum
+# flatten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
     isleaf(code) && return [code.tensorindex=>iy]
     ixs = []

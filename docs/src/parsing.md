@@ -87,7 +87,7 @@ To make it more concrete, consider the `NestedEinsum` for the expression above, 
 ```@example 2
 ein"(ij,jk),kl -> il"
 ```
-Evaluating this expression with three arguments leads to the inner `NestedEinsum` to be evaluated first with the first and second argument and the specifiation `ein"ij,jk -> ik"`. Then the result of that is given
+Evaluating this expression with three arguments leads to the inner `NestedEinsum` to be evaluated first with the first and second argument and the specification `ein"ij,jk -> ik"`. Then the result of that is given
 as the first argument to `ein"ik,kl -> il"` with the third argument as the second input.
 
 To improve understanding, you might replace the integers with `getindex` operations in your head
