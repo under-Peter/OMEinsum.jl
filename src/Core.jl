@@ -9,6 +9,8 @@
 # * uniquelabels
 abstract type AbstractEinsum end
 uniquelabels(code::AbstractEinsum) = unique!(vcat(getixsv(code)..., getiyv(code)))
+getixsv(code::AbstractEinsum) = getixsv(labeltype(code), code)
+getiyv(code::AbstractEinsum) = getiyv(labeltype(code), code)
 
 """
     EinCode <: AbstractEinsum
@@ -44,7 +46,7 @@ julia> getixsv(ein"(ij,jk),k->i")
  ['k']
 ```
 """
-getixsv(code::StaticEinCode) = [collect(labeltype(code), ix) for ix in getixs(code)]
+getixsv(::Type{LT}, code::StaticEinCode) where LT = [collect(LT, ix) for ix in getixs(code)]   # not stable!
 """
     getiy(code)
 
@@ -57,7 +59,7 @@ julia> getiyv(ein"(ij,jk),k->i")
  'i': ASCII/Unicode U+0069 (category Ll: Letter, lowercase)
 ```
 """
-getiyv(code::StaticEinCode) = collect(labeltype(code), getiy(code))
+getiyv(::Type{LT}, code::StaticEinCode) where LT = collect(LT, getiy(code))
 
 """
     DynamicEinCode{LT}
@@ -100,8 +102,8 @@ EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
 getixs(code::DynamicEinCode) = code.ixs
 getiy(code::DynamicEinCode) = code.iy
 labeltype(::DynamicEinCode{LT}) where LT = LT
-getixsv(code::DynamicEinCode) = code.ixs
-getiyv(code::DynamicEinCode) = code.iy
+getixsv(::Type{LT}, code::DynamicEinCode) where LT = code.ixs
+getiyv(::Type{LT}, code::DynamicEinCode) where LT = code.iy
 
 # conversion
 DynamicEinCode(::StaticEinCode{ixs, iy}) where {ixs, iy} = DynamicEinCode(ixs, iy)

@@ -115,5 +115,5 @@ similar_eincode(::StaticEinCode, ixs, iy) = StaticEinCode{(Tuple.(ixs)...,), (iy
 flatten(se::SlicedEinsum) = flatten(se.eins)
 labeltype(::SlicedEinsum{LT}) where LT = LT
 get_size_dict!(se::SlicedEinsum, xs, size_info::Dict) = get_size_dict!(se.eins, xs, size_info)
-getixsv(se::SlicedEinsum) = getixsv(se.eins)
-getiyv(se::SlicedEinsum) = getiyv(se.eins)
+getixsv(::Type{LT}, se::SlicedEinsum) where LT = getixsv(LT, se.eins)
+getiyv(::Type{LT}, se::SlicedEinsum) where LT = getiyv(LT, se.eins)

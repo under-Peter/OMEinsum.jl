@@ -17,7 +17,6 @@ using Test, Random
     @test flop(ein"i->", Dict('i'=>4)) == 4
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
     @test sc == 11
-    @test optcode1 == optcode2
     eincode3 = ein"(ab,acd),bcef,e,df->"
     Random.seed!(2)
     optcode3 = optimize_code(eincode3, size_dict, GreedyMethod()) 
@@ -50,7 +49,7 @@ end
     tc, sc = timespace_complexity(code, edge_sizes)
     @test tc == 60
     @test sc == 0
-    optcode = optimize_greedy(code, size_dict)
+    optcode = optimize_code(code, size_dict, TreeSA(ntrials=1), MergeVectors())
     tc2, sc2 = timespace_complexity(optcode, edge_sizes)
     @test sc2 == 10
     xs = vcat([TropicalF64.([-1 1; 1 -1]) for i=1:90], [TropicalF64.([0, 0]) for i=1:60])
@@ -61,41 +60,44 @@ end
 
 @testset "regression test" begin
     code = ein"i->"
-    optcode = optimize_greedy(code, Dict('i'=>3))
+    optcode = optimize_code(code, Dict('i'=>3), GreedyMethod())
     @test optcode isa NestedEinsum
     x = randn(3)
     @test optcode(x) ≈ code(x)
 
     code = ein"i,j->"
-    optcode = optimize_greedy(code, Dict('i'=>3, 'j'=>3))
+    optcode = optimize_code(code, Dict('i'=>3, 'j'=>3), GreedyMethod())
     @test optcode isa NestedEinsum
     x = randn(3)
     y = randn(3)
     @test optcode(x, y) ≈ code(x, y)
 
     code = ein"ij,jk,kl->ijl"
-    optcode = optimize_greedy(code, Dict('i'=>3, 'j'=>3, 'k'=>3, 'l'=>3))
+    optcode = optimize_code(code, Dict('i'=>3, 'j'=>3, 'k'=>3, 'l'=>3), GreedyMethod())
     @test optcode isa NestedEinsum
     a, b, c = [rand(3,3) for i=1:3]
     @test optcode(a, b, c) ≈ code(a, b, c)
 end
 
-@testset "constructing contraction tree manually" begin
-    code = ein"ij,jk,kl->ijl"
-    dcode = DynamicEinCode(ein"ij,jk,kl->ijl")
-    a, b, c = randn(2, 2), randn(2,2), randn(2,2)
-    ne1 = parse_nested(code, ContractionTree(ContractionTree(1, 2), 3))
-    ne2 = parse_nested(dcode, ContractionTree(ContractionTree(1, 2), 3))
-    ne3 = parse_nested(code, ContractionTree(ContractionTree(1, 3), 2))
-    @test typeof(ne1) == NestedEinsum{StaticEinCode}
-    @test typeof(ne2) == NestedEinsum{DynamicEinCode{Char}}
-    @test ne1(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
-    @test ne2(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
-    @test ne3(a,b,c) ≈ ein"(ij,jk),kl->ijl"(a,b,c)
-    @test flop(code, Dict([l=>2 for l in uniquelabels(code)])) == 2^4
-    @test flop(ne1, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
-    @test flop(ne2, Dict([l=>2 for l in uniquelabels(code)])) == 2^4 + 2^3
+@testset "simplifier and permute optimizer" begin
+    code = EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
+    code = optimize_code(code, uniformsize(code, 2), GreedyMethod())
+    xs = [randn(3,3) for i=1:4]
+    c2 = optimize_permute(code)
+    @test code(xs...) ≈ c2(xs...)
+end
 
-    # label elimination order
-    @test label_elimination_order(ein"(ij,jk),kl->il") == ['j', 'k']
+@testset "save load" begin
+    for code in [
+        EinCode([[1,2], [2,3], [3,4]], [1,4]),
+        EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
+    ]
+        for optcode in [optimize_code(code, uniformsize(code, 2), GreedyMethod()),
+            optimize_code(code, uniformsize(code, 2), TreeSA(nslices=1))]
+            filename = tempname()
+            writejson(filename, optcode)
+            code2 = readjson(filename)
+            @test optcode == code2
+        end
+    end
 end

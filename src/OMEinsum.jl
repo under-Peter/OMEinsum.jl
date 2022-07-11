@@ -3,6 +3,7 @@ module OMEinsum
 using TupleTools, Base.Cartesian, LinearAlgebra
 using BatchedRoutines
 using OMEinsumContractionOrders
+using AbstractTrees
 import LinearAlgebra: BlasFloat
 
 export @ein_str, @ein, ein
@@ -20,7 +21,7 @@ export CodeOptimizer, CodeSimplifier,
     MinSpaceDiff, MinSpaceOut,
     MergeGreedy, MergeVectors,
     uniformsize,
-    simplify_code, optimize_code, optimize_permute
+    optimize_code, optimize_permute,
     # time space complexity
     peak_memory, timespace_complexity, timespacereadwrite_complexity, flop,
     # file io

@@ -218,8 +218,8 @@ function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
-function getixsv(ne::NestedEinsum)
-    d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{OMEinsum.labeltype(ne.eins)}}())
+function getixsv(::Type{LT}, ne::NestedEinsum) where LT
+    d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{LT}}())
     ks = sort!(collect(keys(d)))
     return @inbounds [d[i] for i in ks]
 end
@@ -248,15 +248,14 @@ end
 _safe_set(lst, i, y) = (lst[i] = y; lst)
 
 # Better printing
-using AbstractTrees
-
+struct LeafString
+    str::String
+end
 function AbstractTrees.children(ne::NestedEinsum)
-    [isleaf(item) ? _join(OMEinsum.getixs(ne.eins)[k]) : item for (k,item) in enumerate(ne.args)]
+    [isleaf(item) ? LeafString(_join(OMEinsum.getixs(ne.eins)[k])) : item for (k,item) in enumerate(ne.args)]
 end
 
-function AbstractTrees.printnode(io::IO, x::String)
-    print(io, x)
-end
+AbstractTrees.printnode(io::IO, e::LeafString) = print(io, e.str)
 function AbstractTrees.printnode(io::IO, x::NestedEinsum)
     isleaf(x) ? print(io, x.tensorindex) : print(io, x.eins)
 end
@@ -295,5 +294,6 @@ function flatten(code::NestedEinsum)
     end
 end
 
-labeltype(ne::NestedEinsum) = labeltype(ne.eins)
-getiyv(ne::NestedEinsum) = getiyv(ne.eins)
+labeltype(::NestedEinsum{DynamicEinCode{LT}}) where LT = LT
+labeltype(ne::NestedEinsum{<:StaticEinCode}) = isleaf(ne) ? error("leaf static node does not have label type.") : labeltype(ne.eins)
+getiyv(::Type{LT}, ne::NestedEinsum) where LT = getiyv(LT, ne.eins)
