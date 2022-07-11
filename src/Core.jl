@@ -1,4 +1,4 @@
-# include `EinCode`, `NestedEinsum` and `SlicedEinsum` (defined in OMEinsumContractionOrders).
+# include `EinCode`, `NestedEinsum` and `SlicedEinsum`
 #
 # Required interfaces are:
 # * labeltype
@@ -93,7 +93,7 @@ _tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [
 _tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), iy
 _tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
 
-Base.:(==)(x::DynamicEinCode, y::DynamicEinCode) = x.ixs == y.ixs && x.iy == y.iy
+Base.:(==)(x::EinCode, y::EinCode) = getixsv(x) == getixsv(y) && getiyv(x) == getiyv(y)
 # forward from EinCode, for compatibility
 EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
 

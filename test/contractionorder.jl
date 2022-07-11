@@ -1,50 +1,16 @@
 using OMEinsum
-using OMEinsum.ContractionOrder
-using OMEinsum: parse_eincode
-using OMEinsum.ContractionOrder: analyze_contraction, contract_pair!, evaluate_costs, contract_tree!, log2sumexp2
 using TropicalNumbers
-
 using Test, Random
-@testset "analyze contraction" begin
-    incidence_list = IncidenceList(Dict('A' => ['a', 'b', 'k', 'o', 'f'], 'B'=>['a', 'c', 'd', 'm', 'f'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']), openedges=['c', 'f', 'o'])
-    info = analyze_contraction(incidence_list, 'A', 'B')
-    @test Set(info.l1) == Set(['k'])
-    @test Set(info.l2) == Set(['m'])
-    @test Set(info.l12) == Set(['a'])
-    @test Set(info.l01) == Set(['b','o'])
-    @test Set(info.l02) == Set(['c', 'd'])
-    @test Set(info.l012) == Set(['f'])
-end
 
 @testset "tree greedy" begin
     Random.seed!(2)
-    incidence_list = IncidenceList(Dict('A' => ['a', 'b'], 'B'=>['a', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
-    log2_edge_sizes = Dict([c=>i for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
+    #incidence_list = IncidenceList(Dict('A' => ['a', 'b'], 'B'=>['a', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
+    #log2_edge_sizes = Dict([c=>i for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     edge_sizes = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
-    il = copy(incidence_list)
-    contract_pair!(il, 'A', 'B', log2_edge_sizes)
-    target = IncidenceList(Dict('A' => ['b', 'c', 'd'], 'C'=>['b', 'c', 'e', 'f'], 'D'=>['e'], 'E'=>['d', 'f']))
-    @test il.v2e == target.v2e
-    @test length(target.e2v) == length(il.e2v)
-    for (k,v) in il.e2v
-        @test sort(target.e2v[k]) == sort(v)
-    end
-    costs = evaluate_costs(MinSpaceOut(), incidence_list, log2_edge_sizes)
-    @test costs == Dict(('A', 'B')=>9, ('A', 'C')=>15, ('B','C')=>18, ('B','E')=>10, ('C','D')=>11, ('C', 'E')=>14)
-    tree, log2_tcs, log2_scs = tree_greedy(incidence_list, log2_edge_sizes)
-    tcs_, scs_ = [], []
-    contract_tree!(copy(incidence_list), tree, log2_edge_sizes, tcs_, scs_)
-    @test all((log2sumexp2(tcs_), maximum(scs_)) .<= (log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)), 11))
-    vertices = ['A', 'B', 'C', 'D', 'E']
-    optcode1 = parse_eincode(StaticEinCode, incidence_list, tree, vertices=vertices)
-    @test optcode1 isa OMEinsum.NestedEinsum
-    tree2 = OMEinsum.parse_tree(optcode1, vertices)
-    @test tree2 == tree
-
     eincode = ein"ab,acd,bcef,e,df->"
     size_dict = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     Random.seed!(2)
-    optcode2 = optimize_greedy(eincode, size_dict) 
+    optcode2 = optimize_code(eincode, size_dict, GreedyMethod()) 
     tc, sc = timespace_complexity(optcode2, edge_sizes)
     # test flop
     @test tc ≈ log2(flop(optcode2, edge_sizes))
@@ -54,7 +20,7 @@ end
     @test optcode1 == optcode2
     eincode3 = ein"(ab,acd),bcef,e,df->"
     Random.seed!(2)
-    optcode3 = optimize_greedy(eincode3, size_dict) 
+    optcode3 = optimize_code(eincode3, size_dict, GreedyMethod()) 
     tc, sc = timespace_complexity(optcode3, edge_sizes)
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
 end
