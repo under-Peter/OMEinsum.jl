@@ -19,7 +19,6 @@ struct DefaultRule <: EinRule{Any} end
 @doc raw"
     match_rule(ixs, iy)
     match_rule(code::EinCode)
-    match_rule(code::NestedEinsum)
 
 Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
 "

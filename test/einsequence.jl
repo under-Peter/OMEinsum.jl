@@ -7,6 +7,24 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, 
     @test_throws ArgumentError parse_nested("((ij,jk),km")
     @test_throws ArgumentError parse_nested("((ij,jk),k1)")
 
+    e1 = ein"((i,ij),i),j->i"
+    e2 = DynamicNestedEinsum(e1)
+    e3 = StaticNestedEinsum(e2)
+    @test e1 == e3
+    @test e1 == e2
+    @test getiyv(e1) == ['i']
+    @test OMEinsum.rootcode(e1) == ein"ij,j->i"
+    lf = OMEinsum.siblings(e1)[2]
+    @test isleaf(lf)
+    @test OMEinsum.tensorindex(lf) == 4
+    @test labeltype(e1) == Char
+
+    @test_throws ErrorException getiyv(lf)
+    @test_throws ErrorException getixsv(lf)
+
+    xs = (randn(3), randn(3,3), randn(3), randn(3))
+    @test e1(xs...) == e2(xs...)
+
     a, b, c = rand(2,2), rand(2,2), rand(2,2)
     abc1 = ein"(ij,jk),km -> im"(a,b,c)
     abc2 = ein"((ij,jk),km) -> im"(a,b,c)
@@ -30,15 +48,16 @@ end
 @testset "flatten" begin
     ne = ein"(ij,j),k->"
     @test OMEinsum.flatten(ne) === ein"ij,j,k->"
-    todynamic(ne::NestedEinsum) = isleaf(ne) ? NestedEinsum{DynamicEinCode{Char}}(ne.tensorindex) : NestedEinsum(todynamic.(ne.args), DynamicEinCode(ne.eins))
-    ne2 = todynamic(ne)
+    ne2 = DynamicNestedEinsum(ne)
     @test OMEinsum.flatten(ne2) isa DynamicEinCode && OMEinsum.flatten(ne2) == DynamicEinCode(ein"ij,j,k->")
 end
 
 @testset "time, space, rw complexity" begin
     ne = ein"(ij,jkc),klc->il"
-    tc, sc, rw = timespacereadwrite_complexity(ne, Dict([l=>10 for l in "ijklc"]))
+    size_dict = Dict([l=>10 for l in "ijklc"])
+    tc, sc, rw = timespacereadwrite_complexity(ne, size_dict)
     @test tc ≈ log2(10000+10000)
     @test sc ≈ log2(1000)
     @test rw ≈ log2(100+1000+1000+1000+1000+100)
+    @test peak_memory(ne, size_dict) == 2100
 end

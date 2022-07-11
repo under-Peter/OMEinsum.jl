@@ -7,7 +7,7 @@ Here, we provide an example, advanced uses can be found in [OMEinsumContractionO
 Let us first consider the following contraction order
 
 ```@example 3
-using OMEinsum, OMEinsumContractionOrders
+using OMEinsum
 
 code = ein"ij,jk,kl,li->"
 ```

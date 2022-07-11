@@ -16,6 +16,7 @@ import Documenter
     end
     include("autodiff.jl")
     include("einsequence.jl")
+    include("slicing.jl")
     include("interfaces.jl")
 
     include("contractionorder.jl")

@@ -24,6 +24,13 @@ Base.:≈(x::AbstractArray, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_appro
 Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
 Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
 
+@testset "get output array" begin
+    xs = (randn(4,4), randn(3))
+    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{Float64}
+    xs = (randn(4,4), randn(ComplexF64, 3))
+    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{ComplexF64}
+end
+
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
     a = randn(3,3)
@@ -210,6 +217,11 @@ end
     t = rand(5,5,5,5)
     a = rand(5,5)
     size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+
+    OMEinsum.allow_loops(false)
+    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    OMEinsum.allow_loops(true)
+
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
@@ -265,7 +277,7 @@ end
     @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
     size_dict = Dict('a'=>2,'b'=>2,'c'=>2)
     for code in [ein"c,c->cc", ein"c,cc->c", ein"cc,c->cc", ein"cc,cc->cc", ein"cc,cb->bc", ein"cb,bc->cc", ein"ac,cc->ac"]
-        @show code
+        @info code
         a = randn(fill(2, length(getixsv(code)[1]))...)
         b = randn(fill(2, length(getixsv(code)[2]))...)
         @test code(a, b) ≈ OMEinsum.loop_einsum(code, (a,b), size_dict)

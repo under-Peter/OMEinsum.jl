@@ -21,7 +21,7 @@ of correct size `y`.
 function loop_einsum!(code::EinCode,
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 y::AbstractArray{T,L}, size_dict) where {N,L,T}
-    ALLOW_LOOPS[] || @error "using `loop_einsum` to evaluate" code size.(xs) size(y)
+    ALLOW_LOOPS[] || error("using `loop_einsum` is forbidden: code: $code")
     A = einarray(Val((Tuple.(getixs(code))...,)), Val((getiy(code)...,)), xs, size_dict)
     reduce_einarray!(A, y)
 end

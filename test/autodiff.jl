@@ -49,7 +49,7 @@ end
             @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (1,4)), (a,b,c)) |> abs ∘ sum ,a,b,c)
             @test bpcheck( (a,b,c) -> einsum(EinCode(((1,2),(2,3),(3,4)), (4,1)), (a,b,c)) |> abs ∘ sum ,a,b,c)
             @test bpcheck((a,v) -> einsum(EinCode(((1,2),(2,)), (1,)), (a,v)) |> abs ∘ sum , a, v)
-            @test bpcheck((a,v) -> einsum(StaticEinCode{((1,2),(2,)), (1,)}(), (a,v)) |> abs ∘ sum , a, v)
+            @test bpcheck((a,v) -> einsum(StaticEinCode{Int, ((1,2),(2,)), (1,)}(), (a,v)) |> abs ∘ sum , a, v)
             @test bpcheck((a,t,v) -> ein"(ab,abcd),c->ad"(a,t,v) |> abs ∘ sum ,a,T.(t),v)
 
             # contract to 0-dim array

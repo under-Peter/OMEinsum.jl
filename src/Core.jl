@@ -1,4 +1,4 @@
-# include `EinCode`, `NestedEinsum` and `SlicedEinsum` (defined in OMEinsumContractionOrders).
+# include `EinCode`, `NestedEinsum` and `SlicedEinsum`
 #
 # Required interfaces are:
 # * labeltype
@@ -20,16 +20,16 @@ The constructor returns a `DynamicEinCode` instance.
 abstract type EinCode <: AbstractEinsum end
 
 """
-    StaticEinCode{ixs, iy}
+    StaticEinCode{LT, ixs, iy}
 
 The static version of `DynamicEinCode` that matches the contraction rule at compile time.
-It is the default return type of `@ein_str` macro.
+It is the default return type of `@ein_str` macro. `LT` is the label type.
 """
-struct StaticEinCode{ixs, iy} <: EinCode end
+struct StaticEinCode{LT,ixs, iy} <: EinCode end
 
-getixs(::StaticEinCode{ixs}) where ixs = ixs
-getiy(::StaticEinCode{ixs, iy}) where {ixs, iy} = iy
-labeltype(::StaticEinCode{ixs,iy}) where {ixs, iy} = promote_type(eltype.(ixs)..., eltype(iy))
+getixs(::StaticEinCode{LT,ixs}) where {LT,ixs} = ixs
+getiy(::StaticEinCode{LT,ixs, iy}) where {LT,ixs, iy} = iy
+labeltype(::StaticEinCode{LT}) where {LT} = LT
 """
     getixsv(code)
 
@@ -44,7 +44,7 @@ julia> getixsv(ein"(ij,jk),k->i")
  ['k']
 ```
 """
-getixsv(code::StaticEinCode) = [collect(labeltype(code), ix) for ix in getixs(code)]
+getixsv(code::StaticEinCode{LT}) where LT = [collect(LT, ix) for ix in getixs(code)]   # not stable!
 """
     getiy(code)
 
@@ -57,7 +57,7 @@ julia> getiyv(ein"(ij,jk),k->i")
  'i': ASCII/Unicode U+0069 (category Ll: Letter, lowercase)
 ```
 """
-getiyv(code::StaticEinCode) = collect(labeltype(code), getiy(code))
+getiyv(code::StaticEinCode{LT}) where LT = collect(LT, getiy(code))
 
 """
     DynamicEinCode{LT}
@@ -93,7 +93,7 @@ _tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [
 _tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), iy
 _tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
 
-Base.:(==)(x::DynamicEinCode, y::DynamicEinCode) = x.ixs == y.ixs && x.iy == y.iy
+Base.:(==)(x::EinCode, y::EinCode) = getixsv(x) == getixsv(y) && getiyv(x) == getiyv(y)
 # forward from EinCode, for compatibility
 EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
 
@@ -104,8 +104,8 @@ getixsv(code::DynamicEinCode) = code.ixs
 getiyv(code::DynamicEinCode) = code.iy
 
 # conversion
-DynamicEinCode(::StaticEinCode{ixs, iy}) where {ixs, iy} = DynamicEinCode(ixs, iy)
-StaticEinCode(code::DynamicEinCode) = StaticEinCode{(Tuple.(code.ixs)...,), (code.iy...,)}()
+DynamicEinCode(::StaticEinCode{LT,ixs,iy}) where {LT,ixs, iy} = DynamicEinCode([collect(LT,ix) for ix in ixs], collect(LT,iy))
+StaticEinCode(code::DynamicEinCode{LT}) where LT = StaticEinCode{LT,(Tuple.(code.ixs)...,), (code.iy...,)}()
 
 """
     EinIndexer{locs,N}

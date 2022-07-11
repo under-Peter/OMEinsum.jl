@@ -8,6 +8,9 @@ using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs
     @test OMEinsum.getixs(code) == [[1,2], [2,3]]
     @test OMEinsum.getiy(code) == [1,3]
 
+    @test DynamicEinCode(([1,2], [2,3]), [1,3]) == code
+    @test DynamicEinCode([[1,2], [2,3]], [1,3]) == code
+
     code1 = ein"ab,bc->ac"
     code2 = EinCode((('a', 'b'), ('b', 'c')), ('a', 'c'))
     @test code2 isa DynamicEinCode
@@ -22,13 +25,15 @@ using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs
     code2 = EinCode(((), ()), ())
     @test collect(collect.(getixs(code1))) == getixs(code2)
     @test collect(getiy(code1)) == getiy(code2)
-    @test labeltype(code1) == labeltype(code2)
+    @test labeltype(code1) == Char
+    @test labeltype(code2) == Union{}
 
     code1 = ein"->"
     code2 = EinCode(((),), ())
     @test collect(collect.(getixs(code1))) == getixs(code2)
     @test collect(getiy(code1)) == getiy(code2)
-    @test labeltype(code1) == labeltype(code2)
+    @test labeltype(code1) == Char
+    @test labeltype(code2) == Union{}
 
     @test_throws ErrorException EinCode((), ())
 end

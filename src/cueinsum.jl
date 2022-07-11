@@ -92,11 +92,11 @@ Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
-    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
-    for (i, arg) in enumerate(neinsum.args)
+    mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
+    for (i, arg) in enumerate(siblings(neinsum))
         mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict; active_free=active_free))
     end
-    res = einsum(neinsum.eins, (mxs...,), size_dict)
+    res = einsum(rootcode(neinsum), (mxs...,), size_dict)
     active_free && for mx in mxs  # free CuArray aggressively.
         CUDA.unsafe_free!(mx)
     end
@@ -104,7 +104,7 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
 end
 
 # to dispatch Adjoint correctly
-@generated function einsum(code::StaticEinCode{ixs, iy}, xs::NTuple{N,CUDAArrayTypes} where N, size_dict::Dict{LT}) where {LT, ixs, iy}
+@generated function einsum(code::StaticEinCode{LT,ixs, iy}, xs::NTuple{N,CUDAArrayTypes} where N, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
     :(einsum($rule, $ixs, $iy, _unwrap.(xs), size_dict))
 end
