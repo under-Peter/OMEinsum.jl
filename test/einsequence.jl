@@ -54,8 +54,10 @@ end
 
 @testset "time, space, rw complexity" begin
     ne = ein"(ij,jkc),klc->il"
-    tc, sc, rw = timespacereadwrite_complexity(ne, Dict([l=>10 for l in "ijklc"]))
+    size_dict = Dict([l=>10 for l in "ijklc"])
+    tc, sc, rw = timespacereadwrite_complexity(ne, size_dict)
     @test tc ≈ log2(10000+10000)
     @test sc ≈ log2(1000)
     @test rw ≈ log2(100+1000+1000+1000+1000+100)
+    @test peak_memory(ne, size_dict) == 2100
 end

@@ -8,6 +8,9 @@ using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs
     @test OMEinsum.getixs(code) == [[1,2], [2,3]]
     @test OMEinsum.getiy(code) == [1,3]
 
+    @test DynamicEinCode(([1,2], [2,3]), [1,3]) == code
+    @test DynamicEinCode([[1,2], [2,3]], [1,3]) == code
+
     code1 = ein"ab,bc->ac"
     code2 = EinCode((('a', 'b'), ('b', 'c')), ('a', 'c'))
     @test code2 isa DynamicEinCode

@@ -24,6 +24,13 @@ Base.:≈(x::AbstractArray, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_appro
 Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
 Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
 
+@testset "get output array" begin
+    xs = (randn(4,4), randn(3))
+    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{Float64}
+    xs = (randn(4,4), randn(ComplexF64, 3))
+    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{ComplexF64}
+end
+
 @testset "tensor order check" begin
     ixs = ((1,2), (2,3))
     a = randn(3,3)
@@ -210,6 +217,11 @@ end
     t = rand(5,5,5,5)
     a = rand(5,5)
     size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+
+    OMEinsum.allow_loops(false)
+    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    OMEinsum.allow_loops(true)
+
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
     @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
