@@ -235,7 +235,7 @@ function DynamicNestedEinsum(ne::StaticNestedEinsum{LT}) where LT
     end
 end
 function NestedEinsum(args, eins::EinCode)
-    eins isa DynamicEinCode ? DyanmicNestdEinsum(args, eins) : StaticNestedEinsum(args, eins)
+    eins isa DynamicEinCode ? DynamicNestedEinsum(args, eins) : StaticNestedEinsum(args, eins)
 end
 
 function construct(nein::NestedEinsumConstructor{T}) where T
