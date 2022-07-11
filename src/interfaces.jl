@@ -32,7 +32,7 @@ function ein(s::AbstractString)
     else
         iy  = Tuple(siy)
         ixs = Tuple(Tuple(ix) for ix in split(sixs,','))
-        return StaticEinCode{ixs, iy}()
+        return StaticEinCode{Char, ixs, iy}()
     end
 end
 
@@ -41,8 +41,8 @@ function (code::DynamicEinCode{LT})(@nospecialize(xs...); size_info=nothing) whe
     einsum(code, xs, size_dict)
 end
 
-function (code::StaticEinCode)(xs...; size_info=nothing)
-    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{labeltype(code),Int}() : copy(size_info))
+function (code::StaticEinCode{LT})(xs...; size_info=nothing) where LT
+    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
     einsum(code, xs, size_dict)
 end
 
@@ -189,7 +189,7 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::StaticEinCode{ixs, iy}, xs::Tuple, size_dict::Dict{LT}) where {LT, ixs, iy}
+@generated function einsum(code::StaticEinCode{LT, ixs, iy}, xs::Tuple, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
     :(einsum($rule, $ixs, $iy, xs, size_dict))
 end

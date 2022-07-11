@@ -105,15 +105,16 @@ end
 
 function drop_slicedim(ne::NestedEinsum, slices::Vector)
     isleaf(ne) && return ne
-    ixs = map(ix->filter(∉(slices), ix), getixsv(ne.eins))
-    iy = filter(∉(slices), getiyv(ne.eins))
-    NestedEinsum(map(arg->drop_slicedim(arg, slices), ne.args), similar_eincode(ne.eins, ixs, iy))
+    eins = rootcode(ne)
+    ixs = map(ix->filter(∉(slices), ix), getixsv(eins))
+    iy = filter(∉(slices), getiyv(eins))
+    NestedEinsum(map(arg->drop_slicedim(arg, slices), siblings(ne)), similar_eincode(eins, ixs, iy))
 end
 similar_eincode(::DynamicEinCode, ixs, iy) = DynamicEinCode(ixs, iy)
-similar_eincode(::StaticEinCode, ixs, iy) = StaticEinCode{(Tuple.(ixs)...,), (iy...,)}()
+similar_eincode(::StaticEinCode{LT}, ixs, iy) where LT = StaticEinCode{LT,(Tuple.(ixs)...,), (iy...,)}()
 
 flatten(se::SlicedEinsum) = flatten(se.eins)
 labeltype(::SlicedEinsum{LT}) where LT = LT
 get_size_dict!(se::SlicedEinsum, xs, size_info::Dict) = get_size_dict!(se.eins, xs, size_info)
-getixsv(::Type{LT}, se::SlicedEinsum) where LT = getixsv(LT, se.eins)
-getiyv(::Type{LT}, se::SlicedEinsum) where LT = getiyv(LT, se.eins)
+getixsv(se::SlicedEinsum) = getixsv(se.eins)
+getiyv(se::SlicedEinsum) = getiyv(se.eins)

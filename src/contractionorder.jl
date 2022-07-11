@@ -3,29 +3,29 @@ function decorate(code::OMEinsumContractionOrders.EinCode)
 end
 function decorate(code::OMEinsumContractionOrders.NestedEinsum{LT}) where LT
     if OMEinsumContractionOrders.isleaf(code)
-        NestedEinsum{DynamicEinCode{LT}}(code.tensorindex)
+        DynamicNestedEinsum{LT}(code.tensorindex)
     else
-        NestedEinsum(decorate.(code.args), decorate(code.eins))
+        DynamicNestedEinsum(decorate.(code.args), decorate(code.eins))
     end
 end
 function decorate(code::OMEinsumContractionOrders.SlicedEinsum)
     SlicedEinsum(code.slicing, decorate(code.eins))
 end
 
-function rawcode(::Type{LT}, code::EinCode) where LT
+function rawcode(code::EinCode)
     OMEinsumContractionOrders.EinCode(getixsv(code), getiyv(code))
 end
-function rawcode(::Type{LT}, code::NestedEinsum) where LT
+function rawcode(code::NestedEinsum{LT}) where LT
     if isleaf(code)
-        OMEinsumContractionOrders.NestedEinsum{LT}(code.tensorindex)
+        OMEinsumContractionOrders.NestedEinsum{LT}(tensorindex(code))
     else
-        OMEinsumContractionOrders.NestedEinsum(rawcode.(LT, code.args), rawcode(LT, code.eins))
+        OMEinsumContractionOrders.NestedEinsum([rawcode(s) for s in siblings(code)], rawcode(rootcode(code)))
     end
 end
-function rawcode(::Type{LT}, code::SlicedEinsum) where LT
-    OMEinsumContractionOrders.SlicedEinsum(code.slicing, rawcode(LT, code.eins))
+function rawcode(code::SlicedEinsum) where LT
+    OMEinsumContractionOrders.SlicedEinsum(code.slicing, rawcode(code.eins))
 end
-rawcode(code::AbstractEinsum) = rawcode(labeltype(code), code)
+rawcode(code::AbstractEinsum) = rawcode(code)
 
 function OMEinsumContractionOrders.optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier=nothing, permute::Bool=true)
     decorate(optimize_code(rawcode(code), size_dict, optimizer, simplifier, permute))

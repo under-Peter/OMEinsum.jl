@@ -152,61 +152,105 @@ function parse_nested_expr(expr, tensors, allinds)
     end
 end
 
-"""
-    NestedEinsum{ET} <: AbstractEinsum
-    NestedEinsum(args, eins)
-    NestedEinsum(tensorindex::Int)
+# the contraction tree
+abstract type NestedEinsum{LT} <: AbstractEinsum end
 
-Einsum with contraction order, where the type parameter `ET` and be a type `<:`[`StaticEinCode`](@ref) or [`DynamicEinCode`](@ref).
+"""
+    DynamicNestedEinsum{LT} <: NestedEinsum{LT}
+    DynamicNestedEinsum(args, eins)
+    DynamicNestedEinsum{LT}(tensorindex::Int)
+
+Einsum with contraction order, where the type parameter `LT` is the label type.
 It has two constructors. One takes a `tensorindex` as input, which represents the leaf node in a contraction tree.
-The other takes an iterable of type `NestedEinsum`, `args`, as the siblings, and `eins` to specify the contraction operation.
+The other takes an iterable of type `DynamicNestedEinsum`, `args`, as the siblings, and `eins` to specify the contraction operation.
 """
-struct NestedEinsum{ET} <: AbstractEinsum
-    args::Vector{NestedEinsum{ET}}
+struct DynamicNestedEinsum{LT} <: NestedEinsum{LT}
+    args::Vector{NestedEinsum{LT}}
     tensorindex::Int  # -1 if not leaf
-    eins::ET
+    eins::DynamicEinCode{LT}
 
-    NestedEinsum(args::Vector{NestedEinsum{DynamicEinCode{LT}}}, eins::DynamicEinCode{LT}) where LT = new{DynamicEinCode{LT}}(args, -1, eins)
-    NestedEinsum{DynamicEinCode{LT}}(arg::Int) where LT = new(NestedEinsum{DynamicEinCode{LT}}[], arg)
-    function NestedEinsum(args::Tuple, eins::DynamicEinCode{LT}) where LT
-        @assert length(args) == length(getixs(eins))
-        new{DynamicEinCode{LT}}([arg isa Int ? NestedEinsum{DynamicEinCode{LT}}(arg) : arg for arg in args], -1, eins)
+    function DynamicNestedEinsum(args::Vector{DynamicNestedEinsum{LT}}, eins::DynamicEinCode{LT}) where LT
+        @assert length(args) == length(getixsv(eins))
+        new{LT}(args, -1, eins)
     end
+    DynamicNestedEinsum{LT}(arg::Int) where LT = new{LT}(NestedEinsum{LT}[], arg)
+end
+function DynamicNestedEinsum(args, eins::DynamicEinCode{LT}) where LT
+    DynamicNestedEinsum(collect(DynamicNestedEinsum{LT}, args), eins)
+end
+isleaf(ne::DynamicNestedEinsum) = ne.tensorindex != -1
+siblings(ne::DynamicNestedEinsum) = ne.args
+tensorindex(ne::DynamicNestedEinsum) = ne.tensorindex
+rootcode(ne::DynamicNestedEinsum) = ne.eins
 
-    NestedEinsum(args::Vector{NestedEinsum{StaticEinCode}}, eins::StaticEinCode) = new{StaticEinCode}(args, -1, eins)
-    NestedEinsum{StaticEinCode}(arg::Int) = new{StaticEinCode}(NestedEinsum{StaticEinCode}[], arg)
-    function NestedEinsum(args::Tuple, eins::StaticEinCode)
+"""
+    StaticNestedEinsum{LT,args,eins} <: NestedEinsum{LT}
+    StaticNestedEinsum(args, eins)
+    StaticNestedEinsum{LT}(tensorindex::Int)
+
+Einsum with contraction order, where the type parameter `LT` is the label type,
+`args` is a tuple of StaticNestedEinsum, `eins` is a `StaticEinCode` and leaf node is defined by setting `eins` to an integer.
+It has two constructors. One takes a `tensorindex` as input, which represents the leaf node in a contraction tree.
+The other takes an iterable of type `DynamicNestedEinsum`, `args`, as the siblings, and `eins` to specify the contraction operation.
+"""
+struct StaticNestedEinsum{LT,args,eins} <: NestedEinsum{LT}
+    function StaticNestedEinsum(args::NTuple{N,StaticNestedEinsum{LT}}, eins::StaticEinCode{LT}) where {N,LT}
         @assert length(args) == length(getixs(eins))
-        new{StaticEinCode}([arg isa Int ? NestedEinsum{StaticEinCode}(arg) : arg for arg in args], -1, eins)
+        new{LT,args,eins}()
+    end
+    function StaticNestedEinsum{LT}(tensorindex::Int) where {LT}
+        new{LT,(),tensorindex}()
     end
 end
-
-isleaf(ne::NestedEinsum) = ne.tensorindex != -1
+isleaf(::StaticNestedEinsum{LT,args,eins}) where {LT,args,eins} = eins isa Int
+siblings(::StaticNestedEinsum{LT,args}) where {LT,args} = args
+tensorindex(ne::StaticNestedEinsum{LT,args,eins}) where {LT,args,eins} = (@assert isleaf(ne); eins)
+rootcode(::StaticNestedEinsum{LT,args,eins}) where {LT,args,eins} = eins
 
 function Base.:(==)(a::NestedEinsum, b::NestedEinsum)
-    ex = a.args == b.args && a.tensorindex == b.tensorindex
-    if isdefined(a, :eins) && isdefined(b, :eins)
-        return ex && a.eins == b.eins
-    elseif !(isdefined(a, :eins)) && !(isdefined(b, :eins))
-        return ex
+    siba, sibb = siblings(a), siblings(b)
+    (isleaf(a) != isleaf(b) || length(siba) != length(sibb)) && return false
+    ex = if isleaf(a)
+        tensorindex(a) == tensorindex(b)
     else
-        return false
+        rootcode(a) == rootcode(b)
     end
+    return ex && all(i->siba[i] == sibb[i], 1:length(siba))
+end
+
+# conversion
+function StaticNestedEinsum(ne::DynamicNestedEinsum{LT}) where LT
+    if isleaf(ne)
+        StaticNestedEinsum{LT}(tensorindex(ne))
+    else
+        sib = siblings(ne)
+        StaticNestedEinsum(ntuple(i->StaticNestedEinsum(sib[i]),length(sib)), StaticEinCode(rootcode(ne)))
+    end
+end
+function DynamicNestedEinsum(ne::StaticNestedEinsum{LT}) where LT
+    if isleaf(ne)
+        DynamicNestedEinsum{LT}(tensorindex(ne))
+    else
+        DynamicNestedEinsum([DynamicNestedEinsum(s) for s in siblings(ne)], DynamicEinCode(rootcode(ne)))
+    end
+end
+function NestedEinsum(args, eins::EinCode)
+    eins isa DynamicEinCode ? DyanmicNestdEinsum(args, eins) : StaticNestedEinsum(args, eins)
 end
 
 function construct(nein::NestedEinsumConstructor{T}) where T
     ixs = Tuple(map(extractixs, nein.args))
     iy = Tuple(nein.iy)
-    eins = StaticEinCode{ixs,iy}()
-    args = Tuple(map(x -> x isa NestedEinsumConstructor ? construct(x) : x.n,nein.args))
-    return NestedEinsum(args, eins)
+    eins = StaticEinCode{T,ixs,iy}()
+    args = Tuple(map(x -> x isa NestedEinsumConstructor ? construct(x) : StaticNestedEinsum{T}(x.n), nein.args))
+    return StaticNestedEinsum(args, eins)
 end
 extractixs(x::IndexGroup) = Tuple(x.inds)
 extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 
 # For CuArrays, kwargs can be [`active_free`].
-function (neinsum::NestedEinsum)(@nospecialize(xs::AbstractArray...); size_info = nothing, kwargs...)
-    size_dict = size_info===nothing ? Dict{labeltype(neinsum.eins),Int}() : copy(size_info)
+function (neinsum::NestedEinsum{LT})(@nospecialize(xs::AbstractArray...); size_info = nothing, kwargs...) where LT
+    size_dict = size_info===nothing ? Dict{LT,Int}() : copy(size_info)
     get_size_dict!(neinsum, xs, size_dict)
     return einsum(neinsum, xs, size_dict; kwargs...)
 end
@@ -218,31 +262,14 @@ function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}
     return get_size_dict_!(ixs, [collect(Int, size(xs[i])) for i in ks], size_info)
 end
 
-function getixsv(::Type{LT}, ne::NestedEinsum) where LT
-    d = OMEinsum.collect_ixs!(ne, Dict{Int,Vector{LT}}())
-    ks = sort!(collect(keys(d)))
-    return @inbounds [d[i] for i in ks]
-end
-function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
-    @inbounds for i=1:length(ne.args)
-        arg = ne.args[i]
-        if isleaf(arg)
-            d[arg.tensorindex] = _collect(LT, OMEinsum.getixs(ne.eins)[i])
-        else
-            collect_ixs!(arg, d)
-        end
-    end
-    return d
-end
-
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
-    mxs = Vector{AbstractArray}(undef, length(neinsum.args))
-    for (i, arg) in enumerate(neinsum.args)
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[arg.tensorindex] : einsum(arg, xs, size_dict))
+    mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
+    for (i, arg) in enumerate(siblings(neinsum))
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, size_dict))
     end
-    return einsum(neinsum.eins, (mxs...,), size_dict)
+    return einsum(rootcode(neinsum), (mxs...,), size_dict)
 end
 
 _safe_set(lst, i, y) = (lst[i] = y; lst)
@@ -252,12 +279,12 @@ struct LeafString
     str::String
 end
 function AbstractTrees.children(ne::NestedEinsum)
-    [isleaf(item) ? LeafString(_join(OMEinsum.getixs(ne.eins)[k])) : item for (k,item) in enumerate(ne.args)]
+    [isleaf(item) ? LeafString(_join(getixs(rootcode(ne))[k])) : item for (k,item) in enumerate(siblings(ne))]
 end
 
 AbstractTrees.printnode(io::IO, e::LeafString) = print(io, e.str)
 function AbstractTrees.printnode(io::IO, x::NestedEinsum)
-    isleaf(x) ? print(io, x.tensorindex) : print(io, x.eins)
+    isleaf(x) ? print(io, tensorindex(x)) : print(io, rootcode(x))
 end
 
 function Base.show(io::IO, e::EinCode)
@@ -276,24 +303,49 @@ connector(::Type) = "-"
 
 # flatten nested einsum
 function _flatten(code::NestedEinsum, iy=nothing)
-    isleaf(code) && return [code.tensorindex=>iy]
+    isleaf(code) && return [tensorindex(code)=>iy]
+    sibs = siblings(code)
     ixs = []
-    for i=1:length(code.args)
-        append!(ixs, _flatten(code.args[i], OMEinsum.getixsv(code.eins)[i]))
+    for i=1:length(sibs)
+        append!(ixs, _flatten(sibs[i], getixs(rootcode(code))[i]))
     end
     return ixs
 end
 
 flatten(code::EinCode) = code
-function flatten(code::NestedEinsum)
+function flatten(code::DynamicNestedEinsum{LT}) where LT
     ixd = Dict(_flatten(code))
-    if code.eins isa DynamicEinCode
-        DynamicEinCode([ixd[i] for i=1:length(ixd)], collect(OMEinsum.getiy(code.eins)))
-    else
-        StaticEinCode{ntuple(i->(ixd[i]...,), length(ixd)), OMEinsum.getiy(code.eins)}()
-    end
+    DynamicEinCode([ixd[i] for i=1:length(ixd)], collect(getiy(code.eins)))
+end
+function flatten(code::StaticNestedEinsum{LT}) where LT
+    ixd = Dict(_flatten(code))
+    StaticEinCode{LT,ntuple(i->(ixd[i]...,), length(ixd)), getiy(rootcode(code))}()
 end
 
-labeltype(::NestedEinsum{DynamicEinCode{LT}}) where LT = LT
-labeltype(ne::NestedEinsum{<:StaticEinCode}) = isleaf(ne) ? error("leaf static node does not have label type.") : labeltype(ne.eins)
-getiyv(::Type{LT}, ne::NestedEinsum) where LT = getiyv(LT, ne.eins)
+labeltype(::NestedEinsum{LT}) where LT = LT
+function getixsv(ne::NestedEinsum{LT}) where LT
+    if isleaf(ne)
+        error("Can not call `getiyv` on leaf nodes!")
+    end
+    d = collect_ixs!(ne, Dict{Int,Vector{LT}}())
+    ks = sort!(collect(keys(d)))
+    return @inbounds [d[i] for i in ks]
+end
+function collect_ixs!(ne::NestedEinsum, d::Dict{Int,Vector{LT}}) where LT
+    args = siblings(ne)
+    @inbounds for i=1:length(args)
+        arg = args[i]
+        if isleaf(arg)
+            d[tensorindex(arg)] = _collect(LT, getixs(rootcode(ne))[i])
+        else
+            collect_ixs!(arg, d)
+        end
+    end
+    return d
+end
+function getiyv(ne::NestedEinsum{LT}) where LT
+    if isleaf(ne)
+        error("Can not call `getiyv` on leaf nodes!")
+    end
+    getiyv(rootcode(ne))
+end

@@ -265,7 +265,7 @@ end
     @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
     size_dict = Dict('a'=>2,'b'=>2,'c'=>2)
     for code in [ein"c,c->cc", ein"c,cc->c", ein"cc,c->cc", ein"cc,cc->cc", ein"cc,cb->bc", ein"cb,bc->cc", ein"ac,cc->ac"]
-        @show code
+        @info code
         a = randn(fill(2, length(getixsv(code)[1]))...)
         b = randn(fill(2, length(getixsv(code)[2]))...)
         @test code(a, b) ≈ OMEinsum.loop_einsum(code, (a,b), size_dict)

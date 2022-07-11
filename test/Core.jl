@@ -22,13 +22,15 @@ using OMEinsum: subindex, dynamic_indexer, DynamicEinCode, StaticEinCode, getixs
     code2 = EinCode(((), ()), ())
     @test collect(collect.(getixs(code1))) == getixs(code2)
     @test collect(getiy(code1)) == getiy(code2)
-    @test labeltype(code1) == labeltype(code2)
+    @test labeltype(code1) == Char
+    @test labeltype(code2) == Union{}
 
     code1 = ein"->"
     code2 = EinCode(((),), ())
     @test collect(collect.(getixs(code1))) == getixs(code2)
     @test collect(getiy(code1)) == getiy(code2)
-    @test labeltype(code1) == labeltype(code2)
+    @test labeltype(code1) == Char
+    @test labeltype(code2) == Union{}
 
     @test_throws ErrorException EinCode((), ())
 end
