@@ -11,7 +11,7 @@ using Test, Random
     size_dict = Dict([c=>(1<<i) for (i,c) in enumerate(['a', 'b', 'c', 'd', 'e', 'f'])]...)
     Random.seed!(2)
     optcode2 = optimize_code(eincode, size_dict, GreedyMethod()) 
-    tc, sc = timespace_complexity(optcode2, edge_sizes)
+    tc, sc = contraction_complexity(optcode2, edge_sizes)
     # test flop
     @test tc ≈ log2(flop(optcode2, edge_sizes))
     @test flop(ein"i->", Dict('i'=>4)) == 4
@@ -20,7 +20,7 @@ using Test, Random
     eincode3 = ein"(ab,acd),bcef,e,df->"
     Random.seed!(2)
     optcode3 = optimize_code(eincode3, size_dict, GreedyMethod()) 
-    tc, sc = timespace_complexity(optcode3, edge_sizes)
+    tc, sc = contraction_complexity(optcode3, edge_sizes)
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
 end
 
@@ -46,11 +46,11 @@ end
     size_dict = Dict([i=>2 for i in 1:60])
     log2_edge_sizes = Dict([i=>1 for i in 1:60])
     edge_sizes = Dict([i=>2 for i in 1:60])
-    tc, sc = timespace_complexity(code, edge_sizes)
+    tc, sc = contraction_complexity(code, edge_sizes)
     @test tc == 60
     @test sc == 0
     optcode = optimize_code(code, size_dict, TreeSA(ntrials=1), MergeVectors())
-    tc2, sc2 = timespace_complexity(optcode, edge_sizes)
+    tc2, sc2 = contraction_complexity(optcode, edge_sizes)
     @test sc2 == 10
     xs = vcat([TropicalF64.([-1 1; 1 -1]) for i=1:90], [TropicalF64.([0, 0]) for i=1:60])
     @test OMEinsum.flatten(optcode) == code

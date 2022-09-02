@@ -4,7 +4,6 @@
 *.json
 .DS_Store
 /docs/build/
-/docs/site/
 local/
 *.swp
 Manifest.toml
