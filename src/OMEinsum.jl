@@ -10,7 +10,6 @@ export @ein_str, @ein, ein
 export einsum, dynamic_einsum
 export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum, NestedEinsum, SlicedEinsum, DynamicNestedEinsum, StaticNestedEinsum
 export getiyv, getixsv, uniquelabels, labeltype
-export timespace_complexity, timespacereadwrite_complexity
 export flop
 export loop_einsum, loop_einsum!, allow_loops
 export asarray, asscalar
@@ -23,7 +22,7 @@ export CodeOptimizer, CodeSimplifier,
     uniformsize,
     optimize_code, optimize_permute,
     # time space complexity
-    peak_memory, timespace_complexity, timespacereadwrite_complexity, flop,
+    peak_memory, timespace_complexity, timespacereadwrite_complexity, flop, contraction_complexity,
     # file io
     writejson, readjson,
     label_elimination_order

@@ -33,7 +33,7 @@ end
 OMEinsumContractionOrders.optimize_permute(code::AbstractEinsum) = decorate(optimize_permute(rawcode(code)))
 OMEinsumContractionOrders.peak_memory(code::AbstractEinsum, size_dict::Dict) = peak_memory(rawcode(code), size_dict)
 OMEinsumContractionOrders.flop(code::AbstractEinsum, size_dict::Dict) = flop(rawcode(code), size_dict)
-OMEinsumContractionOrders.timespacereadwrite_complexity(code::AbstractEinsum, size_dict) = timespacereadwrite_complexity(rawcode(code), size_dict)
+OMEinsumContractionOrders.contraction_complexity(code::AbstractEinsum, size_dict) = contraction_complexity(rawcode(code), size_dict)
 
 OMEinsumContractionOrders.uniformsize(code::AbstractEinsum, size) = Dict([l=>size for l in uniquelabels(code)])
 OMEinsumContractionOrders.label_elimination_order(code::AbstractEinsum) = label_elimination_order(rawcode(code))
