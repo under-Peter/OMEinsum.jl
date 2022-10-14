@@ -157,7 +157,7 @@ function _ein_macro(ex; einsum=:einsum)
     righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
-    return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),)) )
+    return :( $(esc(Z)) = $einsum( StaticEinCode(($(righttuples...),), $lefttuple), ($(rightnames...),)) )
 end
 
 @doc raw"
