@@ -99,6 +99,9 @@ end
     LT = promote_type(eltype.(ixs)...)
     return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
 end
+@inline function get_size_dict(ixs::AbstractVector{<:AbstractVector{LT}}, xs, size_info=nothing) where LT
+    return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
+end
 
 using MacroTools
 """
@@ -189,14 +192,19 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-@generated function einsum(code::StaticEinCode{LT, ixs, iy}, xs::Tuple, size_dict::Dict{LT}) where {LT, ixs, iy}
+@generated function einsum!(code::StaticEinCode{LT, ixs, iy}, xs::Tuple, res::AbstractArray, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
-    :(einsum($rule, $ixs, $iy, xs, size_dict))
+    :(einsum!($rule, $ixs, $iy, xs, res, size_dict))
+end
+
+function einsum!(code::DynamicEinCode, @nospecialize(xs::Tuple), res::AbstractArray, size_dict::Dict)
+    rule = match_rule(getixs(code), getiy(code))
+    einsum!(rule, getixs(code), getiy(code), xs, res, size_dict)
 end
 
 function einsum(code::DynamicEinCode, @nospecialize(xs::Tuple), size_dict::Dict)
-    rule = match_rule(getixs(code), getiy(code))
-    einsum(rule, getixs(code), getiy(code), xs, size_dict)
+    res = get_output_array(xs, map(y->size_dict[y],getiy(code)); has_repeated_indices=false)
+    einsum!(code, xs, res, size_dict)
 end
 
 function einsum(code::EinCode, @nospecialize(xs::Tuple))
@@ -204,7 +212,7 @@ function einsum(code::EinCode, @nospecialize(xs::Tuple))
 end
 
 # the fallback
-function einsum(::DefaultRule, ixs, iy, xs::Tuple, size_dict)
+function einsum!(::DefaultRule, ixs, iy, xs::Tuple, res::AbstractArray, size_dict)
     @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum(EinCode(ixs, iy), (xs...,), size_dict)
+    loop_einsum!(EinCode(ixs, iy), (xs...,), res, size_dict)
 end

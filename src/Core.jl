@@ -91,7 +91,7 @@ end
 _tovec(ixs::NTuple{N,Tuple{}}, iy::Tuple{}) where {N} = [collect(Union{}, ix) for ix in ixs], collect(Union{}, iy)
 _tovec(ixs::NTuple{N,NTuple{M,LT} where M}, iy::NTuple{K,LT}) where {N,K,LT} = [collect(LT, ix) for ix in ixs], collect(LT, iy)
 _tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), iy
-_tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {N,K,LT} = collect(ixs), collect(iy)
+_tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {LT} = collect(ixs), collect(iy)
 
 Base.:(==)(x::EinCode, y::EinCode) = getixsv(x) == getixsv(y) && getiyv(x) == getiyv(y)
 # forward from EinCode, for compatibility
