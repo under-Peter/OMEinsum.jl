@@ -5,7 +5,7 @@ _unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
 _unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
 _unwrap(x::CuArray) = x
 
-asarray(x, arr::CuArray) where T = CuArray(fill(x, ()))
+asarray(x, arr::CuArray) = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
 asscalar(x::DenseCuArray) = Array(x)[]
 
@@ -64,7 +64,7 @@ end
     Expr(:tuple, ids...)
 end
 
-function expanddims!(::Val{ixs}, ::Val{iy}, x, y) where {LT,ixs,iy}
+function expanddims!(::Val{ixs}, ::Val{iy}, x, y) where {ixs,iy}
     nthreads = 256
     nblocks = cld(prod(size(x)), nthreads)
     CIS = CartesianIndices(x)
