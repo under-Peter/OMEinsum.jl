@@ -165,7 +165,7 @@ It has two constructors. One takes a `tensorindex` as input, which represents th
 The other takes an iterable of type `DynamicNestedEinsum`, `args`, as the siblings, and `eins` to specify the contraction operation.
 """
 struct DynamicNestedEinsum{LT} <: NestedEinsum{LT}
-    args::Vector{NestedEinsum{LT}}
+    args::Vector{DynamicNestedEinsum{LT}}
     tensorindex::Int  # -1 if not leaf
     eins::DynamicEinCode{LT}
 

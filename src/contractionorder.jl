@@ -22,7 +22,7 @@ function rawcode(code::NestedEinsum{LT}) where LT
         OMEinsumContractionOrders.NestedEinsum([rawcode(s) for s in siblings(code)], rawcode(rootcode(code)))
     end
 end
-function rawcode(code::SlicedEinsum) where LT
+function rawcode(code::SlicedEinsum)
     OMEinsumContractionOrders.SlicedEinsum(code.slicing, rawcode(code.eins))
 end
 rawcode(code::AbstractEinsum) = rawcode(code)
