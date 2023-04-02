@@ -141,7 +141,7 @@ function _compactify!(y, x, indexer)
     return y
 end
 
-function duplicate(x, ix, iy, size_dict) where {Nx,Ny,T}
+function duplicate(x, ix, iy, size_dict)
     y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
     # compute same locs
     x_in_y_locs = (Int[findfirst(==(l), ix) for l in iy]...,)
