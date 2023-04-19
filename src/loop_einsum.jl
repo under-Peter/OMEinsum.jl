@@ -40,18 +40,14 @@ function reduce_einarray!(A::EinArray{T}, y) where T
 end
 
 # speed up the get output array for the case when the inputs have the same type.
-function get_output_array(xs::NTuple{N, AbstractArray{T,M} where M}, size; has_repeated_indices=true) where {T,N}
-    if has_repeated_indices
-        zeros(T, size...)
-    else
-        Array{T}(undef, size...)
-    end
-end
+get_output_eltype(::NTuple{N, AbstractArray{T,M} where M}) where {T,N} = T
+get_output_eltype(xs::NTuple{N, AbstractArray{<:Any,M} where M}) where N = promote_type(map(eltype,xs)...)
 function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
+    T = get_output_eltype(xs)
     if has_repeated_indices
-        zeros(promote_type(map(eltype,xs)...), size...)
+        zeros(T, size...)::Array{T}
     else
-        Array{promote_type(map(eltype,xs)...)}(undef, size...)
+        Array{T}(undef, size...)::Array{T}
     end
 end
 

@@ -90,7 +90,7 @@ end
 
 # overhead ~ 0.55us
 # @benchmark OMEinsum.einsum(Sum(), $(('a', 'b')), $(('b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function einsum(::Sum, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT}) where LT
+function einsum(::Sum, ixs, iy, xs::Tuple{<:AbstractArray{T}}, size_dict::Dict{LT})::AbstractArray{T} where {T,LT}
     ix, x = ixs[1], xs[1]
     @debug "Sum" ix => iy size(x)
     dims = (findall(i -> i ∉ iy, ix)...,)::NTuple{length(ix)-length(iy),Int}
@@ -105,7 +105,7 @@ end
 
 # overhead ~ 0.53us
 # @benchmark OMEinsum.einsum(OMEinsum.Repeat(), $(('a',)), $(('a', 'b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1))
-function einsum(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
+function einsum(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray{T}}, size_dict::Dict) where T
     ix, x = ixs[1], xs[1]
     @debug "Repeat" ix => iy size(x)
     ix1f = filter(i -> i ∈ ix, iy)
@@ -116,7 +116,7 @@ function einsum(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     end
     newshape = [l ∈ ix ? size_dict[l] : 1 for l in iy]
     repeat_dims = [l ∈ ix ? 1 : size_dict[l] for l in iy]
-    repeat(reshape(res, newshape...), repeat_dims...)
+    repeat(reshape(res, newshape...), repeat_dims...)::AbstractArray{T}
 end
 
 # overhead ~ 0.28us
@@ -171,7 +171,7 @@ function einsum(::Permutedims, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     ix, x = ixs[1], xs[1]
     perm = ntuple(i -> findfirst(==(iy[i]), ix)::Int, length(iy))
     @debug "Permutedims" ix => iy size(x) perm
-    return tensorpermute(x, perm)
+    return tensorpermute(x, perm)::typeof(xs[1])
 end
 
 # overhead ~0.04us

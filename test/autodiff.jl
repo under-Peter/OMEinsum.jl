@@ -2,6 +2,7 @@ using Test
 using OMEinsum
 using OMEinsum: StaticEinCode, DynamicEinCode
 using Zygote, ForwardDiff
+using Enzyme: autodiff, Reverse, ReverseWithPrimal, Forward, Duplicated, Active
 
 @doc raw"
     bpcheck(f, args...; η = 1e-5, verbose=false)
@@ -23,19 +24,23 @@ true
 "
 function bpcheck(f, args...; η = 1e-5, verbose = false)
     g = gradient(f, args...)
+    g2 = zero.(args)
+    autodiff(Reverse, f, Active, Duplicated.(args, g2)...)
     all(==(nothing), g) && error()
     dy_ref = 0
     for x in g
         x === nothing && continue
-        x isa Tuple && (dy_ref += η * mapreduce(y -> y == nothing ? 0 : sum(abs2,y), +, x))
+        x isa Tuple && (dy_ref += η * mapreduce(y -> y === nothing ? 0 : sum(abs2,y), +, x))
         x isa AbstractArray && (dy_ref += η * sum(abs2,x))
     end
     dy = f(args...) - f([gi === nothing ? arg : arg .- η .* gi for (arg, gi) in zip(args,g)]...)
+    dy2 = f(args...) - f([gi === nothing ? arg : arg .- η .* gi for (arg, gi) in zip(args,g2)]...)
 
     verbose && @show dy
+    verbose && @show dy2
     verbose && @show dy_ref
 
-    isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8)
+    isapprox(dy, dy_ref, rtol=1e-2, atol=1e-8) && isapprox(dy2, dy_ref, rtol=1e-2, atol=1e-8)
 end
 
 

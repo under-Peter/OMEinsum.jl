@@ -252,7 +252,7 @@ extractixs(x::NestedEinsumConstructor) = Tuple(x.iy)
 function (neinsum::NestedEinsum{LT})(@nospecialize(xs::AbstractArray...); size_info = nothing, kwargs...) where LT
     size_dict = size_info===nothing ? Dict{LT,Int}() : copy(size_info)
     get_size_dict!(neinsum, xs, size_dict)
-    return einsum(neinsum, xs, size_dict; kwargs...)
+    return einsum(neinsum, xs, size_dict; kwargs...)::AbstractArray{get_output_eltype(xs)}
 end
 
 function get_size_dict!(ne::NestedEinsum, @nospecialize(xs), size_info::Dict{LT}) where LT

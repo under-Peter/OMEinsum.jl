@@ -191,12 +191,12 @@ true
 "
 @generated function einsum(code::StaticEinCode{LT, ixs, iy}, xs::Tuple, size_dict::Dict{LT}) where {LT, ixs, iy}
     rule = match_rule(ixs, iy)
-    :(einsum($rule, $ixs, $iy, xs, size_dict))
+    :(einsum($rule, $ixs, $iy, xs, size_dict)::AbstractArray{get_output_eltype(xs)})
 end
 
 function einsum(code::DynamicEinCode, @nospecialize(xs::Tuple), size_dict::Dict)
     rule = match_rule(getixs(code), getiy(code))
-    einsum(rule, getixs(code), getiy(code), xs, size_dict)
+    einsum(rule, getixs(code), getiy(code), xs, size_dict)::AbstractArray{get_output_eltype(xs)}
 end
 
 function einsum(code::EinCode, @nospecialize(xs::Tuple))

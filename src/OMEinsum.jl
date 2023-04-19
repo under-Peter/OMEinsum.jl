@@ -40,7 +40,7 @@ using Requires
 function __init__()
     @require CUDA="052768ef-5323-5732-b1bb-66c8b64840ba" include("cueinsum.jl")
 end
-
+include("enzyme.jl")
 include("interfaces.jl")
 include("einsequence.jl")
 include("slicing.jl")

@@ -81,7 +81,7 @@ end
 
 `permutedims(A, perm)` with grouped dimensions.
 """
-function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
+function tensorpermute(A::AbstractArray{T,N}, perm)::typeof(A) where {T, N}
     @assert N == length(perm) && all(p->1<=p<=N, perm)
     N == 0 && return copy(A)
     # group `perm`s
