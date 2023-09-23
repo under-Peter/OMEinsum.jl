@@ -169,7 +169,10 @@ julia> ein"ijk,ijk->"(s,s)[]
 
 Using that method, it's easy to find that e.g. the peterson graph allows no 3 colouring, since
 ```julia
-julia> ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"(fill(s, 10)...)[]
+julia> code = ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"
+afl, bhn, cjf, dlh, enj, ago, big, cki, dmk, eom 
+
+julia> code(fill(s, 10)...)[]
 0
 ```
 
@@ -178,11 +181,45 @@ embedded in a pentagon as depicted here:
 
 ![](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Petersen_graph.svg/252px-Petersen_graph.svg.png)
 
+`OMEinsum` does not optimie the contraction order by default, so the above contraction can be time consuming. To speed up the contraction, we can use `optimize_code` to optimize the contraction order:
+```julia
+julia> optcode = optimize_code(code, uniformsize(code, 3), TreeSA())
+SlicedEinsum{Char, DynamicNestedEinsum{Char}}(Char[], ago, goa -> 
+├─ ago
+└─ gcojl, cjal -> goa
+   ├─ bgck, bojlk -> gcojl
+   │  ├─ big, cki -> bgck
+   │  │  ├─ big
+   │  │  └─ cki
+   │  └─ bhomj, lhmk -> bojlk
+   │     ├─ bhn, omnj -> bhomj
+   │     │  ├─ bhn
+   │     │  └─ eom, enj -> omnj
+   │     │     ⋮
+   │     │     
+   │     └─ dlh, dmk -> lhmk
+   │        ├─ dlh
+   │        └─ dmk
+   └─ cjf, afl -> cjal
+      ├─ cjf
+      └─ afl
+)
+
+julia> contraction_complexity(optcode, uniformsize(optcode, 3))
+Time complexity: 2^12.737881076857779
+Space complexity: 2^7.92481250360578
+Read-write complexity: 2^11.247334178028728
+
+julia> optcode(fill(s, 10)...)[]
+0
+```
+We can see the time complexity of the optimized code is much smaller than the original one. To know more about the contraction order optimization, please check the julia package [`OMEinsumContractionOrders.jl`](https://github.com/TensorBFS/OMEinsumContractionOrders.jl).
+
 Confronted with the above result, we can ask whether the peterson graph allows a relaxed variation of 3 colouring, having one vertex that might accept duplicate colours. The answer to that can be found using the gradient w.r.t a vertex:
 ```julia
 julia> using Zygote: gradient
 
-julia> gradient(x->ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"(x,s,s,s,s,s,s,s,s,s)[], s)[1] |> sum
+julia> gradient(x->optcode(x,s,s,s,s,s,s,s,s,s)[], s)[1] |> sum
 0
 ```
 This tells us that even if we allow duplicates on one vertex, there are no 3-colourings for the peterson graph.
