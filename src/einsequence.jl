@@ -153,6 +153,11 @@ function parse_nested_expr(expr, tensors, allinds)
 end
 
 # the contraction tree
+"""
+    NestedEinsum{LT} <: AbstractEinsum
+
+The abstract type for contraction trees. It has two subtypes, [`DynamicNestedEinsum`](@ref) and [`StaticNestedEinsum`](@ref).
+"""
 abstract type NestedEinsum{LT} <: AbstractEinsum end
 
 """

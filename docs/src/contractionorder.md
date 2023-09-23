@@ -12,11 +12,11 @@ using OMEinsum
 code = ein"ij,jk,kl,li->"
 ```
 
-The time and space complexity can be obtained by calling the [`timespacereadwrite_complexity`](@ref) function.
+The time and space complexity can be obtained by calling the [`contraction_complexity`](@ref) function.
 ```@example 3
 size_dict = uniformsize(code, 10)
 
-timespacereadwrite_complexity(code, size_dict)
+contraction_complexity(code, size_dict)
 ```
 
 The return values are `log2` values of the number of iterations, number of elements of the largest tensor and the number of elementwise read-write operations.
@@ -29,5 +29,5 @@ The output value is a binary contraction tree with type [`NestedEinsum`](@ref) t
 The time and readwrite complexities are significantly reduced comparing to the direct contraction.
 
 ```@example 3
-timespacereadwrite_complexity(optcode, size_dict)
+contraction_complexity(optcode, size_dict)
 ```
