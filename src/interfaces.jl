@@ -9,7 +9,13 @@ a `NestedEinsum` is returned which evaluates the expression
 according to parens.
 The valid character ranges for index-labels are `a-z` and `α-ω`.
 
-# example
+!!! note
+    OMEinsum is designed to be type unstable, so that it can have a
+    reasonable compiling time for large scale problems. For example,
+    in tensor network simulations, the ranks of tensors can be over 30,
+    figuring out the ranks of the output tensors is very time consuming.
+
+### Examples
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b, c = rand(10,10), rand(10,10), rand(10,1);
@@ -111,7 +117,13 @@ and need not name the output array. Thus `A = @ein [1,2] := B[1,ξ] * C[ξ,2]`
 is equivalent to the above. This can also be written `A = ein"ij,jk -> ik"(B,C)`
 using the numpy-style string macro.
 
-# example
+!!! note
+    OMEinsum is designed to be type unstable, so that it can have a
+    reasonable compiling time for large scale problems. For example,
+    in tensor network simulations, the ranks of tensors can be over 30,
+    figuring out the ranks of the output tensors is very time consuming.
+
+### Examples
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
