@@ -1,3 +1,3 @@
 ```@autodocs
-Modules = [OMEinsum]
+Modules = [OMEinsum, OMEinsum.OMEinsumContractionOrders]
 ```

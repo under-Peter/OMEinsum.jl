@@ -95,7 +95,8 @@ function einsum(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} wher
     res = get_output_array(xs, getindex.(Ref(size_dict), it.iyv))
     eins_sliced = drop_slicedim(se.eins, se.slicing)
     for (k, slicemap) in enumerate(it)
-        @debug "computing slice $k/$(length(it))"
+        # NOTE: @debug will break Zygote
+        # @debug "computing slice $k/$(length(it))"
         xsi = ntuple(i->take_slice(xs[i], it.ixsv[i], slicemap), length(xs))
         resi = einsum(eins_sliced, xsi, it.size_dict_sliced; kwargs...)
         res = fill_slice!(res, it.iyv, resi, slicemap)
