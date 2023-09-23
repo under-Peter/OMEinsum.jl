@@ -1,5 +1,13 @@
-using .CUDA
+module CUDAExt
 
+import OMEinsum: asarray, get_output_array, einsum, loop_einsum!, _batched_gemm, asscalar
+using OMEinsum: EinArray, Diag, Repeat, Duplicate, DefaultRule, EinCode, DynamicEinCode, StaticEinCode, NestedEinsum, SimpleBinaryRule, match_rule, loop_einsum, getiy, getixs, _unique, einarray, align_eltypes, siblings, isleaf, tensorindex, _safe_set, rootcode
+import OMEinsum
+using LinearAlgebra
+import LinearAlgebra: BlasFloat
+using CUDA
+
+const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
 _unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
 _unwrap(x::LinearAlgebra.Transpose{T,<:CuArray{T}}) where T = CuArray(x)
@@ -115,3 +123,5 @@ function einsum(code::DynamicEinCode, @nospecialize(xs::NTuple{N,CUDAArrayTypes}
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
+
+end
