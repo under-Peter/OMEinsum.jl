@@ -87,6 +87,11 @@ function einsum(::Tr, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     @debug "Tr" size(x)
     asarray(tr(x), x)
 end
+function einsum!(y, ::Tr, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
+    x = xs[1]
+    @debug "Tr" size(x)
+    y[] += tr(x)
+end
 
 # overhead ~ 0.55us
 # @benchmark OMEinsum.einsum(Sum(), $(('a', 'b')), $(('b',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
@@ -100,6 +105,18 @@ function einsum(::Sum, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict{LT})
         return einsum(Permutedims(), ((ix1f...,),), iy, (res,), size_dict)
     else
         return res
+    end
+end
+function einsum!(::Sum, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict::Dict{LT}) where LT
+    ix, x = ixs[1], xs[1]
+    @debug "Sum" ix => iy size(x)
+    dims = (findall(i -> i ∉ iy, ix)...,)::NTuple{length(ix)-length(iy),Int}
+    res = dropdims(sum(x, dims=dims), dims=dims)
+    ix1f = filter(i -> i ∈ iy, ix)::typeof(iy)
+    if ix1f != iy
+        return einsum!(Permutedims(), ((ix1f...,),), iy, (res,), y, size_dict)
+    else
+        return sum!(y, res)
     end
 end
 
@@ -118,6 +135,18 @@ function einsum(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     repeat_dims = [l ∈ ix ? 1 : size_dict[l] for l in iy]
     repeat(reshape(res, newshape...), repeat_dims...)
 end
+function einsum!(::Repeat, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict::Dict)
+    ix, x = ixs[1], xs[1]
+    @debug "Repeat" ix => iy size(x)
+    ix1f = filter(i -> i ∈ ix, iy)
+    res = if ix1f != ix
+        einsum(Permutedims(), (ix,), ix1f, (x,), size_dict)
+    else
+        x
+    end
+    newshape = [l ∈ ix ? size_dict[l] : 1 for l in iy]
+    y .+= reshape(res, newshape...)
+end
 
 # overhead ~ 0.28us
 # @benchmark OMEinsum.einsum(Diag(), $(('a', 'a')), $(('a',)), x, $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
@@ -125,6 +154,11 @@ function einsum(::Diag, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::Dict)
     ix, x = ixs[1], xs[1]
     @debug "Diag" ix => iy size.(x)
     compactify!(get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=false),x,ix, iy)
+end
+function einsum!(::Diag, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict::Dict)
+    ix, x = ixs[1], xs[1]
+    @debug "Diag" ix => iy size.(x)
+    compactify!(y, x, ix, iy)
 end
 
 function compactify!(y, x, ix, iy)
@@ -141,8 +175,7 @@ function _compactify!(y, x, indexer)
     return y
 end
 
-function duplicate(x, ix, iy, size_dict)
-    y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
+function duplicate!(y, x, ix, iy)
     # compute same locs
     x_in_y_locs = (Int[findfirst(==(l), ix) for l in iy]...,)
     indexer = dynamic_indexer(x_in_y_locs, size(y))
@@ -162,7 +195,13 @@ end
 function einsum(::Duplicate, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     ix, x = ixs[1], xs[1]
     @debug "Duplicate" ix => iy size(x)
-    duplicate(x, ix, iy, size_dict)
+    y = get_output_array((x,), map(y->size_dict[y],iy); has_repeated_indices=true)
+    duplicate!(y, x, ix, iy)
+end
+function einsum!(::Duplicate, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict)
+    ix, x = ixs[1], xs[1]
+    @debug "Duplicate" ix => iy size(x)
+    duplicate!(y, x, ix, iy)
 end
 
 # overhead ~ 0.15us
@@ -173,12 +212,22 @@ function einsum(::Permutedims, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     @debug "Permutedims" ix => iy size(x) perm
     return tensorpermute(x, perm)
 end
+function einsum!(::Permutedims, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict)
+    ix, x = ixs[1], xs[1]
+    perm = ntuple(i -> findfirst(==(iy[i]), ix)::Int, length(iy))
+    @debug "Permutedims" ix => iy size(x) perm
+    return tensorpermute!(y, x, perm)
+end
 
 # overhead ~0.04us
 # @benchmark OMEinsum.einsum(Identity(), $((('a', 'b'),)), $(('a','b')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function einsum(::Identity, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict)
     @debug "Identity" ixs[1] => iy size(xs[1])
     copy(xs[1])  # must copy, otherwise AD may fail!
+end
+function einsum!(::Identity, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict)
+    @debug "Identity" ixs[1] => iy size(xs[1])
+    sum!(y, xs[1])
 end
 
 # for unary operations
@@ -204,4 +253,26 @@ function einsum(::DefaultRule, ixs, iy, xs::Tuple{<:AbstractArray}, size_dict::D
     y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), ((iy_a...,),), (iy_b...,), (y_a,), size_dict) : y_a
     # duplicate
     length(iy_b) != length(iy) ? einsum(Duplicate(), ((iy_b...,),), iy, (y_b,), size_dict) : y_b
+end
+
+function einsum!(::DefaultRule, ixs, iy, xs::Tuple{<:AbstractArray}, y::AbstractArray, size_dict::Dict{LT}) where LT
+    ix, x = ixs[1], xs[1]
+    @debug "DefaultRule unary" ix => iy size(x)
+    # diag
+    ix_ = _unique(LT, ix)
+    x_ = length(ix_) != length(ix) ? einsum(Diag(), (ix,), (ix_...,), (x,), size_dict) : x
+    # sum
+    iy_b = _unique(LT, iy)
+    iy_a = filter(i->i ∈ ix, iy_b)
+    y_a = if length(ix_) != length(iy_a)
+        einsum(Sum(), ((ix_...,),), (iy_a...,), (x_,), size_dict)
+    elseif ix_ != iy_a
+        einsum(Permutedims(), ((ix_...,),), (iy_a...,), (x_,), size_dict)
+    else
+        x_
+    end
+    # repeat
+    y_b = length(iy_a) != length(iy_b) ? einsum(Repeat(), ((iy_a...,),), (iy_b...,), (y_a,), size_dict) : y_a
+    # duplicate
+    length(iy_b) != length(iy) ? einsum!(Duplicate(), ((iy_b...,),), iy, (y_b,), y, size_dict) : sum!(y, y_b)
 end
