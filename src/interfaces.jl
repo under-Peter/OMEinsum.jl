@@ -96,7 +96,7 @@ function get_size_dict_unary!(ix, s, size_info::Dict{LT}) where LT
 end
 
 @inline function get_size_dict(ixs, xs, size_info=nothing)
-    LT = reduce(promote_type, eltype.(ixs))
+    LT = foldl((a, b) -> promote_type(a, eltype(b)), ixs; init=Union{})
     return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
 end
 
