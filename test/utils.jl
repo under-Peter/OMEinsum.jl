@@ -1,4 +1,5 @@
 using OMEinsum: _unique
+using Test
 
 @testset "utils" begin
     @test _unique(Int,(1,2,3,3,)) == [1,2,3]
@@ -39,5 +40,17 @@ end
             B_ = Array{Any}(B)
             @test OMEinsum._batched_gemm(C1, C2, A, B) ≈ OMEinsum._batched_gemm(C1, C2, A_, B_)
         end
+    end
+end
+
+@testset "addmul!" begin
+    x = randn(10, 10)
+    y = randn(10, 10)
+    z = randn(10, 10)
+    for a in [0.0, 1.0, 4.0], b in [0.0, 1.0, 4.0]
+        #@test OMEinsum.@addmul!(a, copy(x), b, y, z) ≈ a .* x .+ b .* y .* z
+        #@test OMEinsum.@addmul!(a, copy(x), b) ≈ a .* x .+ b
+        @test (o = copy(x); OMEinsum.@addmul! o .= a .* o .+ b .* y .* z) ≈ a .* x .+ b .* y .* z
+        @test (o = copy(x); OMEinsum.@addmul! o .= a .* o .+ b) ≈ a .* x .+ b
     end
 end

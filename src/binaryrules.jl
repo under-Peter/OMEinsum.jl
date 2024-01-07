@@ -93,9 +93,9 @@ function _match_simple2(ix1, ix2, iy, Nx1, Nx2, Ny)
     return DefaultRule()
 end
 
-function einsum(rule::SimpleBinaryRule, ixs, iy, xs::NTuple{2, Any}, size_dict)
+function einsum!(rule::SimpleBinaryRule, ixs, iy, xs::NTuple{2, Any}, y, sx, sy, size_dict)
     @debug rule size.(xs)
-    einsum(rule, xs)
+    einsum!(rule, xs, y, sx, sy)
 end
 # Code is a binary representation of `(O1,I,O2,B)`.
 # Because the time complexity of `GEMM` and `BatchedGEMM` are higher than space complexity, we allow `permutedims`.
@@ -105,69 +105,69 @@ end
 # ,-> : 000
 # S = 1
 # T = 1
-function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any})
-    asarray(asscalar(xs[1]) * asscalar(xs[2]), xs[1])
+function einsum!(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* xs[1] .* xs[2]
 end
 
 # i,->i : 100
 # S = N
 # T = N
-function einsum(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any})
-    xs[1] .* Ref(asscalar(xs[2]))
+function einsum!(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* xs[1] .* Ref(asscalar(xs[2]))
 end
 
 # j,j-> : 010
 # S = N
 # T = N
-function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any})
-    asarray(transpose(xs[1]) * xs[2], xs[1])
+function einsum!(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* Ref(transpose(xs[1]) * xs[2])
 end
 
 # ,k->k : 001
 # S = N
 # T = N
-@inline function einsum(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]))
+@inline function einsum!(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
+    einsum!(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]), y, sx, sy)
 end
 
 # j,jk->k : 011
 # S = N^2
 # T = N^2
-function einsum(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any})
-    vec(transpose(xs[1]) * xs[2])
+function einsum(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
+    mul!(y, transpose(xs[2]), xs[1], sx, sy)
 end
-function einsum(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any})
-    xs[2] * xs[1]
+function einsum(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
+    mul!(y, xs[2], xs[1], sx, sy)
 end
 
 # ij,j->i : 110
 # S = N^2
 # T = N^2
-@inline function einsum(::SimpleBinaryRule{('i','j'),('j',), ('i',)}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('j',),('k','j'), ('k',)}(), (xs[2], xs[1]))
+@inline function einsum!(::SimpleBinaryRule{('i','j'),('j',), ('i',)}, xs::NTuple{2, Any}, y, sx, sy)
+    mul!(y, xs[1], xs[2], sx, sy)
 end
-@inline function einsum(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('j',),('j','k'), ('k',)}(), (xs[2], xs[1]))
+@inline function einsum!(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any}, y, sx, sy)
+    mul!(y, transpose(xs[1]), xs[2], sx, sy)
 end
 
 # i,k->ik : 101
 # S = N^2
 # T = N^2
-function einsum(::SimpleBinaryRule{('i',), ('k',), ('i','k')}, xs::NTuple{2, Any})
-    xs[1] * transpose(xs[2])
+function einsum!(::SimpleBinaryRule{('i',), ('k',), ('i','k')}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* xs[1] .* transpose(xs[2])
 end
-@inline function einsum(::SimpleBinaryRule{('i',), ('k',),('k','i')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('i',),('k',),('i','k')}(), (xs[2], xs[1]))
+@inline function einsum!(::SimpleBinaryRule{('i',), ('k',),('k','i')}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* transpose(xs[1]) .* xs[2]
 end
 
 # 000
-function einsum(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any})
-    xs[1] .* xs[2]
+function einsum!(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* xs[1] .* xs[2]
 end
 
 # 100
-function einsum(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any})
-    xs[1] .* transpose(xs[2])
+function einsum!(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any}, y, sx, sy)
+    @addmul! y .= sy .* y .+ sx .* xs[1] .* transpose(xs[2])
 end
 
 # 001
