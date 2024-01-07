@@ -97,10 +97,6 @@ function einsum!(rule::SimpleBinaryRule, ixs, iy, xs::NTuple{2, Any}, y, sx, sy,
     @debug rule size.(xs)
     einsum!(rule, xs, y, sx, sy)
 end
-function einsum!(rule::SimpleBinaryRule, ixs, iy, xs::NTuple{2, Any}, y, size_dict)
-    @debug rule size.(xs)
-    einsum!(rule, xs, y)
-end
 # Code is a binary representation of `(O1,I,O2,B)`.
 # Because the time complexity of `GEMM` and `BatchedGEMM` are higher than space complexity, we allow `permutedims`.
 # We reduce the contraction to these basic forms through `permutedims` and reshape,
@@ -110,31 +106,21 @@ end
 # S = 1
 # T = 1
 function einsum!(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* xs[1] .* xs[2]
-end
-function einsum!(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, Any}, y::AbstractArray)
-    y .+= xs[1] .* xs[2]
-    return y
+    @addmul! sy * y + sx * xs[1] * xs[2]
 end
 
 # i,->i : 100
 # S = N
 # T = N
 function einsum!(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* xs[1] .* Ref(asscalar(xs[2]))
-end
-function einsum!(::SimpleBinaryRule{('i',),(), ('i',)}, xs::NTuple{2, Any}, y::AbstractArray)
-    return axpy!(asscalar(xs[2]), xs[1], y)
+    @addmul! sy * y + sx * xs[1] * Ref(asscalar(xs[2]))
 end
 
 # j,j-> : 010
 # S = N
 # T = N
 function einsum!(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* Ref(transpose(xs[1]) * xs[2])
-end
-function einsum!(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, Any}, y::AbstractArray)
-    return  y .+= transpose(xs[1]) * xs[2]
+    @addmul! sy * y + sx * Ref(transpose(xs[1]) * xs[2])
 end
 
 # ,k->k : 001
@@ -143,21 +129,15 @@ end
 @inline function einsum!(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
     einsum!(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]), y, sx, sy)
 end
-@inline function einsum!(::SimpleBinaryRule{(), ('k',), ('k',)}, xs::NTuple{2, Any}, y::AbstractArray)
-    einsum!(SimpleBinaryRule{('i',),(),('i',)}(), (xs[2], xs[1]), y)
-end
 
 # j,jk->k : 011
 # S = N^2
 # T = N^2
-function einsum(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
+function einsum!(::SimpleBinaryRule{('j',), ('j','k'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
     mul!(y, transpose(xs[2]), xs[1], sx, sy)
 end
-function einsum(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
+function einsum!(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any}, y, sx, sy)
     mul!(y, xs[2], xs[1], sx, sy)
-end
-function einsum!(::SimpleBinaryRule{('j',), ('k','j'), ('k',)}, xs::NTuple{2, Any}, y::AbstractArray{T}) where T
-    return mul!(y, xs[2], xs[1], one(T), one(T))
 end
 
 # ij,j->i : 110
@@ -169,99 +149,66 @@ end
 @inline function einsum!(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any}, y, sx, sy)
     mul!(y, transpose(xs[1]), xs[2], sx, sy)
 end
-@inline function einsum!(::SimpleBinaryRule{('j','i'),('j',), ('i',)}, xs::NTuple{2, Any}, y::AbstractArray{T}) where T
-    return mul!(y, transpose(xs[1]), xs[2], one(T), one(T))
-end
 
 # i,k->ik : 101
 # S = N^2
 # T = N^2
 function einsum!(::SimpleBinaryRule{('i',), ('k',), ('i','k')}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* xs[1] .* transpose(xs[2])
+    @addmul! sy * y + sx * xs[1] * transpose(xs[2])
 end
 @inline function einsum!(::SimpleBinaryRule{('i',), ('k',),('k','i')}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* transpose(xs[1]) .* xs[2]
-end
-@inline function einsum!(::SimpleBinaryRule{('i',), ('k',),('k','i')}, xs::NTuple{2, Any}, y::AbstractArray)
-    einsum!(SimpleBinaryRule{('i',),('k',),('i','k')}(), (xs[2], xs[1]), y)
+    @addmul! sy * y + sx * transpose(xs[1]) * xs[2]
 end
 
 # 000
 function einsum!(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* xs[1] .* xs[2]
-end
-function einsum!(::SimpleBinaryRule{('l',),('l',), ('l',)}, xs::NTuple{2, Any}, y::AbstractArray)
-    return y .+= xs[1] .* xs[2]
+    @addmul! sy * y + sx * xs[1] * xs[2]
 end
 
 # 100
 function einsum!(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any}, y, sx, sy)
-    @addmul! y .= sy .* y .+ sx .* xs[1] .* transpose(xs[2])
-end
-function einsum!(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    return y .+= xs[1] .* transpose(xs[2])
+    @addmul! sy * y + sx * xs[1] * transpose(xs[2])
 end
 
 # 001
-@inline function einsum(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), (xs[2], xs[1]))
-end
-@inline function einsum!(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    einsum!(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), (xs[2], xs[1]), y)
+@inline function einsum!(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, xs::NTuple{2, Any}, y, sx, sy)
+    einsum!(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), (xs[2], xs[1]), y, sx, sy)
 end
 
 # 010
-function einsum(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any})
+function einsum!(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any}, y, sx, sy)
     a, b = xs
-    dropdims(mapreduce(*, +, a, b; dims=1); dims=1)
-end
-function einsum!(::SimpleBinaryRule{('j','l'), ('j','l'), ('l',)}, xs::NTuple{2, Any}, y::AbstractArray)
-    a, b = xs
-    y .+= dropdims(mapreduce(*, +, a, b; dims=1); dims=1)
+    @addmul! sy * y + sx * dropdims(mapreduce(*, +, a, b; dims=1); dims=1)
 end
 
 # 101
-function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any})
+function einsum!(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
     a, b = xs
-    _batched_gemm('N', 'N', reshape(a, size(a, 1), 1, size(a, 2)), reshape(b, 1, size(b, 1), size(b, 2)))
+    _batched_gemm!('N', 'N', sx, reshape(a, size(a, 1), 1, size(a, 2)), reshape(b, 1, size(b, 1), size(b, 2)), sy, y)
 end
-function einsum!(::SimpleBinaryRule{('i','l'), ('k','l'), ('i','k','l')}, xs::NTuple{2, Any}, y::AbstractArray)
+@inline function einsum!(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
     a, b = xs
-    _batched_gemm!('N', 'N', reshape(a, size(a, 1), 1, size(a, 2)), reshape(b, 1, size(b, 1), size(b, 2)), y)
-end
-@inline function einsum(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any})
-    einsum(SimpleBinaryRule{('i','l'),('k','l'), ('i','k','l')}(), (xs[2], xs[1]))
-end
-@inline function einsum!(::SimpleBinaryRule{('i','l'), ('k','l'), ('k','i','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    einsum!(SimpleBinaryRule{('i','l'),('k','l'), ('i','k','l')}(), (xs[2], xs[1]), y)
+    _batched_gemm!('N', 'N', sx, reshape(b, size(b, 1), 1, size(b, 2)), reshape(a, 1, size(a, 1), size(a, 2)), sy, y)
 end
 
 # 011
-function einsum(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any})
-    reshape(_batched_gemm('N', 'N', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2]), size(xs[2],2), size(xs[2],3))
+function einsum!(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
+    _batched_gemm!('N', 'N', sx, reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2], sy, reshape(y, 1, size(y,1), size(y,2)))
+    y
 end
-function einsum!(::SimpleBinaryRule{('j','l'), ('j','k','l'), ('k','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    _batched_gemm!('N', 'N', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2], reshape(y, 1, size(y,1), size(y,2)))
-end
-function einsum(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any})
-    reshape(_batched_gemm('N', 'T', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2]), size(xs[2],1), size(xs[2],3))
-end
-function einsum!(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    _batched_gemm!('N', 'T', reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2], reshape(y, 1, size(y,1), size(y,2)))
+function einsum!(::SimpleBinaryRule{('j','l'), ('k','j','l'), ('k','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
+    _batched_gemm!('N', 'T', sx, reshape(xs[1], 1, size(xs[1],1), size(xs[1],2)), xs[2], sy, reshape(y, 1, size(y,1), size(y,2)))
+    y
 end
 
 # 110
-function einsum(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
-    reshape(_batched_gemm('N', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2))), size(xs[1],1), size(xs[1],3))
+function einsum!(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
+    _batched_gemm!('N', 'N', sx, xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2)), sy, reshape(y, size(y,1), 1, size(y,2)))
+    y
 end
-function einsum!(::SimpleBinaryRule{('i','j','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    _batched_gemm!('N', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2)), reshape(y, size(y,1), 1, size(y,2)))
-end
-function einsum(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any})
-    reshape(_batched_gemm('T', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2))), size(xs[1],2), size(xs[1],3))
-end
-function einsum!(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, y::AbstractArray)
-    _batched_gemm!('T', 'N', xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2)), reshape(y, size(y,1), 1, size(y,2)))
+function einsum!(::SimpleBinaryRule{('j','i','l'), ('j','l'), ('i','l')}, xs::NTuple{2, Any}, y::AbstractArray, sx, sy)
+    _batched_gemm!('T', 'N', sx, xs[1], reshape(xs[2], size(xs[2],1), 1, size(xs[2],2)), sy, reshape(y, size(y,1), 1, size(y,2)))
+    y
 end
 
 # ij,jk->ik : 111
@@ -272,22 +219,16 @@ for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
         for (i3, X3) in enumerate([('i', 'k'), ('k', 'i')])
             A1 = i1==i3 ? :(xs[1]) : :(transpose(xs[1]))
             A2 = i2==i3 ? :(xs[2]) : :(transpose(xs[2]))
-            @eval function einsum(::SimpleBinaryRule{$X1,$X2, $X3}, xs::NTuple{2, Any})
-                $(i3==1 ? :($A1*$A2) : :($A2*$A1))
-            end
-            @eval function einsum!(::SimpleBinaryRule{$X1,$X2, $X3}, xs::NTuple{2, Any}, y::AbstractArray{T}) where T
-                $(i3==1 ? :(mul!($A1, $A2, y, one(T), one(T))) : :(mul!($A2, $A1, y, one(T), one(T))))
+            @eval function einsum!(::SimpleBinaryRule{$X1,$X2, $X3}, xs::NTuple{2, Any}, y::AbstractArray{T}, sx, sy) where T
+                $(i3==1 ? :(mul!($A1, $A2, y, sx, sy)) : :(mul!($A2, $A1, y, sx, sy)))
             end
             X1B = (X1...,'l')
             X2B = (X2...,'l')
             X3B = (X3...,'l')
             C1 = i1==i3 ? 'N' : 'T'
             C2 = i2==i3 ? 'N' : 'T'
-            @eval function einsum(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, Any})
-                $(i3==1 ? :(_batched_gemm($C1, $C2, xs[1], xs[2])) : :(_batched_gemm($C2, $C1, xs[2], xs[1])))
-            end
-            @eval function einsum!(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, Any}, y::AbstractArray{T}) where T
-                $(i3==1 ? :(_batched_gemm!($C1, $C2, xs[1], xs[2], y)) : :(_batched_gemm!($C2, $C1, xs[2], xs[1], y)))
+            @eval function einsum!(::SimpleBinaryRule{$X1B,$X2B,$X3B}, xs::NTuple{2, Any}, y::AbstractArray{T}, sx, sy) where T
+                $(i3==1 ? :(_batched_gemm!($C1, $C2, sx, xs[1], xs[2], sy, y)) : :(_batched_gemm!($C2, $C1, sx, xs[2], xs[1], sy, y)))
             end
         end
     end

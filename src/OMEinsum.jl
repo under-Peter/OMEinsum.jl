@@ -7,7 +7,7 @@ using AbstractTrees
 import LinearAlgebra: BlasFloat
 
 export @ein_str, @ein, ein
-export einsum, dynamic_einsum
+export einsum!, einsum, dynamic_einsum
 export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum, NestedEinsum, SlicedEinsum, DynamicNestedEinsum, StaticNestedEinsum
 export getiyv, getixsv, uniquelabels, labeltype
 export flop

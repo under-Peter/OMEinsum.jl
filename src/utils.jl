@@ -112,25 +112,24 @@ function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
     return reshape(A__, permshape...)
 end
 
-# reload this function for GPU support!
-function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
-    batched_gemm(C1, C2, A, B)
+# new interface for GPU support!
+# function _batched_gemm!(C1::Char, C2::Char, alpha, A::StridedArray{T,3}, B::StridedArray{T2,3}, beta, C::StridedArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat, T3<:BlasFloat}
+#     batched_gemm!(C1, C2, alpha, A, B, beta, C)
+# end
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat,T3<:BlasFloat}
+    # NOTE: convert alpha and beta to T3, since booleans are not supported by BatchedRoutines
+    #batched_gemm!(C1, C2, T3(alpha), Array(A), Array(B), T3(beta), C)
+    # NOTE: this routine has the NaN issue
+    batched_gemm!(C1, C2, T3(alpha), A, B, T3(beta), C)
 end
-
-function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
-    batched_gemm(C1, C2, Array(A), Array(B))
-end
-
-function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T, T2}
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T, T2,T3}
     @assert size(A, 3) == size(B, 3) "batch dimension mismatch, got $(size(A,3)) and $(size(B,3))"
     @assert C1 === 'N' || C1 === 'T'
     @assert C2 === 'N' || C2 === 'T'
-    L = size(A, 3)
-    C = similar(A, promote_type(T,T2), C1==='N' ? size(A,1) : size(A,2), C2==='N' ? size(B,2) : size(B,1), L)
     for l = 1:L
         a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
         b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
-        mul!(view(C,:,:,l), a, b)
+        mul!(view(C,:,:,l), a, b, alpha, beta)
     end
     return C
 end
@@ -157,20 +156,29 @@ end
 # end
 
 macro addmul!(ex)
-    @match ex begin
-        :($y .= $a .* $y .+ $b .* $xs) => begin
-            quote
-                if iszero($b)   # no need to multiply
-                    $lmul!($a, $y)
-                elseif iszero($a)  # empty y
-                    $y .= Ref($b) .* $xs
-                elseif isone($a)
-                    $y .+= Ref($b) .* $xs
-                else  # a != 1, a != 0, b != 0
-                    $y .= Ref($a) .* $y .+ Ref($b) .* $xs
-                end
-                $y
-            end |> esc
-        end
+    @assert ex.head === :call && length(ex.args) == 3
+    dotadd, ay, bxs = ex.args
+    @assert dotadd == :+
+    @assert ay.head === :call && length(ay.args) == 3
+    dotmul, a, y = ay.args
+    @assert dotmul == :*
+    @assert bxs.head === :call
+    dotmul2, b, xs... = bxs.args
+    @assert dotmul2 == :*
+    added = :(Ref($b))
+    for x in xs
+        added = :($added .* $x)
     end
+    quote
+        if iszero($b)   # no need to multiply
+            $lmul!($a, $y)
+        elseif iszero($a)  # empty y
+            $y .= $added
+        elseif isone($a)
+            $y .+= $added
+        else  # a != 1, a != 0, b != 0
+            $y .= Ref($a) .* $y .+ $added
+        end
+        $y
+    end |> esc
 end
