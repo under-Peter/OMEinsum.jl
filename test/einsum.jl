@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, Permutedims, Duplicate
+using OMEinsum: get_size_dict
 using SymEngine
 using LinearAlgebra: I
 
@@ -207,39 +207,6 @@ end
     @test_throws DimensionMismatch einsum(ein"ij,jk -> ik", (rand(2,3), rand(2,2)))
 end
 
-@testset "dispatched" begin
-    # index-sum
-    a = rand(2,2,5)
-    ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
-    a = rand(5,5)
-    @test einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
-    t = rand(5,5,5,5)
-    a = rand(5,5)
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-
-    OMEinsum.allow_loops(false)
-    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    OMEinsum.allow_loops(true)
-
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-
-    # index-sum
-    a = Basic.(rand(2,2,5))
-    ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
-    a = Basic.(rand(5,5))
-    @test isapprox(einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
-    t = Basic.(rand(5,5,5,5))
-    a = Basic.(rand(5,5))
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-end
-
 @testset "isbatchmul" begin
     for (ixs, iy) in [(((1,2), (2,3)), (1,3)), (((1,2,3), (2,3)), (1,3)),
                         (((7,1,2,3), (2,4,3,7)), (1,4,3)),
@@ -248,15 +215,6 @@ end
         xs = ([randn(ComplexF64, fill(4,length(ix))...) for ix in ixs]...,)
         @test EinCode(ixs, iy)(xs...) ≈ loop_einsum(EinCode(ixs, iy), xs, OMEinsum.get_size_dict(ixs, xs))
     end
-end
-
-@testset "duplicate" begin
-    ix = (1,2,3)
-    iy = (3,2,1,1,2)
-    size_dict = Dict(1=>3,2=>3,3=>3)
-    x = randn(3,3,3)
-    @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
-    @test OMEinsum.einsum!(Duplicate(), (ix,), iy, (x,), size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
 end
 
 @testset "issue 136" begin

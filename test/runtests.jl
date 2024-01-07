@@ -13,6 +13,10 @@ end
     include("EinRule.jl")
 end
 
+@testset "unary rules" begin
+    include("unaryrules.jl")
+end
+
 @testset "binary rules" begin
     include("binaryrules.jl")
 end

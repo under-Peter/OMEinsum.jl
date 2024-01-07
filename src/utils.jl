@@ -81,11 +81,10 @@ end
 
 `permutedims(A, perm)` with grouped dimensions.
 """
-function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
+function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx, sy) where {T, N}
     @assert N == length(perm) && all(p->1<=p<=N, perm)
     N == 0 && return copy(A)
     # group `perm`s
-    permshape = ntuple(i->size(A, @inbounds perm[i]), N)
     newshape_slots = fill(-1, N)
     dk = 1  # the size of dimension-batch
     @inbounds begin
@@ -108,8 +107,10 @@ function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
     newshape = filter(!=(-1), newshape_slots)
     newperm = sortperm(sortperm(newperm))
     A_ = reshape(A, newshape...)
-    A__ = permutedims(A_, newperm)
-    return reshape(A__, permshape...)
+    permed_shape = ntuple(i->size(A_, @inbounds newperm[i]), ndims(A_))
+    !iszero(sy) && lmul!(sy, C)
+    permutedims!(reshape(C, permed_shape), A_, newperm)
+    return C
 end
 
 # new interface for GPU support!
