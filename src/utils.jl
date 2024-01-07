@@ -134,3 +134,43 @@ function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArr
     end
     return C
 end
+
+# macro addmul!(a, y, b, xs...)
+#     added = :(Ref(b))
+#     for x in xs
+#         added = :($added .* $x)
+#     end
+#     yeval = gensym("y")
+#     quote
+#         $yeval = $y
+#         if iszero($b)   # no need to multiply
+#             $lmul!($a, $yeval)
+#         elseif iszero($a)  # empty y
+#             $yeval .= $added
+#         elseif isone($a)
+#             $yeval .+= $added
+#         else  # a != 1, a != 0, b != 0
+#             $yeval .= Ref($a) .* $yeval .+ $added
+#         end
+#         $yeval
+#     end |> esc
+# end
+
+macro addmul!(ex)
+    @match ex begin
+        :($y .= $a .* $y .+ $b .* $xs) => begin
+            quote
+                if iszero($b)   # no need to multiply
+                    $lmul!($a, $y)
+                elseif iszero($a)  # empty y
+                    $y .= Ref($b) .* $xs
+                elseif isone($a)
+                    $y .+= Ref($b) .* $xs
+                else  # a != 1, a != 0, b != 0
+                    $y .= Ref($a) .* $y .+ Ref($b) .* $xs
+                end
+                $y
+            end |> esc
+        end
+    end
+end

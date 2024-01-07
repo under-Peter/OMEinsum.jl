@@ -256,7 +256,7 @@ end
     size_dict = Dict(1=>3,2=>3,3=>3)
     x = randn(3,3,3)
     @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
-    @test OMEinsum.einsum(Duplicate(), (ix,), iy, (x,), size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test OMEinsum.einsum!(Duplicate(), (ix,), iy, (x,), size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
 end
 
 @testset "issue 136" begin
