@@ -96,7 +96,7 @@ function get_size_dict_unary!(ix, s, size_info::Dict{LT}) where LT
 end
 
 @inline function get_size_dict(ixs, xs, size_info=nothing)
-    LT = promote_type(eltype.(ixs)...)
+    LT = foldl((a, b) -> promote_type(a, eltype(b)), ixs; init=Union{})
     return get_size_dict!(ixs, xs, size_info===nothing ? Dict{LT,Int}() : size_info)
 end
 @inline function get_size_dict(ixs::AbstractVector{<:AbstractVector{LT}}, xs, size_info=nothing) where LT
@@ -202,17 +202,19 @@ function einsum!(code::DynamicEinCode, @nospecialize(xs::Tuple), res::AbstractAr
     einsum!(rule, getixs(code), getiy(code), xs, res, size_dict)
 end
 
-function einsum(code::DynamicEinCode, @nospecialize(xs::Tuple), size_dict::Dict)
-    res = get_output_array(xs, map(y->size_dict[y],getiy(code)); has_repeated_indices=false)
+# the fallback
+function einsum!(::DefaultRule, ixs, iy, xs::Tuple, res::AbstractArray, size_dict)
+    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
+    loop_einsum!(EinCode(ixs, iy), (xs...,), res, size_dict)
+end
+
+
+## non-inplace einsum
+function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict)
+    res = get_output_array(xs, map(y->size_dict[y],getiyv(code)); has_repeated_indices=false)
     einsum!(code, xs, res, size_dict)
 end
 
 function einsum(code::EinCode, @nospecialize(xs::Tuple))
     einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
-end
-
-# the fallback
-function einsum!(::DefaultRule, ixs, iy, xs::Tuple, res::AbstractArray, size_dict)
-    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum!(EinCode(ixs, iy), (xs...,), res, size_dict)
 end
