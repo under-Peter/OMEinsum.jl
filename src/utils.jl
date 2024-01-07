@@ -108,9 +108,13 @@ function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx,
     newperm = sortperm(sortperm(newperm))
     A_ = reshape(A, newshape...)
     permed_shape = ntuple(i->size(A_, @inbounds newperm[i]), ndims(A_))
-    !iszero(sy) && lmul!(sy, C)
-    permutedims!(reshape(C, permed_shape), A_, newperm)
-    return C
+    if iszero(sy)
+        permutedims!(reshape(C, permed_shape), A_, newperm)
+        !iszero(sx) && lmul!(sx, C)
+        return C
+    else
+        return @addmul! sy * C + sx * permutedims(A_, newperm)
+    end
 end
 
 # new interface for GPU support!
@@ -120,7 +124,6 @@ end
 function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat,T3<:BlasFloat}
     # NOTE: convert alpha and beta to T3, since booleans are not supported by BatchedRoutines
     #batched_gemm!(C1, C2, T3(alpha), Array(A), Array(B), T3(beta), C)
-    # NOTE: this routine has the NaN issue
     batched_gemm!(C1, C2, T3(alpha), A, B, T3(beta), C)
 end
 function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T, T2,T3}

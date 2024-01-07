@@ -241,3 +241,25 @@ end
         @test code(a, b) ≈ OMEinsum.loop_einsum(code, (a,b), size_dict)
     end
 end
+
+@testset "allow loops" begin
+    t = rand(5,5,5,5)
+    a = rand(5,5)
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+
+    OMEinsum.allow_loops(false)
+    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    OMEinsum.allow_loops(true)
+
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
+
+    # index-sum
+    t = Basic.(rand(5,5,5,5))
+    a = Basic.(rand(5,5))
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+    @test unary_einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
+end

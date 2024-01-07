@@ -33,7 +33,6 @@ end
                     if rule isa SimpleBinaryRule
                         nmatch += 1
                         out = OMEinsum.get_output_array((a, b), [size_dict[l] for l in getiyv(code)]; has_repeated_indices=false)
-                        fill!(out, zero(eltype(out)))
                         @test binary_einsum!(rule, a, b, out, true, false) ≈ loop_einsum(code, (a, b), size_dict)
                     else
                         @test einsum(code, (a, b), size_dict) ≈ loop_einsum(code, (a, b), size_dict)

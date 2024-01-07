@@ -1,5 +1,5 @@
 using OMEinsum, Test
-using OMEinsum: unary_einsum!, Duplicate, Sum, Tr, Permutedims, Repeat
+using OMEinsum: unary_einsum!, Duplicate, Sum, Tr, Permutedims, Repeat, Diag
 using SymEngine: Basic
 
 @testset "Duplicate" begin
@@ -10,6 +10,15 @@ using SymEngine: Basic
     y = randn(3,3,3,3,3)
     @test OMEinsum.duplicate!(y, x, ix, iy, true, false) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
     @test unary_einsum!(Duplicate(), ix, iy, x, y, true, false) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+end
+
+@testset "Diag" begin
+    ix = (3,2,1,1,2)
+    iy = (1,2,3)
+    size_dict = Dict(1=>3,2=>3,3=>3)
+    x = randn(3,3,3,3,3)
+    y = randn(3,3,3)
+    @test unary_einsum!(Diag(), ix, iy, x, y, true, false) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
 end
 
 @testset "Repeat" begin
@@ -40,26 +49,3 @@ end
     a = Basic.(rand(1:100, 2,2,5))
     @test unary_einsum!(Sum(), (1, 2, 3) ,(1,2), a, zeros(Basic, 2, 2), 1, 0) == dropdims(sum(a; dims=3); dims=3)
 end
-
-@testset "allow loops" begin
-    t = rand(5,5,5,5)
-    a = rand(5,5)
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-
-    OMEinsum.allow_loops(false)
-    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    OMEinsum.allow_loops(true)
-
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-
-    # index-sum
-    t = Basic.(rand(5,5,5,5))
-    a = Basic.(rand(5,5))
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test unary_einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-end
-

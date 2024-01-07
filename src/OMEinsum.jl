@@ -33,6 +33,7 @@ include("utils.jl")
 
 include("unaryrules.jl")
 include("binaryrules.jl")
+include("einsum.jl")
 
 include("interfaces.jl")
 include("einsequence.jl")
