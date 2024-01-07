@@ -9,13 +9,7 @@ a `NestedEinsum` is returned which evaluates the expression
 according to parens.
 The valid character ranges for index-labels are `a-z` and `α-ω`.
 
-!!! note
-    OMEinsum is designed to be type unstable, so that it can have a
-    reasonable compiling time for large scale problems. For example,
-    in tensor network simulations, the ranks of tensors can be over 30,
-    figuring out the ranks of the output tensors is very time consuming.
-
-### Examples
+# example
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b, c = rand(10,10), rand(10,10), rand(10,1);
@@ -120,13 +114,7 @@ and need not name the output array. Thus `A = @ein [1,2] := B[1,ξ] * C[ξ,2]`
 is equivalent to the above. This can also be written `A = ein"ij,jk -> ik"(B,C)`
 using the numpy-style string macro.
 
-!!! note
-    OMEinsum is designed to be type unstable, so that it can have a
-    reasonable compiling time for large scale problems. For example,
-    in tensor network simulations, the ranks of tensors can be over 30,
-    figuring out the ranks of the output tensors is very time consuming.
-
-### Examples
+# example
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
@@ -173,60 +161,4 @@ function _ein_macro(ex; einsum=:einsum)
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
     return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),)) )
-end
-
-@doc raw"
-    einsum(code::EinCode, xs, size_dict)
-    einsum(rule, ixs, iy, xs, size_dict)
-
-return the tensor that results from contracting the tensors `xs` according
-to their indices `ixs` (`getixs(code)`), where all indices that do not appear in the output `iy` (`getiy(code)`) are
-summed over.
-The result is permuted according to `out`.
-
-- `ixs` - tuple of tuples of index-labels of the input-tensors `xs`
-
-- `iy` - tuple of index-labels of the output-tensor
-
-- `xs` - tuple of tensors
-
-- `size_dict` - a dictionary that maps index-labels to their sizes
-
-# example
-
-```jldoctest; setup = :(using OMEinsum)
-julia> a, b = rand(2,2), rand(2,2);
-
-julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
-true
-
-julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
-true
-```
-"
-@generated function einsum!(code::StaticEinCode{LT, ixs, iy}, xs::Tuple, res::AbstractArray, size_dict::Dict{LT}) where {LT, ixs, iy}
-    rule = match_rule(ixs, iy)
-    :(einsum!($rule, $ixs, $iy, xs, res, size_dict))
-end
-
-function einsum!(code::DynamicEinCode, @nospecialize(xs::Tuple), res::AbstractArray, size_dict::Dict)
-    rule = match_rule(getixs(code), getiy(code))
-    einsum!(rule, getixs(code), getiy(code), xs, res, size_dict)
-end
-
-# the fallback
-function einsum!(::DefaultRule, ixs, iy, xs::Tuple, res::AbstractArray, size_dict)
-    @debug "DefaultRule loop_einsum" ixs => iy size.(xs)
-    loop_einsum!(EinCode(ixs, iy), (xs...,), res, size_dict)
-end
-
-
-## non-inplace einsum
-function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict)
-    res = get_output_array(xs, map(y->size_dict[y],getiyv(code)); has_repeated_indices=false)
-    einsum!(code, xs, res, size_dict)
-end
-
-function einsum(code::EinCode, @nospecialize(xs::Tuple))
-    einsum(code, xs, get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
 end

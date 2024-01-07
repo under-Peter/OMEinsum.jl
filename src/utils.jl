@@ -1,3 +1,31 @@
+macro addmul!(ex)
+    @assert ex.head === :call && length(ex.args) == 3
+    dotadd, ay, bxs = ex.args
+    @assert dotadd == :+
+    @assert ay.head === :call && length(ay.args) == 3
+    dotmul, a, y = ay.args
+    @assert dotmul == :*
+    @assert bxs.head === :call
+    dotmul2, b, xs... = bxs.args
+    @assert dotmul2 == :*
+    added = :(Ref($b))
+    for x in xs
+        added = :($added .* $x)
+    end
+    quote
+        if iszero($b)   # no need to multiply
+            $lmul!($a, $y)
+        elseif iszero($a)  # empty y
+            $y .= $added
+        elseif isone($a)
+            $y .+= $added
+        else  # a != 1, a != 0, b != 0
+            $y .= Ref($a) .* $y .+ $added
+        end
+        $y
+    end |> esc
+end
+
 """
     asarray(x[, parent::AbstractArray]) -> AbstactArray
 
@@ -158,31 +186,3 @@ end
 #         $yeval
 #     end |> esc
 # end
-
-macro addmul!(ex)
-    @assert ex.head === :call && length(ex.args) == 3
-    dotadd, ay, bxs = ex.args
-    @assert dotadd == :+
-    @assert ay.head === :call && length(ay.args) == 3
-    dotmul, a, y = ay.args
-    @assert dotmul == :*
-    @assert bxs.head === :call
-    dotmul2, b, xs... = bxs.args
-    @assert dotmul2 == :*
-    added = :(Ref($b))
-    for x in xs
-        added = :($added .* $x)
-    end
-    quote
-        if iszero($b)   # no need to multiply
-            $lmul!($a, $y)
-        elseif iszero($a)  # empty y
-            $y .= $added
-        elseif isone($a)
-            $y .+= $added
-        else  # a != 1, a != 0, b != 0
-            $y .= Ref($a) .* $y .+ $added
-        end
-        $y
-    end |> esc
-end

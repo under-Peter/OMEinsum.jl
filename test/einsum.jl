@@ -2,7 +2,7 @@ using Test
 using OMEinsum
 using OMEinsum: get_size_dict
 using SymEngine
-using LinearAlgebra: I
+using LinearAlgebra: I, tr
 
 SymEngine.free_symbols(syms::Union{Real, Complex}) = Basic[]
 SymEngine.free_symbols(syms::AbstractArray{T}) where {T<:Union{Real, Complex}} = Basic[]
@@ -44,6 +44,12 @@ Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
     iy = (1,2,3,4)
     y = randn(3,3,3,4)
     @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    # tr
+    ix = (1,1)
+    x = randn(3,3)
+    iy = ()
+    y = fill(1.0)
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict)[] ≈ tr(x)
 end
 
 @testset "binary einsum" begin
@@ -55,6 +61,17 @@ end
     iz = (1,2,3,4,5,5)
     z = randn(3,3,3,4,5,5)
     @test einsum!((ix, iy), iz, (x, y), z, true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy), iz), (x, y), size_dict)
+end
+
+@testset "nary, einsum" begin
+     size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1)
+    y = randn(3,5,3)
+    iz = (1,2,3,4,5,5)
+    z = randn(3,3,3,4,5,5)
+    @test einsum!((ix, iy, iz), (), (x, y, z), fill(1.0), true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy, iz), ()), (x, y, z), size_dict)
 end
 
 @testset "get output array" begin

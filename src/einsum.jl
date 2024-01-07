@@ -1,3 +1,48 @@
+## non-inplace einsum
+@doc raw"
+    einsum(code::EinCode, xs, size_dict)
+    einsum(rule, ixs, iy, xs, size_dict)
+
+return the tensor that results from contracting the tensors `xs` according
+to their indices `ixs` (`getixs(code)`), where all indices that do not appear in the output `iy` (`getiy(code)`) are
+summed over.
+The result is permuted according to `out`.
+
+- `ixs` - tuple of tuples of index-labels of the input-tensors `xs`
+
+- `iy` - tuple of index-labels of the output-tensor
+
+- `xs` - tuple of tensors
+
+- `size_dict` - a dictionary that maps index-labels to their sizes
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> a, b = rand(2,2), rand(2,2);
+
+julia> einsum(EinCode((('i','j'),('j','k')),('i','k')), (a, b)) ≈ a * b
+true
+
+julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(a * b, (2,1))
+true
+```
+"
+function einsum(code::EinCode, @nospecialize(xs::Tuple), size_dict::Dict = get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
+    y = get_output_array(xs, map(y->size_dict[y],getiyv(code)); fillzero=false)
+    einsum!(code, xs, y, true, false, size_dict)
+end
+
+# inplace einsum, EinCode as the input
+function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict)
+    einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
+end
+# inplace einsum, the fallback
+function einsum!(ixs, iy, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict)
+    @debug "fallback to loop_einsum" ixs => iy size.(xs)
+    loop_einsum!(ixs, iy, (xs...,), y, sx, sy, size_dict)
+end
+
 # for unary operations
 # overhead ~ 2.3us
 # @benchmark OMEinsum.einsum(DefaultRule(), $((('a', 'a', 'b'),)), $(('c', 'b','a')), (x,), $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
@@ -13,7 +58,7 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), s
 
     # diag
     if do_diag
-        x_unique = similar(x, [size_dict[l] for l in ix_unique]...)
+        x_unique = similar(x, ([size_dict[l] for l in ix_unique]...,))
         unary_einsum!(Diag(), ix, (ix_unique...,), x, x_unique, true, false)
     else
         x_unique = x
@@ -21,10 +66,10 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), s
 
     # sum/permute
     if length(ix_unique) != length(iy_a)
-        y_a = similar(x, [size_dict[l] for l in iy_a]...)
+        y_a = similar(x, ([size_dict[l] for l in iy_a]...,))
         unary_einsum!(Sum(), (ix_unique...,), (iy_a...,), x_unique, y_a, true, false)
     elseif ix_unique != iy_a
-        y_a = similar(x, [size_dict[l] for l in iy_a]...)
+        y_a = similar(x, ([size_dict[l] for l in iy_a]...,))
         unary_einsum!(Permutedims(), (ix_unique...,), (iy_a...,), x_unique, y_a, true, false)
     else
         y_a = x_unique
@@ -32,7 +77,7 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), s
     # repeat indices
     # TODO: fix, should copy to y
     if do_repeat
-        y_unique = similar(y, [size_dict[l] for l in iy_unique]...)
+        y_unique = similar(y, ([size_dict[l] for l in iy_unique]...,))
         unary_einsum!(Repeat(), (iy_a...,), (iy_unique...,), y_a, y_unique, true, false)
     else
         y_unique = y_a
@@ -52,166 +97,16 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{2, Any}), @nospecialize(y), s
     x1, x2 = xs
     c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(_collect(LT,ix1), _collect(LT,ix2), _collect(LT,iy), size_dict)
     rule = SimpleBinaryRule{(i1...,), (i2...,), (iyb...,)}()
-    xs1 = similar(x1, [size_dict[l] for l in c1]...)
-    xs2 = similar(x2, [size_dict[l] for l in c2]...)
+    xs1 = similar(x1, ([size_dict[l] for l in c1]...,))
+    xs2 = similar(x2, ([size_dict[l] for l in c2]...,))
     einsum!((_collect(LT,ix1),), c1, (x1,), xs1, true, false, size_dict)
     einsum!((_collect(LT,ix2),), c2, (x2,), xs2, true, false, size_dict)
     x1_ = reshape(xs1, s1...)
     x2_ = reshape(xs2, s2...)
     @debug rule size.((x1_, x2_))
-    y_ = similar(y, s3...)
+    y_ = similar(y, (s3...,))
     y_ = reshape(binary_einsum!(rule, x1_, x2_, y_, true, false), [size_dict[x] for x in cy]...)
     return einsum!((cy,), _collect(LT,iy), (y_,), y, sx, sy, size_dict)
-end
-
-@doc raw"
-    match_rule(ixs, iy)
-    match_rule(code::EinCode)
-
-Returns the rule that matches, otherwise use `DefaultRule` - the slow `loop_einsum` backend.
-"
-function match_rule(ixs, iy)
-    if length(ixs) == 1
-        return match_rule_unary(ixs[1], iy)
-    elseif length(ixs) == 2
-        return match_rule_binary(ixs[1], ixs[2], iy)
-    else
-        return DefaultRule()
-    end
-end
-
-function match_rule_unary(ix, iy)
-    Nx = length(ix)
-    Ny = length(iy)
-    # the first rule with the higher the priority
-    if Ny == 0 && Nx == 2 && ix[1] == ix[2]
-        return Tr()
-    elseif allunique(iy)
-        if ix == iy
-            return Identity()
-        elseif allunique(ix)
-            if Nx == Ny
-                if all(i -> i in iy, ix)
-                    return Permutedims()
-                else  # e.g. (abcd->bcde)
-                    return DefaultRule()
-                end
-            else
-                if all(i -> i in ix, iy)
-                    return Sum()
-                elseif all(i -> i in iy, ix)  # e.g. ij->ijk
-                    return Repeat()
-                else  # e.g. ijkxc,ijkl
-                    return DefaultRule()
-                end
-            end
-        else  # ix is not unique
-            if all(i -> i in ix, iy) && all(i -> i in iy, ix)   # ijjj->ij
-                return Diag()
-            else
-                return DefaultRule()
-            end
-        end
-    else  # iy is not unique
-        if allunique(ix) && all(x->x∈iy, ix)
-            if all(y->y∈ix, iy)  # e.g. ij->ijjj
-                return Duplicate()
-            else  # e.g. ij->ijjl
-                return DefaultRule()
-            end
-        else
-            return DefaultRule()
-        end
-    end
-end
-
-match_rule(code::EinCode) = match_rule(getixs(code), getiy(code))
-
-
-@inline function _add_batch(::SimpleBinaryRule{ix1,ix2,iy}) where {ix1,ix2,iy}
-    SimpleBinaryRule{(ix1...,'l'), (ix2...,'l'), (iy...,'l')}()
-end
-@inline _add_batch(::DefaultRule) = DefaultRule()
-
-function match_rule_binary(ix1, ix2, iy)
-    Nx1, Nx2, Ny = length(ix1), length(ix2), length(iy)
-    if !_isunique(ix1) || !_isunique(ix2) || !_isunique(iy)
-        DefaultRule()
-    elseif (Nx1 + Nx2 + Ny) % 2 == 0 # no batch
-        _match_simple2(ix1,ix2,iy,Nx1,Nx2,Ny)
-    elseif Nx1>0 && Nx2>0 && Ny>0 && ix1[Nx1]==ix2[Nx2]==iy[Ny]
-        rule = _match_simple2(ix1,ix2,iy,Nx1-1,Nx2-1,Ny-1)
-        _add_batch(rule)
-    else
-        DefaultRule()
-    end
-end
-@inline function _isunique(ix)
-    if length(ix) <= 1
-        return true
-    elseif length(ix) == 2
-        return @inbounds ix[1] != ix[2]
-    elseif length(ix) == 3
-        @inbounds a, b, c = ix
-        return a != c && a != c && a != b
-    else  # to default rules
-        return false
-    end
-end
-
-function _match_simple2(ix1, ix2, iy, Nx1, Nx2, Ny)
-    if Nx1==0
-        if (Ny==Nx2==0)
-            return SimpleBinaryRule((), (), ())
-        elseif (Ny==Nx2==1 && ix2[1] == iy[1])
-            return SimpleBinaryRule((), ('k',), ('k',))
-        end
-    elseif Nx1==1
-        if (Nx2==0 && Ny==1 && iy[1]==ix1[1])
-            return SimpleBinaryRule(('i',), (), ('i',))
-        elseif (Nx2==1 && Ny==0 && ix1[1]==ix2[1])
-            return SimpleBinaryRule(('j',), ('j',), ())
-        elseif Nx2==1 && Ny==2
-            if (iy[1]==ix1[1] && iy[2]==ix2[1])
-                return SimpleBinaryRule(('i',), ('k',), ('i','k'))
-            elseif iy[1]==ix2[1] && iy[2]==ix1[1]
-                return SimpleBinaryRule(('i',), ('k',), ('k','i'))
-            end
-        elseif Nx2==2 && Ny==1
-            if ix2[1]==ix1[1] && ix2[2]==iy[1]
-                return SimpleBinaryRule(('j',), ('j','k'), ('k',))
-            elseif ix2[1]==iy[1] && ix2[2]==ix1[1]
-                return SimpleBinaryRule(('j',), ('k','j'), ('k',))
-            end
-        end
-    elseif Nx1==2
-        if Nx2==1 && Ny==1
-            if ix1[1]==ix2[1] && ix1[2]==iy[1]
-                return SimpleBinaryRule(('j','i'), ('j',), ('i',))
-            elseif ix1[1]==iy[1] && ix1[2]==ix2[1]
-                return SimpleBinaryRule(('i','j'), ('j',), ('i',))
-            end
-        elseif (Nx2==2 && Ny==2)
-            if ix1[1]==ix2[1] && ix1[2]==iy[1] && ix2[2]==iy[2]
-                return SimpleBinaryRule(('j','i'), ('j','k'), ('i','k'))
-            elseif ix1[1]==ix2[2] && ix1[2]==iy[1] && ix2[1]==iy[2]
-                return SimpleBinaryRule(('j','i'), ('k','j'), ('i','k'))
-            elseif ix1[1]==ix2[1] && ix1[2]==iy[2] && ix2[2]==iy[1]
-                return SimpleBinaryRule(('j','i'), ('j','k'), ('k','i'))
-            elseif ix1[1]==ix2[2] && ix1[2]==iy[2] && ix2[1]==iy[1]
-                return SimpleBinaryRule(('j','i'), ('k','j'), ('k','i'))
-            elseif ix1[2]==ix2[1] && ix1[1]==iy[1] && ix2[2]==iy[2]
-                return SimpleBinaryRule(('i','j'), ('j','k'), ('i','k'))
-            elseif ix1[2]==ix2[2] && ix1[1]==iy[1] && ix2[1]==iy[2]
-                return SimpleBinaryRule(('i','j'), ('k','j'), ('i','k'))
-            elseif ix1[2]==ix2[1] && ix1[1]==iy[2] && ix2[2]==iy[1]
-                return SimpleBinaryRule(('i','j'), ('j','k'), ('k','i'))
-            elseif ix1[2]==ix2[2] && ix1[1]==iy[2] && ix2[1]==iy[1]
-                return SimpleBinaryRule(('i','j'), ('k','j'), ('k','i'))
-            end
-        end
-    end
-    return DefaultRule()
 end
 
 """

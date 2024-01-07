@@ -19,10 +19,10 @@ asscalar(x::DenseCuArray) = Array(x)[]
 
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
-function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; has_repeated_indices=true) where N
+function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; fillzero=true) where N
     CUDA.zeros(promote_type(map(eltype,xs)...), size...)
 end
-function get_output_array(xs::NTuple{N, DenseCuArray{T,M} where M}, size; has_repeated_indices=true) where {T,N}
+function get_output_array(xs::NTuple{N, DenseCuArray{T,M} where M}, size; fillzero=true) where {T,N}
     CUDA.zeros(T, size...)
 end
 
@@ -40,21 +40,28 @@ function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, DenseCuArr
     dropdims(reshape(xs[1],1,:) * xs[2]; dims=1)
 end
 
-function loop_einsum!(code::EinCode,
+function loop_einsum!(ixs0, iy0,
                 xs::NTuple{N, DenseCuArray{<:Any,M} where M},
-                y::DenseCuArray{T,L}, size_dict::Dict{LT}) where {N,L,T, LT}
-    iy = (getiy(code)...,)
-    ixs = (Tuple.(getixs(code))...,)
+                y::DenseCuArray{T,L}, size_dict::Dict{LT}, sx, sy) where {N,L,T, LT}
+    iy = (iy0...,)
+    ixs = (Tuple.(ixs0)...,)
     iy_ = _unique(LT,iy)
     NO = length(iy_)
+    if iszero(sy)
+        fill!(y, zero(T))
+    else
+        lmul!(sy, y)
+    end
     A = einarray(Val(ixs), Val(iy), xs, size_dict)
     if NO == length(iy)
-        y = reshape(y, fill(1, ndims(A)-NO)...,size(y)...)
-        raw = Base.mapreducedim!(x->x, +, y, A)
+        raw_ = similar(y, (fill(1, ndims(A)-NO)...,size(y)...,))
+        Base.mapreducedim!(x->x, +, raw_, A)
         if ndims(A)-NO > 0  # fix 1.7 compatibility
             raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
+        else
+            raw = raw_
         end
-        return raw
+        return @addmul! sy * y + sx * raw
     else
         y_ = CUDA.zeros(T, size(A)[end-NO+1:end]...)
         y_ = reshape(y_, fill(1, ndims(A)-NO)...,size(y_)...)
@@ -62,7 +69,7 @@ function loop_einsum!(code::EinCode,
         if ndims(A)-NO > 0  # fix 1.7 compatibility
             raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
         end
-        return expanddims!(Val{((iy_...,),)}(), Val{iy}(), raw, y)
+        return expanddims!(Val{((iy_...,),)}(), Val{iy}(), raw, y, sx)
     end
 end
 
@@ -72,7 +79,7 @@ end
     Expr(:tuple, ids...)
 end
 
-function expanddims!(::Val{ixs}, ::Val{iy}, x, y) where {ixs,iy}
+function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
     nthreads = 256
     nblocks = cld(prod(size(x)), nthreads)
     CIS = CartesianIndices(x)
@@ -80,15 +87,15 @@ function expanddims!(::Val{ixs}, ::Val{iy}, x, y) where {ixs,iy}
         i = (blockIdx().x-1) * blockDim().x + threadIdx().x
         i > length(x) && return nothing
         @inbounds yi = expandind(Val{ixs}(), Val{iy}(), CIS[i].I)
-        @inbounds y[CartesianIndex(yi)] = x[i]
+        @inbounds y[CartesianIndex(yi)] = sx * x[i]
         nothing
     end
     @cuda(blocks=nblocks, threads=nthreads, kernel(y, x))
     return y
 end
 
-function _batched_gemm(C1::Char, C2::Char, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}) where {T1<:CuBlasFloat, T2<:CuBlasFloat}
-    CUDA.CUBLAS.gemm_strided_batched(C1, C2, align_eltypes(A,B)...)
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}, beta, C) where {T1<:CuBlasFloat, T2<:CuBlasFloat}
+    CUDA.CUBLAS.gemm_strided_batched!(C1, C2, alpha, align_eltypes(A,B)..., beta, C)
 end
 
 function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})

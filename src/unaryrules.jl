@@ -49,7 +49,7 @@ function unary_einsum!(::Repeat, ix, iy, x::AbstractArray, y::AbstractArray, sx,
     repeat_dims = [l ∈ ix ? 1 : s for (l, s) in zip(iy, size(y))]
     # TODO: avoid copy
     if ix1f != ix
-        y1 = similar(x, shape1...)
+        y1 = similar(x, (shape1...,))
         unary_einsum!(Permutedims(), ix, ix1f, x, y1, true, false)
     else
         y1 = x
