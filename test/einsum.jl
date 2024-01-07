@@ -24,6 +24,39 @@ Base.:≈(x::AbstractArray, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_appro
 Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
 Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
 
+@testset "unary einsum" begin
+    size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1,1,2,5)
+    y = randn(3,5,3,3,3,5)
+    # Diag, Sum, Repeat, Duplicate
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    ix = (1,2,3,4)
+    x = randn(3,3,3,4)
+    iy = (4,3,1,2)
+    y = randn(4,3,3,3)
+    # Permutedims
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    # None
+    ix = (1,2,3,4)
+    x = randn(3,3,3,4)
+    iy = (1,2,3,4)
+    y = randn(3,3,3,4)
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+end
+
+@testset "binary einsum" begin
+    size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1,1,2,5)
+    y = randn(3,5,3,3,3,5)
+    iz = (1,2,3,4,5,5)
+    z = randn(3,3,3,4,5,5)
+    @test einsum!((ix, iy), iz, (x, y), z, true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy), iz), (x, y), size_dict)
+end
+
 @testset "get output array" begin
     xs = (randn(4,4), randn(3))
     @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{Float64}
