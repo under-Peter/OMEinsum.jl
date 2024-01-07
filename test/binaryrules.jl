@@ -1,5 +1,5 @@
 using OMEinsum, Test
-using OMEinsum: SimpleBinaryRule, match_rule
+using OMEinsum: SimpleBinaryRule, match_rule, binary_einsum!
 using Polynomials: Polynomial
 
 @testset "analyse binary" begin
@@ -34,7 +34,7 @@ end
                         nmatch += 1
                         out = OMEinsum.get_output_array((a, b), [size_dict[l] for l in getiyv(code)]; has_repeated_indices=false)
                         fill!(out, zero(eltype(out)))
-                        @test einsum!(rule, (a, b), out, true, false) ≈ loop_einsum(code, (a, b), size_dict)
+                        @test binary_einsum!(rule, a, b, out, true, false) ≈ loop_einsum(code, (a, b), size_dict)
                     else
                         @test einsum(code, (a, b), size_dict) ≈ loop_einsum(code, (a, b), size_dict)
                     end
