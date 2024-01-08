@@ -1,7 +1,18 @@
-using Test, OMEinsum
-using OMEinsum: match_rule, Sum, Tr, DefaultRule, Diag, Duplicate,
-                Permutedims, nopermute,
-                Identity, SimpleBinaryRule
+using OMEinsum, Test
+using OMEinsum: match_rule, DefaultRule, Diag, Sum, Tr, Permutedims, Duplicate, SimpleBinaryRule, Identity, nopermute
+
+@testset "fix rule cc,cb->bc" begin
+    @test OMEinsum.match_rule_binary([3], [1], [1,3]) isa OMEinsum.SimpleBinaryRule
+    @test OMEinsum.match_rule_binary([1,3], [2,3], [1,2,3]) isa OMEinsum.SimpleBinaryRule
+    @test OMEinsum.match_rule_binary([3], [3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3], [3, 3], [3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3, 3], [3], [3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,3], [3, 3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3, 3], [3,2], [2,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,1], [1, 3], [3,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([1,3], [3, 3], [1,3]) isa OMEinsum.DefaultRule
+    @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
+end
 
 @testset "match rule" begin
     ixs = ((1,2), (2,3))

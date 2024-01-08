@@ -9,8 +9,8 @@ import Documenter
     include("Core.jl")
 end
 
-@testset "EinRule" begin
-    include("EinRule.jl")
+@testset "match rule" begin
+    include("matchrule.jl")
 end
 
 @testset "unary rules" begin

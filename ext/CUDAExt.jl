@@ -1,6 +1,6 @@
 module CUDAExt
 
-import OMEinsum: asarray, get_output_array, einsum, loop_einsum!, _batched_gemm, asscalar
+import OMEinsum: asarray, get_output_array, einsum, loop_einsum!, _batched_gemm!, asscalar, @addmul!
 using OMEinsum: EinArray, Diag, Repeat, Duplicate, DefaultRule, EinCode, DynamicEinCode, StaticEinCode, NestedEinsum, SimpleBinaryRule, match_rule, loop_einsum, getiy, getixs, _unique, einarray, align_eltypes, siblings, isleaf, tensorindex, _safe_set, rootcode
 import OMEinsum
 using LinearAlgebra
@@ -98,10 +98,6 @@ function _batched_gemm!(C1::Char, C2::Char, alpha, A::DenseCuArray{T1,3}, B::Den
     CUDA.CUBLAS.gemm_strided_batched!(C1, C2, alpha, align_eltypes(A,B)..., beta, C)
 end
 
-function einsum(::SimpleBinaryRule{(),(), ()}, xs::NTuple{2, DenseCuArray})
-    asarray(Array(xs[1])[] * Array(xs[2])[], xs[1])
-end
-
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
@@ -116,17 +112,6 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
         CUDA.unsafe_free!(mx)
     end
     return res
-end
-
-# to dispatch Adjoint correctly
-@generated function einsum(code::StaticEinCode{LT,ixs, iy}, xs::NTuple{N,CUDAArrayTypes} where N, size_dict::Dict{LT}) where {LT, ixs, iy}
-    rule = match_rule(ixs, iy)
-    :(einsum($rule, $ixs, $iy, _unwrap.(xs), size_dict))
-end
-
-function einsum(code::DynamicEinCode, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict)
-    rule = match_rule(getixs(code), getiy(code))
-    einsum(rule, getixs(code), getiy(code), _unwrap.(xs), size_dict)
 end
 
 @info("OMEinsum loaded the CUDA module successfully")
