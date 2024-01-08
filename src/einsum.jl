@@ -86,7 +86,7 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), s
     if do_duplicate
         return unary_einsum!(Duplicate(), (iy_unique...,), iy, y_unique, y, sx, sy)
     else
-        return @addmul! sy * y + sx * y_unique
+        return @flatten_addmul! sy * y + sx * y_unique
     end
 end
 

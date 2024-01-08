@@ -35,7 +35,7 @@ function unary_einsum!(::Sum, ix, iy, x::AbstractArray, y::AbstractArray, sx, sy
     if ix1f != iy
         return unary_einsum!(Permutedims(), (ix1f...,), iy, res, y, sx, sy)
     else
-        return @addmul! sy * y + sx * res
+        return @flatten_addmul! sy * y + sx * res
     end
 end
 
@@ -54,7 +54,7 @@ function unary_einsum!(::Repeat, ix, iy, x::AbstractArray, y::AbstractArray, sx,
     else
         y1 = x
     end
-    @addmul! sy * y + sx * repeat(reshape(y1, shape2...), repeat_dims...)
+    @flatten_addmul! sy * y + sx * repeat(reshape(y1, shape2...), repeat_dims...)
 end
 
 # overhead ~ 0.28us
@@ -113,5 +113,5 @@ end
 # @benchmark OMEinsum.einsum(Identity(), $((('a', 'b'),)), $(('a','b')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
 function unary_einsum!(::Identity, ix, iy, x::AbstractArray, y::AbstractArray)
     @debug "Identity" ix => iy size(x)
-    @addmul! sy * y + sx * x  # NOTE: copy can not be avoided, otherwise AD may fail!
+    @flatten_addmul! sy * y + sx * x  # NOTE: copy can not be avoided, otherwise AD may fail!
 end

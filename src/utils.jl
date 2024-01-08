@@ -1,4 +1,11 @@
 macro addmul!(ex)
+    esc(addmul_impl(ex, false))
+end
+macro flatten_addmul!(ex)
+    esc(addmul_impl(ex, true))
+end
+
+function addmul_impl(ex::Expr, flatten::Bool)
     @assert ex.head === :call && length(ex.args) == 3
     dotadd, ay, bxs = ex.args
     @assert dotadd == :+
@@ -8,22 +15,25 @@ macro addmul!(ex)
     @assert bxs.head === :call
     dotmul2, b, xs... = bxs.args
     @assert dotmul2 == :*
+    @assert length(xs) > 0
+
     added = :(Ref($b))
     for x in xs
-        added = :($added .* $x)
+        added = :($added .* $(flatten ? :(vec($x)) : x))
     end
+    vy = flatten ? :(vec($y)) : y
     quote
         if iszero($b)   # no need to multiply
-            $lmul!($a, $y)
+            $lmul!($a, $vy)
         elseif iszero($a)  # empty y
-            $y .= $added
+            $vy .= $added
         elseif isone($a)
-            $y .+= $added
+            $vy .+= $added
         else  # a != 1, a != 0, b != 0
-            $y .= Ref($a) .* $y .+ $added
+            $vy .= Ref($a) .* $vy .+ $added
         end
         $y
-    end |> esc
+    end
 end
 
 """
@@ -141,7 +151,7 @@ function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx,
         !iszero(sx) && lmul!(sx, C)
         return C
     else
-        return @addmul! sy * C + sx * permutedims(A_, newperm)
+        return @flatten_addmul! sy * C + sx * permutedims(A_, newperm)
     end
 end
 

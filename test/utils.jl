@@ -50,5 +50,6 @@ end
     z = randn(10, 10)
     for a in [0.0, 1.0, 4.0], b in [0.0, 1.0, 4.0]
         @test (o = copy(x); OMEinsum.@addmul! a * o + b * y * z) ≈ a .* x .+ b .* y .* z
+        @test (o = copy(x); OMEinsum.@flatten_addmul! a * o + b * y * z) ≈ a .* x .+ b .* y .* z
     end
 end
