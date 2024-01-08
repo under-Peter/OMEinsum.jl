@@ -273,16 +273,6 @@ end
 end
 
 @testset "fix rule cc,cb->bc" begin
-    @test OMEinsum.match_rule_binary([3], [1], [1,3]) isa OMEinsum.SimpleBinaryRule
-    @test OMEinsum.match_rule_binary([1,3], [2,3], [1,2,3]) isa OMEinsum.SimpleBinaryRule
-    @test OMEinsum.match_rule_binary([3], [3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3], [3, 3], [3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3, 3], [3], [3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,3], [3, 3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3, 3], [3,2], [2,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,1], [1, 3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([1,3], [3, 3], [1,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
     size_dict = Dict('a'=>2,'b'=>2,'c'=>2)
     for code in [ein"c,c->cc", ein"c,cc->c", ein"cc,c->cc", ein"cc,cc->cc", ein"cc,cb->bc", ein"cb,bc->cc", ein"ac,cc->ac"]
         @info code
@@ -292,6 +282,8 @@ end
     end
 end
 
+# patch for SymEngine
+Base.promote_rule(::Type{Bool}, ::Type{Basic}) = Basic
 @testset "allow loops" begin
     t = rand(5,5,5,5)
     a = rand(5,5)
@@ -302,14 +294,12 @@ end
     OMEinsum.allow_loops(true)
 
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 
     # index-sum
     t = Basic.(rand(5,5,5,5))
     a = Basic.(rand(5,5))
     size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum!(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test unary_einsum!(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end

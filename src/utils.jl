@@ -155,10 +155,10 @@ function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::Abs
     batched_gemm!(C1, C2, T3(alpha), A, B, T3(beta), C)
 end
 function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T, T2,T3}
-    @assert size(A, 3) == size(B, 3) "batch dimension mismatch, got $(size(A,3)) and $(size(B,3))"
+    @assert size(A, 3) == size(B, 3) == size(C, 3) "batch dimension mismatch, got $(size(A,3)), $(size(B,3)) and $(size(C,3))"
     @assert C1 === 'N' || C1 === 'T'
     @assert C2 === 'N' || C2 === 'T'
-    for l = 1:L
+    for l = 1:size(A, 3)
         a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
         b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
         mul!(view(C,:,:,l), a, b, alpha, beta)

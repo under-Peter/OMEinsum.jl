@@ -20,8 +20,8 @@ end
 
 @testset "tensorpermute" begin
     a = randn(100, 100)
-    @test OMEinsum.tensorpermute(a, [1,2]) == a
-    @test OMEinsum.tensorpermute(a, (2,1)) == transpose(a)
+    @test OMEinsum.tensorpermute!(zero(a), a, [1,2], true, false) == a
+    @test OMEinsum.tensorpermute!(zero(a), a, (2,1), true, false) == transpose(a)
 end
 
 @testset "align_types" begin
@@ -39,7 +39,7 @@ end
         for C2 in ['N', 'T']
             A_ = Array{Any}(A)
             B_ = Array{Any}(B)
-            @test OMEinsum._batched_gemm(C1, C2, A, B) ≈ OMEinsum._batched_gemm(C1, C2, A_, B_)
+            @test OMEinsum._batched_gemm!(C1, C2, true, A, B, false, zeros(10, 10, 10)) ≈ OMEinsum._batched_gemm!(C1, C2, true, A_, B_, false, zeros(10, 10, 10))
         end
     end
 end

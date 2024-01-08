@@ -21,7 +21,7 @@ of correct size `y`.
 function loop_einsum!(ixs, iy,
                 xs::NTuple{N, AbstractArray{<:Any,M} where M},
                 y::AbstractArray{T,L}, sx, sy, size_dict) where {N,L,T}
-    ALLOW_LOOPS[] || error("using `loop_einsum` is forbidden: code: $code")
+    ALLOW_LOOPS[] || error("using `loop_einsum` is forbidden: code: $ixs -> $iy")
     A = einarray(Val((Tuple.(ixs)...,)), Val((iy...,)), xs, size_dict)
     if iszero(sy)
         fill!(y, zero(T))
