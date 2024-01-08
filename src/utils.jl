@@ -148,7 +148,7 @@ function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx,
     permed_shape = ntuple(i->size(A_, @inbounds newperm[i]), ndims(A_))
     if iszero(sy)
         permutedims!(reshape(C, permed_shape), A_, newperm)
-        !iszero(sx) && lmul!(sx, C)
+        !isone(sx) && lmul!(sx, C)
         return C
     else
         return @flatten_addmul! sy * C + sx * permutedims(A_, newperm)

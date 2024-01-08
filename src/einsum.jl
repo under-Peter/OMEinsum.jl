@@ -43,51 +43,55 @@ function einsum!(ixs, iy, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, si
     loop_einsum!(ixs, iy, (xs...,), y, sx, sy, size_dict)
 end
 
+struct UnaryOperation{LT}
+    type
+    ix::Vector{LT}
+    iy::Vector{LT}
+end
 # for unary operations
 # overhead ~ 2.3us
 # @benchmark OMEinsum.einsum(DefaultRule(), $((('a', 'a', 'b'),)), $(('c', 'b','a')), (x,), $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
-function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where LT
-    ix, x = ixs[1], xs[1]
-    @debug "compiling unary" ix => iy size(x)
+function unary_pipeline(ix::Vector{LT}, iy::Vector{LT}) where LT
     ix_unique = _unique(LT, ix)
     iy_unique = _unique(LT, iy)
     iy_a = filter(i->i ∈ ix, iy_unique)
-    do_diag = length(ix_unique) != length(ix)
-    do_duplicate = length(iy_unique) != length(iy)
-    do_repeat = length(iy_a) != length(iy_unique)
 
-    # diag
-    if do_diag
-        x_unique = similar(x, ([size_dict[l] for l in ix_unique]...,))
-        unary_einsum!(Diag(), ix, (ix_unique...,), x, x_unique, true, false)
-    else
-        x_unique = x
+    operations = UnaryOperation[]
+    if length(ix_unique) != length(ix)  # diag
+        push!(operations, UnaryOperation(Diag(), ix, ix_unique))
+    end
+    if length(ix_unique) != length(iy_a)  # sum
+        push!(operations, UnaryOperation(Sum(), ix_unique, iy_a))
+    elseif ix_unique != iy_a   # permute, high freq
+        push!(operations, UnaryOperation(Permutedims(), ix_unique, iy_a))
     end
 
-    # sum/permute
-    if length(ix_unique) != length(iy_a)
-        y_a = similar(x, ([size_dict[l] for l in iy_a]...,))
-        unary_einsum!(Sum(), (ix_unique...,), (iy_a...,), x_unique, y_a, true, false)
-    elseif ix_unique != iy_a
-        y_a = similar(x, ([size_dict[l] for l in iy_a]...,))
-        unary_einsum!(Permutedims(), (ix_unique...,), (iy_a...,), x_unique, y_a, true, false)
-    else
-        y_a = x_unique
+    if length(iy_a) != length(iy_unique)  # repeat
+        push!(operations, UnaryOperation(Repeat(), iy_a, iy_unique))
     end
-    # repeat indices
-    # TODO: fix, should copy to y
-    if do_repeat
-        y_unique = similar(y, ([size_dict[l] for l in iy_unique]...,))
-        unary_einsum!(Repeat(), (iy_a...,), (iy_unique...,), y_a, y_unique, true, false)
-    else
-        y_unique = y_a
+    if length(iy_unique) != length(iy)  # duplicate
+        push!(operations, UnaryOperation(Duplicate(), iy_unique, iy))
     end
-    # duplicate dimensions
-    if do_duplicate
-        return unary_einsum!(Duplicate(), (iy_unique...,), iy, y_unique, y, sx, sy)
-    else
-        return @flatten_addmul! sy * y + sx * y_unique
+    return operations
+end
+
+function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where LT
+    @debug "compiling unary" ixs[1] => iy size(xs[1])
+    pipeline = unary_pipeline(collect(LT, ixs[1]), collect(LT, iy))
+    lasttensor = xs[1]
+    for (k, op) in enumerate(pipeline)
+        if k == length(pipeline)  # last operation
+            unary_einsum!(op.type, op.ix, op.iy, lasttensor, y, sx, sy)
+        else
+            cache = similar(y, ([size_dict[l] for l in op.iy]...,))
+            unary_einsum!(op.type, op.ix, op.iy, lasttensor, cache, true, false)
+            lasttensor = cache
+        end
     end
+    if length(pipeline) == 0
+        @flatten_addmul! sy * y + sx * lasttensor
+    end
+    return y
 end
 
 # there are too many combination in the binary case, so nospecialize
