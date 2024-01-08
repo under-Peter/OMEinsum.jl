@@ -15,14 +15,14 @@ _unwrap(x::CuArray) = x
 
 asarray(x, arr::CuArray) = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
-asscalar(x::DenseCuArray) = Array(x)[]
+asscalar(x::CUDAArrayTypes) = Array(x)[]
 
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
-function get_output_array(xs::NTuple{N, DenseCuArray{<:Any,M} where M}, size; fillzero=true) where N
+function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size; fillzero=true) where N
     CUDA.zeros(promote_type(map(eltype,xs)...), size...)
 end
-function get_output_array(xs::NTuple{N, DenseCuArray{T,M} where M}, size; fillzero=true) where {T,N}
+function get_output_array(xs::NTuple{N, CUDAArrayTypes{T,M} where M}, size; fillzero=true) where {T,N}
     CUDA.zeros(T, size...)
 end
 
@@ -30,19 +30,23 @@ CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_i
 CUDA.cu(A::EinArray{T}) where T = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
 for TP in [:Diag, :Repeat, :Duplicate, :DefaultRule]
-    @eval function einsum(::$TP, ixs, iy, xs::Tuple{<:DenseCuArray}, size_dict::Dict{LT}) where LT
+    @eval function OMEinsum.unary_einsum!(::$TP, ixs, iy, xs::Tuple{<:CUDAArrayTypes}, y::CUDAArrayTypes, sx, sy, size_dict::Dict{LT}) where LT
         @debug "cueinsum fallback to loop_einsum" rule ixs => iy size.(xs)
-        loop_einsum(EinCode(ixs, iy), xs, size_dict)
+        loop_einsum!(ixs, iy, xs, y, sx, sy, size_dict)
     end
 end
 
-function einsum(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, DenseCuArray})
-    dropdims(reshape(xs[1],1,:) * xs[2]; dims=1)
+function OMEinsum.binary_einsum!(::SimpleBinaryRule{('j',), ('j',), ()}, xs::NTuple{2, CUDAArrayTypes}, y::CUDAArrayTypes, sx, sy, size_dict::Dict)
+    if iszero(sy)
+        CUDA.@allowscalar y[] = sx * reshape(xs[1],1,:) * xs[2]
+    else
+        CUDA.@allowscalar y[] = sy * y[] + sx * reshape(xs[1],1,:) * xs[2]
+    end
 end
 
 function loop_einsum!(ixs0, iy0,
-                xs::NTuple{N, DenseCuArray{<:Any,M} where M},
-                y::DenseCuArray{T,L}, size_dict::Dict{LT}, sx, sy) where {N,L,T, LT}
+                xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M},
+                y::CUDAArrayTypes{T,L}, sx, sy, size_dict::Dict{LT}) where {N,L,T, LT}
     iy = (iy0...,)
     ixs = (Tuple.(ixs0)...,)
     iy_ = _unique(LT,iy)
@@ -57,7 +61,7 @@ function loop_einsum!(ixs0, iy0,
         raw_ = similar(y, (fill(1, ndims(A)-NO)...,size(y)...,))
         Base.mapreducedim!(x->x, +, raw_, A)
         if ndims(A)-NO > 0  # fix 1.7 compatibility
-            raw = dropdims(raw, dims=(1:ndims(A)-NO...,))
+            raw = dropdims(raw_, dims=(1:ndims(A)-NO...,))
         else
             raw = raw_
         end
@@ -94,20 +98,20 @@ function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
     return y
 end
 
-function _batched_gemm!(C1::Char, C2::Char, alpha, A::DenseCuArray{T1,3}, B::DenseCuArray{T2,3}, beta, C) where {T1<:CuBlasFloat, T2<:CuBlasFloat}
-    CUDA.CUBLAS.gemm_strided_batched!(C1, C2, alpha, align_eltypes(A,B)..., beta, C)
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::CUDAArrayTypes{T1,3}, B::CUDAArrayTypes{T2,3}, beta, C::CUDAArrayTypes{T3,3}) where {T1<:CuBlasFloat, T2<:CuBlasFloat, T3<:CuBlasFloat}
+    CUDA.CUBLAS.gemm_strided_batched!(C1, C2, alpha, T1 == T3 ? A : T3.(A), T2 == T3 ? B : T3.(B), beta, C)
 end
 
 Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
 
-function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
+function einsum!(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), @nospecialize(y::CUDAArrayTypes), sx, sy, size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
     mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
     for (i, arg) in enumerate(siblings(neinsum))
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, size_dict; active_free=active_free))
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, similar(y, ([size_dict[l] for l in getiy(rootcode(arg))]...,)), true, false, size_dict; active_free=active_free))
     end
-    res = einsum(rootcode(neinsum), (mxs...,), size_dict)
+    res = einsum!(rootcode(neinsum), (mxs...,), y, sx, sy, size_dict)
     active_free && for mx in mxs  # free CuArray aggressively.
         CUDA.unsafe_free!(mx)
     end
