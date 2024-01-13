@@ -17,6 +17,11 @@ asarray(x, arr::CuArray) = CuArray(fill(x, ()))
 asarray(x::AbstractArray, y::CuArray) = x
 asscalar(x::CUDAArrayTypes) = Array(x)[]
 
+# to avoid returning a ReshapedArray
+OMEinsum.safe_reshape(x::CuArray, sz) = reshape(x, (sz...,))
+OMEinsum.safe_reshape(x::Adjoint{T, <:CuArray{T}} where T, sz) = reshape(CuArray(x), (sz...,))
+OMEinsum.safe_reshape(x::Transpose{T, <:CuArray{T}} where T, sz) = reshape(CuArray(x), (sz...,))
+
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
 function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size; fillzero=true) where N

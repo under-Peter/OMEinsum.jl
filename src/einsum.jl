@@ -96,21 +96,35 @@ end
 
 # there are too many combination in the binary case, so nospecialize
 function einsum!(ixs, iy, @nospecialize(xs::NTuple{2, Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where LT
-    @debug "compiling binary" ixs => iy size.(xs)
-    ix1, ix2 = ixs
+    iyv = _collect(LT,iy)
+    ix1v, ix2v = _collect.(Ref(LT), ixs)
+    @debug "compiling binary" ixs => iyv size.(xs)
     x1, x2 = xs
-    c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(_collect(LT,ix1), _collect(LT,ix2), _collect(LT,iy), size_dict)
+    c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(ix1v, ix2v, iyv, size_dict)
     rule = SimpleBinaryRule{(i1...,), (i2...,), (iyb...,)}()
-    xs1 = similar(x1, ([size_dict[l] for l in c1]...,))
-    xs2 = similar(x2, ([size_dict[l] for l in c2]...,))
-    einsum!((_collect(LT,ix1),), c1, (x1,), xs1, true, false, size_dict)
-    einsum!((_collect(LT,ix2),), c2, (x2,), xs2, true, false, size_dict)
-    x1_ = reshape(xs1, s1...)
-    x2_ = reshape(xs2, s2...)
+    xs1 = simplifyto(ix1v, c1, x1, size_dict)
+    xs2 = simplifyto(ix2v, c2, x2, size_dict)
+    x1_ = safe_reshape(xs1, s1)
+    x2_ = safe_reshape(xs2, s2)
     @debug rule size.((x1_, x2_))
-    y_ = similar(y, (s3...,))
-    y_ = reshape(binary_einsum!(rule, x1_, x2_, y_, true, false), [size_dict[x] for x in cy]...)
-    return einsum!((cy,), _collect(LT,iy), (y_,), y, sx, sy, size_dict)
+    if cy != iyv
+        y_ = similar(y, (s3...,))
+        y_ = reshape(binary_einsum!(rule, x1_, x2_, y_, true, false), [size_dict[x] for x in cy]...)
+        return einsum!((cy,), iyv, (y_,), y, sx, sy, size_dict)
+    else
+        binary_einsum!(rule, x1_, x2_, safe_reshape(y, s3), sx, sy)
+        return y
+    end
+end
+safe_reshape(x, sz) = reshape(x, (sz...,))
+
+function simplifyto(ix1, c1, x1, size_dict::Dict{LT}) where LT
+    if c1 != ix1
+        xs1 = similar(x1, ([size_dict[l] for l in c1]...,))
+        return einsum!((_collect(LT,ix1),), c1, (x1,), xs1, true, false, size_dict)
+    else
+        return x1
+    end
 end
 
 """
