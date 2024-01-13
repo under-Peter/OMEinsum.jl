@@ -30,6 +30,14 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, 
     abc2 = ein"((ij,jk),km) -> im"(a,b,c)
     abc3 = ein"ij,jk,km -> im"(a,b,c)
 
+    ne = ein"(ij,jk),km -> im"
+    print(ne)
+    dne = DynamicNestedEinsum(ne)
+    print(dne)
+    args = (dne, dne)
+    eins = DynamicEinCode([['a', 'b'], ['b', 'c']], ['a', 'c'])
+    @test DynamicNestedEinsum(args, eins) isa DynamicNestedEinsum
+
     @test abc1 ≈ abc2 ≈ abc3
     size_info = Dict('k'=>2)
     a, b, c, d = randn(2), randn(2,2), randn(2), randn(2)

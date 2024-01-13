@@ -111,7 +111,7 @@ end
 
 # overhead ~0.04us
 # @benchmark OMEinsum.einsum(Identity(), $((('a', 'b'),)), $(('a','b')), (x,), $(Dict('a'=>1, 'b'=>1))) setup=(x=randn(1,1))
-function unary_einsum!(::Identity, ix, iy, x::AbstractArray, y::AbstractArray)
+function unary_einsum!(::Identity, ix, iy, x::AbstractArray, y::AbstractArray, sx, sy)
     @debug "Identity" ix => iy size(x)
     @flatten_addmul! sy * y + sx * x  # NOTE: copy can not be avoided, otherwise AD may fail!
 end

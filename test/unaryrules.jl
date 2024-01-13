@@ -1,5 +1,5 @@
 using OMEinsum, Test
-using OMEinsum: unary_einsum!, Duplicate, Sum, Tr, Permutedims, Repeat, Diag
+using OMEinsum: unary_einsum!, Duplicate, Sum, Tr, Permutedims, Repeat, Diag, Identity
 using SymEngine: Basic
 
 @testset "Duplicate" begin
@@ -40,6 +40,11 @@ end
 @testset "Permutedims" begin
     a = rand(5,5,3)
     @test unary_einsum!(Permutedims(), (1,2,3), (2,3,1), a, zeros(5, 3, 5), true, false) ≈ permutedims(a, (2,3,1))
+end
+
+@testset "Identity" begin
+    a = rand(5,5,3)
+    @test unary_einsum!(Identity(), (1,2,3), (1,2,3), a, ones(5, 5, 3), 2.0, 3.0) ≈ 3 .+ 2a
 end
 
 @testset "Sum" begin

@@ -61,6 +61,8 @@ end
     iz = (1,2,3,4,5,5)
     z = randn(3,3,3,4,5,5)
     @test einsum!((ix, iy), iz, (x, y), z, true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy), iz), (x, y), size_dict)
+    @test einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 3.0, size_dict) ≈ loop_einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 3.0, size_dict)
+    @test einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 1.0, size_dict) ≈ loop_einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 1.0, size_dict)
 end
 
 @testset "nary, einsum" begin
