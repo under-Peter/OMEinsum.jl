@@ -1,3 +1,41 @@
+macro addmul!(ex)
+    esc(addmul_impl(ex, false))
+end
+macro flatten_addmul!(ex)
+    esc(addmul_impl(ex, true))
+end
+
+function addmul_impl(ex::Expr, flatten::Bool)
+    @assert ex.head === :call && length(ex.args) == 3
+    dotadd, ay, bxs = ex.args
+    @assert dotadd == :+
+    @assert ay.head === :call && length(ay.args) == 3
+    dotmul, a, y = ay.args
+    @assert dotmul == :*
+    @assert bxs.head === :call
+    dotmul2, b, xs... = bxs.args
+    @assert dotmul2 == :*
+    @assert length(xs) > 0
+
+    added = :(Ref($b))
+    for x in xs
+        added = :($added .* $(flatten ? :(vec($x)) : x))
+    end
+    vy = flatten ? :(vec($y)) : y
+    quote
+        if iszero($b)   # no need to multiply
+            $lmul!($a, $vy)
+        elseif iszero($a)  # empty y
+            $vy .= $added
+        elseif isone($a)
+            $vy .+= $added
+        else  # a != 1, a != 0, b != 0
+            $vy .= Ref($a) .* $vy .+ $added
+        end
+        $y
+    end
+end
+
 """
     asarray(x[, parent::AbstractArray]) -> AbstactArray
 
@@ -81,11 +119,10 @@ end
 
 `permutedims(A, perm)` with grouped dimensions.
 """
-function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
+function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx, sy) where {T, N}
     @assert N == length(perm) && all(p->1<=p<=N, perm)
     N == 0 && return copy(A)
     # group `perm`s
-    permshape = ntuple(i->size(A, @inbounds perm[i]), N)
     newshape_slots = fill(-1, N)
     dk = 1  # the size of dimension-batch
     @inbounds begin
@@ -108,29 +145,54 @@ function tensorpermute(A::AbstractArray{T,N}, perm) where {T, N}
     newshape = filter(!=(-1), newshape_slots)
     newperm = sortperm(sortperm(newperm))
     A_ = reshape(A, newshape...)
-    A__ = permutedims(A_, newperm)
-    return reshape(A__, permshape...)
+    permed_shape = ntuple(i->size(A_, @inbounds newperm[i]), ndims(A_))
+    if iszero(sy)
+        permutedims!(reshape(C, permed_shape), A_, newperm)
+        !isone(sx) && lmul!(sx, C)
+        return C
+    else
+        return @flatten_addmul! sy * C + sx * permutedims(A_, newperm)
+    end
 end
 
-# reload this function for GPU support!
-function _batched_gemm(C1::Char, C2::Char, A::StridedArray{T,3}, B::StridedArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
-    batched_gemm(C1, C2, A, B)
+# new interface for GPU support!
+# function _batched_gemm!(C1::Char, C2::Char, alpha, A::StridedArray{T,3}, B::StridedArray{T2,3}, beta, C::StridedArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat, T3<:BlasFloat}
+#     batched_gemm!(C1, C2, alpha, A, B, beta, C)
+# end
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat,T3<:BlasFloat}
+    # NOTE: convert alpha and beta to T3, since booleans are not supported by BatchedRoutines
+    #batched_gemm!(C1, C2, T3(alpha), Array(A), Array(B), T3(beta), C)
+    batched_gemm!(C1, C2, T3(alpha), A, B, T3(beta), C)
 end
-
-function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T<:BlasFloat, T2<:BlasFloat}
-    batched_gemm(C1, C2, Array(A), Array(B))
-end
-
-function _batched_gemm(C1::Char, C2::Char, A::AbstractArray{T,3}, B::AbstractArray{T2,3}) where {T, T2}
-    @assert size(A, 3) == size(B, 3) "batch dimension mismatch, got $(size(A,3)) and $(size(B,3))"
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T, T2,T3}
+    @assert size(A, 3) == size(B, 3) == size(C, 3) "batch dimension mismatch, got $(size(A,3)), $(size(B,3)) and $(size(C,3))"
     @assert C1 === 'N' || C1 === 'T'
     @assert C2 === 'N' || C2 === 'T'
-    L = size(A, 3)
-    C = similar(A, promote_type(T,T2), C1==='N' ? size(A,1) : size(A,2), C2==='N' ? size(B,2) : size(B,1), L)
-    for l = 1:L
+    for l = 1:size(A, 3)
         a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
         b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
-        mul!(view(C,:,:,l), a, b)
+        mul!(view(C,:,:,l), a, b, alpha, beta)
     end
     return C
 end
+
+# macro addmul!(a, y, b, xs...)
+#     added = :(Ref(b))
+#     for x in xs
+#         added = :($added .* $x)
+#     end
+#     yeval = gensym("y")
+#     quote
+#         $yeval = $y
+#         if iszero($b)   # no need to multiply
+#             $lmul!($a, $yeval)
+#         elseif iszero($a)  # empty y
+#             $yeval .= $added
+#         elseif isone($a)
+#             $yeval .+= $added
+#         else  # a != 1, a != 0, b != 0
+#             $yeval .= Ref($a) .* $yeval .+ $added
+#         end
+#         $yeval
+#     end |> esc
+# end

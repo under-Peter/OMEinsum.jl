@@ -1,4 +1,6 @@
 using OMEinsum: _unique
+using OMEinsum
+using Test
 
 @testset "utils" begin
     @test _unique(Int,(1,2,3,3,)) == [1,2,3]
@@ -18,8 +20,8 @@ end
 
 @testset "tensorpermute" begin
     a = randn(100, 100)
-    @test OMEinsum.tensorpermute(a, [1,2]) == a
-    @test OMEinsum.tensorpermute(a, (2,1)) == transpose(a)
+    @test OMEinsum.tensorpermute!(zero(a), a, [1,2], true, false) == a
+    @test OMEinsum.tensorpermute!(zero(a), a, (2,1), true, false) == transpose(a)
 end
 
 @testset "align_types" begin
@@ -37,7 +39,17 @@ end
         for C2 in ['N', 'T']
             A_ = Array{Any}(A)
             B_ = Array{Any}(B)
-            @test OMEinsum._batched_gemm(C1, C2, A, B) ≈ OMEinsum._batched_gemm(C1, C2, A_, B_)
+            @test OMEinsum._batched_gemm!(C1, C2, true, A, B, false, zeros(10, 10, 10)) ≈ OMEinsum._batched_gemm!(C1, C2, true, A_, B_, false, zeros(10, 10, 10))
         end
+    end
+end
+
+@testset "addmul!" begin
+    x = randn(10, 10)
+    y = randn(10, 10)
+    z = randn(10, 10)
+    for a in [0.0, 1.0, 4.0], b in [0.0, 1.0, 4.0]
+        @test (o = copy(x); OMEinsum.@addmul! a * o + b * y * z) ≈ a .* x .+ b .* y .* z
+        @test (o = copy(x); OMEinsum.@flatten_addmul! a * o + b * y * z) ≈ a .* x .+ b .* y .* z
     end
 end

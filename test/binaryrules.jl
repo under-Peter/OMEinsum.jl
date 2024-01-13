@@ -1,10 +1,10 @@
 using OMEinsum, Test
-using OMEinsum: SimpleBinaryRule, match_rule
+using OMEinsum: SimpleBinaryRule, match_rule, binary_einsum!
 using Polynomials: Polynomial
 
 @testset "analyse binary" begin
     size_dict = Dict(1=>1, 2=>2, 3=>3, 4=>4, 6=>6, 7=>7, 8=>8)
-    c1, c2, cy, s1, s2, is, js, ys = OMEinsum.analyze_binary([1,2,3,4,8], [2,6,6,8,4,2], [7,2,1,2,2,6], size_dict)
+    c1, c2, cy, s1, s2, s3, is, js, ys = OMEinsum.analyze_binary([1,2,3,4,8], [2,6,6,8,4,2], [7,2,1,2,2,6], size_dict)
     @test c1 == [1,4,8,2]
     @test c2 == [4,8,6,2]
     @test cy == [1,6,2]
@@ -32,7 +32,8 @@ end
                     rule = match_rule(code)
                     if rule isa SimpleBinaryRule
                         nmatch += 1
-                        @test einsum(rule, (a, b)) ≈ loop_einsum(code, (a, b), size_dict)
+                        out = OMEinsum.get_output_array((a, b), [size_dict[l] for l in getiyv(code)]; fillzero=false)
+                        @test binary_einsum!(rule, a, b, out, true, false) ≈ loop_einsum(code, (a, b), size_dict)
                     else
                         @test einsum(code, (a, b), size_dict) ≈ loop_einsum(code, (a, b), size_dict)
                     end

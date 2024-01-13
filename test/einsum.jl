@@ -1,8 +1,8 @@
 using Test
 using OMEinsum
-using OMEinsum: get_size_dict, Sum, Tr, DefaultRule, Permutedims, Duplicate
+using OMEinsum: get_size_dict
 using SymEngine
-using LinearAlgebra: I
+using LinearAlgebra: I, tr
 
 SymEngine.free_symbols(syms::Union{Real, Complex}) = Basic[]
 SymEngine.free_symbols(syms::AbstractArray{T}) where {T<:Union{Real, Complex}} = Basic[]
@@ -23,6 +23,58 @@ Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray; atol=1e-8) = _basic_appro
 Base.:≈(x::AbstractArray, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
 Base.:≈(x::AbstractArray{<:Basic}, y::AbstractArray{<:Basic}; atol=1e-8) = _basic_approx(x, y, atol=atol)
 Base.Complex{T}(a::Basic) where T = T(real(a)) + im*T(imag(a))
+
+@testset "unary einsum" begin
+    size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1,1,2,5)
+    y = randn(3,5,3,3,3,5)
+    # Diag, Sum, Repeat, Duplicate
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    ix = (1,2,3,4)
+    x = randn(3,3,3,4)
+    iy = (4,3,1,2)
+    y = randn(4,3,3,3)
+    # Permutedims
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    # None
+    ix = (1,2,3,4)
+    x = randn(3,3,3,4)
+    iy = (1,2,3,4)
+    y = randn(3,3,3,4)
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict) ≈ loop_einsum(EinCode((ix,), iy), (x,), size_dict)
+    # tr
+    ix = (1,1)
+    x = randn(3,3)
+    iy = ()
+    y = fill(1.0)
+    @test einsum!((ix,), iy, (x,), y, true, false, size_dict)[] ≈ tr(x)
+end
+
+@testset "binary einsum" begin
+    size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1,1,2,5)
+    y = randn(3,5,3,3,3,5)
+    iz = (1,2,3,4,5,5)
+    z = randn(3,3,3,4,5,5)
+    @test einsum!((ix, iy), iz, (x, y), z, true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy), iz), (x, y), size_dict)
+    @test einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 3.0, size_dict) ≈ loop_einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 3.0, size_dict)
+    @test einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 1.0, size_dict) ≈ loop_einsum!((ix, iy), iz, (x, y), copy(z), 5.0, 1.0, size_dict)
+end
+
+@testset "nary, einsum" begin
+     size_dict = Dict(1=>3,2=>3,3=>3,4=>4,5=>5)
+    ix = (1,2,3,3,4)
+    x = randn(3,3,3,3,4)
+    iy = (3,5,1)
+    y = randn(3,5,3)
+    iz = (1,2,3,4,5,5)
+    z = randn(3,3,3,4,5,5)
+    @test einsum!((ix, iy, iz), (), (x, y, z), fill(1.0), true, false, size_dict) ≈ loop_einsum(EinCode((ix, iy, iz), ()), (x, y, z), size_dict)
+end
 
 @testset "get output array" begin
     xs = (randn(4,4), randn(3))
@@ -207,39 +259,6 @@ end
     @test_throws DimensionMismatch einsum(ein"ij,jk -> ik", (rand(2,3), rand(2,2)))
 end
 
-@testset "dispatched" begin
-    # index-sum
-    a = rand(2,2,5)
-    ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
-    a = rand(5,5)
-    @test einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[] ≈ sum(a[i,i] for i in 1:5)
-    t = rand(5,5,5,5)
-    a = rand(5,5)
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-
-    OMEinsum.allow_loops(false)
-    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    OMEinsum.allow_loops(true)
-
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-
-    # index-sum
-    a = Basic.(rand(2,2,5))
-    ixs, xs = ((1,2,3),), (a,)
-    @test einsum(Sum(), ixs,(1,2),xs, get_size_dict(ixs, xs)) ≈ sum(a, dims=3)
-    a = Basic.(rand(5,5))
-    @test isapprox(einsum(Tr(), ((1,1),),(), (a,), get_size_dict(((1,1),), (a,)))[], sum(a[i,i] for i in 1:5), rtol=1e-8)
-    t = Basic.(rand(5,5,5,5))
-    a = Basic.(rand(5,5))
-    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
-    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
-    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
-    @test einsum(DefaultRule(), ((1,2,3,4), (2,3)), (1,4), (t,a), size_dict) ≈  ta
-end
-
 @testset "isbatchmul" begin
     for (ixs, iy) in [(((1,2), (2,3)), (1,3)), (((1,2,3), (2,3)), (1,3)),
                         (((7,1,2,3), (2,4,3,7)), (1,4,3)),
@@ -250,31 +269,12 @@ end
     end
 end
 
-@testset "duplicate" begin
-    ix = (1,2,3)
-    iy = (3,2,1,1,2)
-    size_dict = Dict(1=>3,2=>3,3=>3)
-    x = randn(3,3,3)
-    @test OMEinsum.duplicate(x, ix, iy, size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
-    @test OMEinsum.einsum(Duplicate(), (ix,), iy, (x,), size_dict) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
-end
-
 @testset "issue 136" begin
     @test EinCode(((1,2,3),(2,)),(1,3))(ones(2,2,1), ones(2)) == reshape([2,2.0], 2, 1)
     @test EinCode(((1,2,3),(2,)),(1,3))(ones(2,2,0), ones(2)) == reshape(zeros(0), 2, 0)
 end
 
 @testset "fix rule cc,cb->bc" begin
-    @test OMEinsum.match_rule_binary([3], [1], [1,3]) isa OMEinsum.SimpleBinaryRule
-    @test OMEinsum.match_rule_binary([1,3], [2,3], [1,2,3]) isa OMEinsum.SimpleBinaryRule
-    @test OMEinsum.match_rule_binary([3], [3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3], [3, 3], [3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3, 3], [3], [3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,3], [3, 3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3, 3], [3,2], [2,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,1], [1, 3], [3,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([1,3], [3, 3], [1,3]) isa OMEinsum.DefaultRule
-    @test OMEinsum.match_rule_binary([3,3], [3], [3,3]) isa OMEinsum.DefaultRule
     size_dict = Dict('a'=>2,'b'=>2,'c'=>2)
     for code in [ein"c,c->cc", ein"c,cc->c", ein"cc,c->cc", ein"cc,cc->cc", ein"cc,cb->bc", ein"cb,bc->cc", ein"ac,cc->ac"]
         @info code
@@ -282,4 +282,26 @@ end
         b = randn(fill(2, length(getixsv(code)[2]))...)
         @test code(a, b) ≈ OMEinsum.loop_einsum(code, (a,b), size_dict)
     end
+end
+
+# patch for SymEngine
+Base.promote_rule(::Type{Bool}, ::Type{Basic}) = Basic
+@testset "allow loops" begin
+    t = rand(5,5,5,5)
+    a = rand(5,5)
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+
+    OMEinsum.allow_loops(false)
+    @test_throws ErrorException loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    OMEinsum.allow_loops(true)
+
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
+
+    # index-sum
+    t = Basic.(rand(5,5,5,5))
+    a = Basic.(rand(5,5))
+    size_dict = Dict(zip((1,2,3,4,2,3), ((size(t)..., size(a)...))))
+    ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
+    @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end
