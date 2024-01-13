@@ -30,14 +30,14 @@ end
 # S = N
 # T = N
 function binary_einsum!(::SimpleBinaryRule{('j',), ('j',), ()}, x1, x2, y, sx, sy)
-    @addmul! sy * y + sx * Ref(transpose(x1) * x2)
+    @addmul! sy * y + sx * (reshape(x1, 1, length(x1)) * x2)
 end
 
 # ,k->k : 001
 # S = N
 # T = N
 @inline function binary_einsum!(::SimpleBinaryRule{(), ('k',), ('k',)}, x1, x2, y, sx, sy)
-    binary_einsum!(SimpleBinaryRule{('i',),(),('i',)}(), x2, x1, y, sx, sy)
+    @addmul! sy * y + sx * Ref(asscalar(x1)) * x2
 end
 
 # j,jk->k : 011
@@ -64,10 +64,10 @@ end
 # S = N^2
 # T = N^2
 function binary_einsum!(::SimpleBinaryRule{('i',), ('k',), ('i','k')}, x1, x2, y, sx, sy)
-    @addmul! sy * y + sx * x1 * transpose(x2)
+    @addmul! sy * y + sx * x1 * reshape(x2, 1, length(x2))
 end
 @inline function binary_einsum!(::SimpleBinaryRule{('i',), ('k',),('k','i')}, x1, x2, y, sx, sy)
-    @addmul! sy * y + sx * transpose(x1) * x2
+    @addmul! sy * y + sx * reshape(x1, 1, length(x1)) * x2
 end
 
 # 000
@@ -77,12 +77,12 @@ end
 
 # 100
 function binary_einsum!(::SimpleBinaryRule{('i','l'),('l',), ('i','l')}, x1, x2, y, sx, sy)
-    @addmul! sy * y + sx * x1 * transpose(x2)
+    @addmul! sy * y + sx * x1 * reshape(x2, 1, length(x2))
 end
 
 # 001
 @inline function binary_einsum!(::SimpleBinaryRule{('l',), ('k','l'), ('k','l')}, x1, x2, y, sx, sy)
-    binary_einsum!(SimpleBinaryRule{('i','l'),('l',),('i','l')}(), x2, x1, y, sx, sy)
+    @addmul! sy * y + sx * reshape(x1, 1, length(x1)) * x2
 end
 
 # 010

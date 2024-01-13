@@ -224,6 +224,20 @@ julia> gradient(x->optcode(x,s,s,s,s,s,s,s,s,s)[], s)[1] |> sum
 ```
 This tells us that even if we allow duplicates on one vertex, there are no 3-colourings for the peterson graph.
 
+## Comparison with other packages
+Similar packages include:
+- [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl) and [TensorKit.jl](https://github.com/Jutho/TensorKit.jl)
+- [ITensors.jl](https://github.com/ITensor/ITensors.jl)
+
+Comparing with the above packages, `OMEinsum` is optimized over large scale tensor network (or einsum, sum-product network) contraction. Its main advantages are:
+- `OMEinsum` has better support to very high dimensional tensor networks and their contraction order.
+- `OMEinsum` allows an index to appear multiple times.
+- `OMEinsum` has well tested generic element type support.
+
+However, `OMEinsum` also has some disadvantages:
+- `OMEinsum` does not support good quantum numbers.
+- `OMEinsum` has less optimization on small scale problems.
+
 ## Contribute
 
 Suggestions and Comments in the _Issues_ are welcome.

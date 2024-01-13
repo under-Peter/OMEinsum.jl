@@ -276,6 +276,15 @@ function einsum!(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray
     end
     return einsum!(rootcode(neinsum), (mxs...,), y, sx, sy, size_dict)
 end
+function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
+    # do not use map because the static overhead is too large
+    # do not use `setindex!` because we need to make the AD work
+    mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
+    for (i, arg) in enumerate(siblings(neinsum))
+        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, size_dict))
+    end
+    return einsum(rootcode(neinsum), (mxs...,), size_dict)
+end
 
 _safe_set(lst, i, y) = (lst[i] = y; lst)
 

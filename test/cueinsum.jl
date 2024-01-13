@@ -6,12 +6,27 @@ using Zygote
 
 CUDA.allowscalar(false)
 
+@testset "loop einsum" begin
+    a = [randn(fill(3, i)...) for i=1:4]
+    ca = a .|> CuArray
+    ixs = ((1,2), (2,3))
+    xs = (ca[2], ca[2])
+    @test loop_einsum!(ixs, (1,3), xs, zeros(3,3) |> CuArray, true, false, OMEinsum.get_size_dict(ixs, xs)) |> Array ≈ a[2]*a[2]
+    @test loop_einsum!(ixs, (1,3), xs, ones(3,3) |> CuArray, 4.0, 2.0, OMEinsum.get_size_dict(ixs, xs)) |> Array ≈ 4.0 * a[2]*a[2] + 2 * ones(3, 3)
+    res = 4.0 * a[2]*a[2]
+    out = 2 * ones(3, 3, 3)
+    for k = 1:3
+        out[:,k,k] .+= res[:,k]
+    end
+    @test loop_einsum!(ixs, (1,3,3), xs, ones(3,3,3) |> CuArray, 4.0, 2.0, OMEinsum.get_size_dict(ixs, xs)) |> Array ≈ out
+end
+
 @testset "cuda einsum" begin
     a = [randn(fill(3, i)...) for i=1:4]
     ca = a .|> CuArray
     ixs = ((1,2), (2,3))
     xs = (ca[2], ca[2])
-    @test loop_einsum!(EinCode(ixs, (1,3)), xs, zeros(3,3) |> CuArray, OMEinsum.get_size_dict(ixs, xs)) ≈ ca[2]*ca[2]
+    @test loop_einsum!(ixs, (1,3), xs, zeros(3,3) |> CuArray, true, false, OMEinsum.get_size_dict(ixs, xs)) ≈ ca[2]*ca[2]
     for f in [ein"ij,jk->ik", ein"ii->", ein"ijj ->i", ein"ij,ik,il->jkl", ein"ii->i", ein"ijl->i", ein"i->ii", ein"ij,jk,kl->il", ein"ij,ij,ij -> ij"]
         cins = map(ix->ca[length(ix)], OMEinsum.getixs(f))
         ins = map(ix->a[length(ix)], OMEinsum.getixs(f))
@@ -56,7 +71,7 @@ end
     @test M |> Array ≈ loop_einsum(_code, xs, OMEinsum.get_size_dict(OMEinsum.getixs(_code), xs)) |> Array
 end
 
-@testset "binary einsum" begin
+@testset "unary einsum rules" begin
     for code in [
             ein"ij->",  # sum
             ein"ij->j", # sum
@@ -69,10 +84,58 @@ end
             ein"i->ik",   # ~sum
             ein"->ik",   # ~sum
             ein"illljkk->kijjcc",   # general
+        ]
+        @info code
+        D = 2
+        xs = [length(ix)==0 ? CUDA.fill(1.2) : CUDA.rand(Float64, fill(D, length(ix))...) for ix in OMEinsum.getixs(code)]
+        size_dict = Dict(zip(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->D, 10)))
+        res = einsum(code, (xs...,), size_dict)
+        @test Array(res) ≈ loop_einsum(code, (Array.(xs)...,), size_dict)
+        @test Array(res) ≈ Array(loop_einsum(code, (xs...,), size_dict))
+    end
+end
+
+@testset "binary einsum rules" begin
+    codes = [
             # binary
             ein",->",
-            ein"ijl,jl->il",
-            ein"ab,bc->ac",
+            ein"i,->i",
+            ein"j,j->",
+            ein",k->k",
+            ein"j,jk->k",
+            ein"j,kj->k",
+            ein"ij,j->i",
+            ein"ji,j->i",
+            ein"i,k->ik",
+            ein"i,k->ki",
+    ]
+
+    for (i1, X1) in enumerate([('i', 'j'), ('j', 'i')])
+        for (i2, X2) in enumerate([('j', 'k'), ('k', 'j')])
+            for (i3, X3) in enumerate([('i', 'k'), ('k', 'i')])
+                push!(codes, OMEinsum.StaticEinCode{Char, (X1,X2),X3}())
+            end
+        end
+    end
+    for code in copy(codes)
+        X1, X2 = OMEinsum.getixs(code)
+        X3 = OMEinsum.getiy(code)
+        push!(codes, OMEinsum.StaticEinCode{Char, ((X1...,'l'),(X2...,'l')),(X3...,'l')}())
+    end
+
+    for code in codes
+        @info code
+        D = 2
+        xs = [length(ix)==0 ? CUDA.fill(1.2) : CUDA.rand(Float64, fill(D, length(ix))...) for ix in OMEinsum.getixs(code)]
+        size_dict = Dict(zip(('a', 'b', 'c', 'd', 'e', 'f','i','j','k','l'), ntuple(x->D, 10)))
+        res = einsum(code, (xs...,), size_dict)
+        @test Array(res) ≈ loop_einsum(code, (Array.(xs)...,), size_dict)
+        @test Array(res) ≈ Array(loop_einsum(code, (xs...,), size_dict))
+    end
+end
+
+@testset "composite einsum" begin
+    for code in [
             ein"abb,bc->ac",  # with diag in
             ein"ab,bc->acc",  # with diag out
             ein"ab,bce->ac",  # with sum in
@@ -89,20 +152,6 @@ end
         res = einsum(code, (xs...,), size_dict)
         @test Array(res) ≈ loop_einsum(code, (Array.(xs)...,), size_dict)
         @test Array(res) ≈ Array(loop_einsum(code, (xs...,), size_dict))
-    end
-end
-
-@testset "binary rules" begin
-    for (code, a, b) in [
-        (ein"j,j->", randn(10), randn(10)),
-        (ein"i,->i", randn(10), fill(2.0, ())),
-        (ein",->", fill(2.0,()), fill(2.0, ())),
-        (ein"il,kl->ikl", randn(10, 10), randn(10, 10)),
-        ]
-        res0 = code(a, b)
-        res1 = code(CuArray(a), CuArray(b))
-        @test res1 isa CuArray
-        @test res0 ≈ Array(res1)
     end
 end
 

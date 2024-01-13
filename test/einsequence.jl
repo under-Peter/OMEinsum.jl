@@ -34,6 +34,8 @@ using OMEinsum: IndexGroup, NestedEinsum, parse_nested, DynamicEinCode, isleaf, 
     size_info = Dict('k'=>2)
     a, b, c, d = randn(2), randn(2,2), randn(2), randn(2)
     @test ein"((i,ij),i),j->ik"(a, b, c, d; size_info=size_info) ≈ ein"i,ij,i,j->ik"(a, b, c, d; size_info=size_info)
+    size_dict = Dict([l=>2 for l in "ijkl"])
+    @test einsum!(ein"((i,ij),i),j->ik", (a, b, c, d), randn(2, 2), true, false, size_dict) ≈ ein"i,ij,i,j->ik"(a, b, c, d; size_info=size_info)
     @test getixsv(ein"((i,ij),i),j->ik") == getixsv(ein"i,ij,i,j->ik") == getixsv(DynamicEinCode(ein"i,ij,i,j->ik")) == [['i'], ['i','j'], ['i'], ['j']]
     @test getiyv(ein"((i,ij),i),j->ik") == getiyv(ein"i,ij,i,j->ik") == getiyv(DynamicEinCode(ein"i,ij,i,j->ik")) == ['i','k']
 end
