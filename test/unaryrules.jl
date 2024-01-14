@@ -18,7 +18,10 @@ end
     size_dict = Dict(1=>3,2=>3,3=>3)
     x = randn(3,3,3,3,3)
     y = randn(3,3,3)
-    @test unary_einsum!(Diag(), ix, iy, x, y, true, false) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test unary_einsum!(Diag(), ix, iy, x, copy(y), true, false) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test unary_einsum!(Diag(), ix, iy, x, copy(y), 2.0, 0.0) ≈ 2* OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict)
+    @test unary_einsum!(Diag(), ix, iy, x, copy(y), 1.0, 2.0) ≈ OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict) + 2y
+    @test unary_einsum!(Diag(), ix, iy, x, copy(y), 2.0, 3.0) ≈ 2 * OMEinsum.loop_einsum(EinCode((ix,),iy), (x,), size_dict) + 3y
 end
 
 @testset "Repeat" begin
