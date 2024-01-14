@@ -72,8 +72,20 @@ function compactify!(y, x, ix, iy, sx, sy)
 end
 
 function _compactify!(y, x, indexer, sx, sy)
-    @inbounds for ci in CartesianIndices(y)
-        y[ci] = sy * y[ci] + sx * x[subindex(indexer, ci.I)]
+    if iszero(sy)
+        if isone(sx)
+            @inbounds for ci in CartesianIndices(y)
+                y[ci] = x[subindex(indexer, ci.I)]
+            end
+        else
+            @inbounds for ci in CartesianIndices(y)
+                y[ci] = sx * x[subindex(indexer, ci.I)]
+            end
+        end
+    else
+        @inbounds for ci in CartesianIndices(y)
+            y[ci] = sy * y[ci] + sx * x[subindex(indexer, ci.I)]
+        end
     end
     return y
 end
