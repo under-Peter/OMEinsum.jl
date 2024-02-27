@@ -132,11 +132,11 @@ macro ein(exs...)
     _ein_macro(exs...)
 end
 
-
 primefix!(ind) = map!(i -> @capture(i, (j_)') ? Symbol(j, '′') : i, ind, ind)
 
-function _ein_macro(ex; einsum=:einsum)
-    @capture(ex, (left_ := right_)) || throw(ArgumentError("expected A[] := B[]... "))
+function _ein_macro(ex; einsum = :einsum)
+    @capture(ex, (left_ := right_)) || throw(ArgumentError("expected @ein A[] := B[]..."))
+
     @capture(left, Z_[leftind__] | [leftind__] ) || throw(
         ArgumentError("can't understand LHS, expected A[i,j] etc."))
     if Z===nothing
@@ -161,4 +161,72 @@ function _ein_macro(ex; einsum=:einsum)
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
     return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),)) )
+end
+
+"""
+    @ein! A[i,k] := B[i,j] * C[j,k]     # A = B * C
+    @ein! A[i,k] += B[i,j] * C[j,k]     # A += B * C
+
+Macro interface similar to that of other packages.
+
+Inplace version of `@ein`. 
+
+# example
+
+```jldoctest; setup = :(using OMEinsum)
+julia> a, b, c, d = rand(2,2), rand(2,2), rand(2,2), zeros(2,2);
+
+julia> cc = copy(c);
+
+julia> @ein! d[i,k] := a[i,j] * b[j,k];
+
+julia> d ≈ a * b
+true
+
+julia> d ≈ ein"ij,jk -> ik"(a,b)
+true
+
+julia> @ein! c[i,k] += a[i,j] * b[j,k];
+
+julia> c ≈ cc + a * b
+true
+```
+"""
+macro ein!(exs...)
+    _ein_macro!(exs...)
+end
+
+function _ein_macro!(ex; einsum = :einsum!)
+    if @capture(ex, (left_ := right_))
+        flag = false
+    elseif @capture(ex, (left_ += right_))
+        flag = true
+    else
+        throw(ArgumentError("expected @ein! A[] := B[]... or @ein! A[] += B[]..."))
+    end
+
+    @capture(left, Z_[leftind__] | [leftind__] ) || throw(
+        ArgumentError("can't understand LHS, expected A[i,j] etc."))
+    if Z===nothing
+        throw(ArgumentError("LHS is needed for inplace einsum, expected A[i,j] etc."))
+    end
+    primefix!(leftind)
+
+    rightind, rightpairs = [], []
+    @capture(right, *(factors__)) || (factors = Any[right])
+    for fact in factors
+        @capture(fact, A_[Aind__]) || return _nested_ein_macro(ex)
+        primefix!(Aind)
+        append!(rightind, Aind)
+        push!(rightpairs, (A, Aind) )
+    end
+    unique!(rightind)
+    isempty(setdiff(leftind, rightind)) || throw(
+        ArgumentError("some indices appear only on the left"))
+
+    lefttuple = Tuple(indexin(leftind, rightind))
+    righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
+    rightnames = [ esc(A) for (A, ind) in rightpairs ]
+
+    return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),), $(esc(Z)), true, $flag) )
 end

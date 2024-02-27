@@ -34,7 +34,7 @@ function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict 
 end
 
 # inplace einsum, EinCode as the input
-function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict)
+function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict = get_size_dict(getixs(code), xs))
     einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
 end
 # inplace einsum, the fallback

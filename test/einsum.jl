@@ -243,13 +243,25 @@ end
     #@test_throws ArgumentError einsum(ein"ij,123 -> k", (a,a))
 end
 
-@testset "macro input" begin
+@testset "non inplace macro input" begin
     a = randn(2,2)
     @test a * a ≈ @ein [i,k] := a[i,j] * a[j,k]
     @test sum(a[i,i] for i in 1:2) ≈ (@ein [] := a[i,i])[]
     @test [a[1,1] 0; 0 a[2,2]] ≈ @ein [i,i] := a[i,i]
     @test permutedims(a) ≈ @ein [α,a] := a[a,α]
     @test permutedims(a) ≈ @ein [α,1] := a[1,α]
+end
+
+@testset "inplace macro input" begin
+    a = randn(2,2)
+    b = randn(2,2)
+    c = randn(2,2)
+    t = randn(2,2)
+    cc = copy(c)
+    @ein! t[i,k] := a[i,j] * b[j,k]
+    @ein! c[i,k] += a[i,j] * b[j,k]
+    @test a * b ≈ t
+    @test cc + a * b ≈ c
 end
 
 @testset "argument checks" begin
