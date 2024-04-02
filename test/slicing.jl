@@ -20,7 +20,11 @@ end
     @test getixsv(se) == [['i','j'],['j','k'],['k','l'],['l','m']]
     @test getiyv(se) == ['i','m']
     @test label_elimination_order(se) == ['j','l', 'k']
-    @test se(xs...) ≈ se.eins(xs...)
+    expected = se.eins(xs...)
+    @test se(xs...) ≈ expected
+    y = similar(se(xs...))
+    @test einsum!(se, xs, y, true, false, size_info) ≈ expected
+    @test y ≈ expected
     @test uniquelabels(se) == ['i', 'j', 'k', 'l', 'm']
     @test uniformsize(se, 2) == Dict(zip(['i', 'j', 'k', 'l', 'm'], ones(Int, 5).*2))
 end
