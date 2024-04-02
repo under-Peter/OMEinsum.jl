@@ -80,6 +80,14 @@ function fill_slice!(x, ix, chunk, slicemap::Dict)
     end
     return x
 end
+function view_slice(x, ix, slicemap::Dict)
+    if ndims(x) == 0
+        return x
+    else
+        slices = map(l->haskey(slicemap, l) ? slicemap[l] : Colon(), ix)
+        return view(x, slices...)
+    end
+end
 
 function (se::SlicedEinsum{LT,ET})(@nospecialize(xs::AbstractArray...); size_info = nothing, kwargs...) where {LT, ET}
     # get size
@@ -89,16 +97,27 @@ function (se::SlicedEinsum{LT,ET})(@nospecialize(xs::AbstractArray...); size_inf
     return einsum(se, xs, size_dict; kwargs...)
 end
 
-function einsum(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict; kwargs...)
-    length(se.slicing) == 0 && return einsum(se.eins, xs, size_dict; kwargs...)
+function einsum!(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), y, sx, sy, size_dict::Dict)
+    length(se.slicing) == 0 && return einsum!(se.eins, xs, y, sx, sy, size_dict)
+    iszero(sy) ? fill!(y, zero(eltype(y))) : rmul!(y, sy)
+    it = SliceIterator(se, size_dict)
+    eins_sliced = drop_slicedim(se.eins, se.slicing)
+    for slicemap in it
+        xsi = ntuple(i->take_slice(xs[i], it.ixsv[i], slicemap), length(xs))
+        einsum!(eins_sliced, xsi, view_slice(y, it.iyv, slicemap), sx, true, it.size_dict_sliced)
+    end
+    return y
+end
+function einsum(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
+    length(se.slicing) == 0 && return einsum(se.eins, xs, size_dict)
     it = SliceIterator(se, size_dict)
     res = get_output_array(xs, getindex.(Ref(size_dict), it.iyv))
     eins_sliced = drop_slicedim(se.eins, se.slicing)
-    for (k, slicemap) in enumerate(it)
+    for slicemap in it
         # NOTE: @debug will break Zygote
         # @debug "computing slice $k/$(length(it))"
         xsi = ntuple(i->take_slice(xs[i], it.ixsv[i], slicemap), length(xs))
-        resi = einsum(eins_sliced, xsi, it.size_dict_sliced; kwargs...)
+        resi = einsum(eins_sliced, xsi, it.size_dict_sliced)
         res = fill_slice!(res, it.iyv, resi, slicemap)
     end
     return res
