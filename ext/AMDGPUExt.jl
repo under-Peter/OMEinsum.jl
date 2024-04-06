@@ -85,7 +85,7 @@ end
 
 function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
     groupsize = 256
-    gridsize = cld(prod(size(x)), nthreads)
+    gridsize = cld(prod(size(x)), groupsize)
     CIS = CartesianIndices(x)
     @inline function kernel(y, x)
         i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
