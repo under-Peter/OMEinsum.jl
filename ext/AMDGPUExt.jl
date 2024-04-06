@@ -134,6 +134,6 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,ROCArrayTypes}
     return res
 end
 
-@info("OMEinsum loaded the CUDA module successfully")
+@info("OMEinsum loaded the AMDGPU module successfully")
 
 end
