@@ -16,14 +16,17 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [weakdeps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 
 [extensions]
 CUDAExt = "CUDA"
+AMDGPUExt = "AMDGPU"
 
 [compat]
 AbstractTrees = "0.3, 0.4"
 BatchedRoutines = "0.2"
 CUDA = "4, 5"
+AMDGPU = "0.8"
 ChainRulesCore = "1"
 Combinatorics = "1.0"
 MacroTools = "0.5"
@@ -45,4 +48,17 @@ TropicalNumbers = "b3a74e9c-7526-4576-a4eb-79c0d4c32334"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "Documenter", "LinearAlgebra", "ProgressMeter", "SymEngine", "Random", "Zygote", "DoubleFloats", "TropicalNumbers", "ForwardDiff", "Polynomials", "CUDA"]
+test = [
+    "Test",
+    "Documenter",
+    "LinearAlgebra",
+    "ProgressMeter",
+    "SymEngine",
+    "Random",
+    "Zygote",
+    "DoubleFloats",
+    "TropicalNumbers",
+    "ForwardDiff",
+    "Polynomials",
+    "CUDA",
+]
