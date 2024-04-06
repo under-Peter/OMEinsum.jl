@@ -84,18 +84,18 @@ end
 end
 
 function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
-    groupsize = 256
-    gridsize = cld(prod(size(x)), groupsize)
+    ngroupsize = 256
+    ngridsize = cld(prod(size(x)), ngroupsize)
     CIS = CartesianIndices(x)
     @inline function kernel(y, x)
-        i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+        i = (workgroupIdx().x - 1) * workgroupDim().x + workitemIdx().x
         i > length(x) && return nothing
         @inbounds yi = expandind(Val{ixs}(), Val{iy}(), CIS[i].I)
         @inbounds y[CartesianIndex(yi)] += sx * x[i]
         nothing
     end
 
-    @roc(groupsize = groupsize, gridsize = gridsize, kernel(y, x))
+    @roc(gridsize = ngridsize, grousize = ngroupsize, kernel(y, x))
     return y
 end
 
