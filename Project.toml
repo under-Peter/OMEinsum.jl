@@ -15,18 +15,18 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [weakdeps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 
 [extensions]
-CUDAExt = "CUDA"
 AMDGPUExt = "AMDGPU"
+CUDAExt = "CUDA"
 
 [compat]
+AMDGPU = "0.8"
 AbstractTrees = "0.3, 0.4"
 BatchedRoutines = "0.2"
 CUDA = "4, 5"
-AMDGPU = "0.8"
 ChainRulesCore = "1"
 Combinatorics = "1.0"
 MacroTools = "0.5"

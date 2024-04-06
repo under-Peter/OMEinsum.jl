@@ -32,7 +32,7 @@ function get_output_array(xs::NTuple{N,ROCArrayTypes{T,M} where M}, size; fillze
 end
 
 
-AMDGPU.rocconvert(A::EinArray{T}) where {T} = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
+AMDGPU.rocconvert(A::EinArray{T}) where {T} = EinArray{T}(rocconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 AMDGPU.roc(A::EinArray{T}) where {T} = EinArray{T}(cu.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
 
 for TP in [:Diag, :Repeat, :Duplicate]
@@ -95,12 +95,12 @@ function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
         nothing
     end
 
-    @roc(gridsize = ngridsize, grousize = ngroupsize, kernel(y, x))
+    @roc(gridsize = ngridsize, groupsize = ngroupsize, kernel(y, x))
     return y
 end
 
 function _batched_gemm!(C1::Char, C2::Char, alpha, A::ROCArrayTypes{T1,3}, B::ROCArrayTypes{T2,3}, beta, C::ROCArrayTypes{T3,3}) where {T1<:ROCBlasFloat,T2<:ROCBlasFloat,T3<:ROCBlasFloat}
-    gemm_strided_batched
+    println("type of alpha", typeof(alpha))
     AMDGPU.rocBLAS.gemm_strided_batched!(C1, C2, alpha, T1 == T3 ? A : T3.(A), T2 == T3 ? B : T3.(B), beta, C)
 end
 
