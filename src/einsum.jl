@@ -28,13 +28,13 @@ julia> einsum(EinCode((('i','j'),('j','k')),('k','i')), (a, b)) ≈ permutedims(
 true
 ```
 "
-function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict = get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
-    y = get_output_array(xs, map(y->size_dict[y],getiyv(code)); fillzero=false)
+function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict=get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
+    y = get_output_array(xs, map(y -> size_dict[y], getiyv(code)); fillzero=false)
     einsum!(code, xs, y, true, false, size_dict)
 end
 
 # inplace einsum, EinCode as the input
-function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict = get_size_dict(getixs(code), xs))
+function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict=get_size_dict(getixs(code), xs))
     einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
 end
 # inplace einsum, the fallback
@@ -51,10 +51,10 @@ end
 # for unary operations
 # overhead ~ 2.3us
 # @benchmark OMEinsum.einsum(DefaultRule(), $((('a', 'a', 'b'),)), $(('c', 'b','a')), (x,), $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
-function unary_pipeline(ix::Vector{LT}, iy::Vector{LT}) where LT
+function unary_pipeline(ix::Vector{LT}, iy::Vector{LT}) where {LT}
     ix_unique = _unique(LT, ix)
     iy_unique = _unique(LT, iy)
-    iy_a = filter(i->i ∈ ix, iy_unique)
+    iy_a = filter(i -> i ∈ ix, iy_unique)
 
     operations = UnaryOperation[]
     if length(ix_unique) != length(ix)  # diag
@@ -75,7 +75,7 @@ function unary_pipeline(ix::Vector{LT}, iy::Vector{LT}) where LT
     return operations
 end
 
-function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where LT
+function einsum!(ixs, iy, @nospecialize(xs::NTuple{1,Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where {LT}
     @debug "compiling unary" ixs[1] => iy size(xs[1])
     pipeline = unary_pipeline(collect(LT, ixs[1]), collect(LT, iy))
     lasttensor = xs[1]
@@ -95,13 +95,13 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{1, Any}), @nospecialize(y), s
 end
 
 # there are too many combination in the binary case, so nospecialize
-function einsum!(ixs, iy, @nospecialize(xs::NTuple{2, Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where LT
-    iyv = _collect(LT,iy)
+function einsum!(ixs, iy, @nospecialize(xs::NTuple{2,Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where {LT}
+    iyv = _collect(LT, iy)
     ix1v, ix2v = _collect.(Ref(LT), ixs)
     @debug "compiling binary" ixs => iyv size.(xs)
     x1, x2 = xs
     c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(ix1v, ix2v, iyv, size_dict)
-    rule = SimpleBinaryRule{(i1...,), (i2...,), (iyb...,)}()
+    rule = SimpleBinaryRule{(i1...,),(i2...,),(iyb...,)}()
     xs1 = simplifyto(ix1v, c1, x1, size_dict)
     xs2 = simplifyto(ix2v, c2, x2, size_dict)
     x1_ = safe_reshape(xs1, s1)
@@ -118,10 +118,10 @@ function einsum!(ixs, iy, @nospecialize(xs::NTuple{2, Any}), @nospecialize(y), s
 end
 safe_reshape(x, sz) = reshape(x, (sz...,))
 
-function simplifyto(ix1, c1, x1, size_dict::Dict{LT}) where LT
+function simplifyto(ix1, c1, x1, size_dict::Dict{LT}) where {LT}
     if c1 != ix1
         xs1 = similar(x1, ([size_dict[l] for l in c1]...,))
-        return einsum!((_collect(LT,ix1),), c1, (x1,), xs1, true, false, size_dict)
+        return einsum!((_collect(LT, ix1),), c1, (x1,), xs1, true, false, size_dict)
     else
         return x1
     end
@@ -130,15 +130,15 @@ end
 """
 Get the expected labels.
 """
-function analyze_binary(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}, size_dict::Dict{T,Int}) where T
+function analyze_binary(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}, size_dict::Dict{T,Int}) where {T}
     ix_inner, ix1_outer, ix2_outer, batch = _analyze_binary_input(ix1, ix2, iy)
     c1 = vcat(ix1_outer, ix_inner, batch)
     c2 = vcat(ix_inner, ix2_outer, batch)
     cy = vcat(ix1_outer, ix2_outer, batch)
-    si = prod(map(x->size_dict[x], ix1_outer))
-    sj = prod(map(x->size_dict[x], ix_inner))
-    sk = prod(map(x->size_dict[x], ix2_outer))
-    sl = prod(map(x->size_dict[x], batch))
+    si = prod(map(x -> size_dict[x], ix1_outer))
+    sj = prod(map(x -> size_dict[x], ix_inner))
+    sk = prod(map(x -> size_dict[x], ix2_outer))
+    sl = prod(map(x -> size_dict[x], batch))
     has_i = !isempty(ix1_outer)
     has_j = !isempty(ix_inner)
     has_k = !isempty(ix2_outer)
@@ -178,7 +178,7 @@ function analyze_binary(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}, size_dict
     return c1, c2, cy, s1, s2, s3, i1, i2, iyb
 end
 
-function _analyze_binary_input(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}) where T
+function _analyze_binary_input(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}) where {T}
     ix1_batch = T[]
     ix1_inner = T[]
     ix1_outer = T[]

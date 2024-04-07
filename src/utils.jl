@@ -50,10 +50,10 @@ asscalar(x) = x
 asscalar(x::AbstractArray) = x[]
 _collect(x) = collect(x)
 _collect(x::Vector) = x
-_collect(::Type{T}, x::Vector{T}) where T = x
-_collect(::Type{T}, x) where T = collect(T, x)
+_collect(::Type{T}, x::Vector{T}) where {T} = x
+_collect(::Type{T}, x) where {T} = collect(T, x)
 _insertat(lst::Tuple, i, item) = TupleTools.insertat(lst, i, (item,))
-_insertat(lst::AbstractVector, i, item) = (lst=copy(lst); lst[i]=item; lst)
+_insertat(lst::AbstractVector, i, item) = (lst = copy(lst); lst[i] = item; lst)
 
 """
     nopermute(ix,iy)
@@ -103,14 +103,14 @@ false
 """
 allunique(ix) = all(i -> count(==(i), ix) == 1, ix)
 _unique(::Type{T}, x::NTuple{N,T}) where {N,T} = unique!(collect(T, x))
-_unique(::Type{T}, x::Vector{T}) where T = unique(x)
+_unique(::Type{T}, x::Vector{T}) where {T} = unique(x)
 
 function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
-    return map(x->eltype(x)==T ? x : T.(x), xs)
+    return map(x -> eltype(x) == T ? x : T.(x), xs)
 end
 
-function align_eltypes(xs::AbstractArray{T}...) where T
+function align_eltypes(xs::AbstractArray{T}...) where {T}
     xs
 end
 
@@ -119,8 +119,8 @@ end
 
 `permutedims(A, perm)` with grouped dimensions.
 """
-function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx, sy) where {T, N}
-    @assert N == length(perm) && all(p->1<=p<=N, perm)
+function tensorpermute!(C::AbstractArray{T,N}, A::AbstractArray{T,N}, perm, sx, sy) where {T,N}
+    @assert N == length(perm) && all(p -> 1 <= p <= N, perm)
     N == 0 && return copy(A)
     # group `perm`s
     newshape_slots = fill(-1, N)
@@ -130,7 +130,7 @@ function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx,
         newperm = [permk]
         newshape_slots[permk] = size(A, permk)
     end
-    @inbounds for i=2:N
+    @inbounds for i = 2:N
         permi = perm[i]
         if permi == permk + dk  # same group
             newshape_slots[permk] *= size(A, permi)
@@ -145,7 +145,7 @@ function tensorpermute!(C::AbstractArray{T, N}, A::AbstractArray{T,N}, perm, sx,
     newshape = filter(!=(-1), newshape_slots)
     newperm = sortperm(sortperm(newperm))
     A_ = reshape(A, newshape...)
-    permed_shape = ntuple(i->size(A_, @inbounds newperm[i]), ndims(A_))
+    permed_shape = ntuple(i -> size(A_, @inbounds newperm[i]), ndims(A_))
     if iszero(sy)
         permutedims!(reshape(C, permed_shape), A_, newperm)
         !isone(sx) && lmul!(sx, C)
@@ -159,19 +159,19 @@ end
 # function _batched_gemm!(C1::Char, C2::Char, alpha, A::StridedArray{T,3}, B::StridedArray{T2,3}, beta, C::StridedArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat, T3<:BlasFloat}
 #     batched_gemm!(C1, C2, alpha, A, B, beta, C)
 # end
-function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T<:BlasFloat, T2<:BlasFloat,T3<:BlasFloat}
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T<:BlasFloat,T2<:BlasFloat,T3<:BlasFloat}
     # NOTE: convert alpha and beta to T3, since booleans are not supported by BatchedRoutines
     #batched_gemm!(C1, C2, T3(alpha), Array(A), Array(B), T3(beta), C)
     batched_gemm!(C1, C2, T3(alpha), A, B, T3(beta), C)
 end
-function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T, T2,T3}
+function _batched_gemm!(C1::Char, C2::Char, alpha, A::AbstractArray{T,3}, B::AbstractArray{T2,3}, beta, C::AbstractArray{T3,3}) where {T,T2,T3}
     @assert size(A, 3) == size(B, 3) == size(C, 3) "batch dimension mismatch, got $(size(A,3)), $(size(B,3)) and $(size(C,3))"
     @assert C1 === 'N' || C1 === 'T'
     @assert C2 === 'N' || C2 === 'T'
     for l = 1:size(A, 3)
-        a = C1 === 'T' ? transpose(view(A,:,:,l)) : view(A,:,:,l)
-        b = C2 === 'T' ? transpose(view(B,:,:,l)) : view(B,:,:,l)
-        mul!(view(C,:,:,l), a, b, alpha, beta)
+        a = C1 === 'T' ? transpose(view(A, :, :, l)) : view(A, :, :, l)
+        b = C2 === 'T' ? transpose(view(B, :, :, l)) : view(B, :, :, l)
+        mul!(view(C, :, :, l), a, b, alpha, beta)
     end
     return C
 end

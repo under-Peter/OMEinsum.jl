@@ -100,8 +100,7 @@ function expanddims!(::Val{ixs}, ::Val{iy}, x, y, sx) where {ixs,iy}
 end
 
 function _batched_gemm!(C1::Char, C2::Char, alpha, A::ROCArrayTypes{T1,3}, B::ROCArrayTypes{T2,3}, beta, C::ROCArrayTypes{T3,3}) where {T1<:ROCBlasFloat,T2<:ROCBlasFloat,T3<:ROCBlasFloat}
-    println("type of alpha", typeof(alpha))
-    AMDGPU.rocBLAS.gemm_strided_batched!(C1, C2, alpha, T1 == T3 ? A : T3.(A), T2 == T3 ? B : T3.(B), beta, C)
+    AMDGPU.rocBLAS.gemm_strided_batched!(C1, C2, T3(alpha), T1 == T3 ? A : T3.(A), T2 == T3 ? B : T3.(B), T3(beta), C)
 end
 
 Base.ndims(::Base.Broadcast.Broadcasted{AMDGPU.ROCArrayStyle{0}}) = 0
@@ -137,3 +136,7 @@ end
 @info("OMEinsum loaded the AMDGPU module successfully")
 
 end
+
+using AMDGPU
+
+AMDGPU.versioninfo()
