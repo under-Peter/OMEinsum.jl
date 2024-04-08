@@ -4,7 +4,6 @@ authors = ["Andreas Peter <andreas.peter.ch@gmail.com>"]
 version = "0.8.1"
 
 [deps]
-AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BatchedRoutines = "a9ab73d0-e05c-5df1-8fde-d6a4645b8d8e"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -24,7 +23,7 @@ AMDGPUExt = "AMDGPU"
 CUDAExt = "CUDA"
 
 [compat]
-AMDGPU = "https://github.com/amontoison/AMDGPU.jl#patch-2"
+AMDGPU = "0.8"
 AbstractTrees = "0.3, 0.4"
 BatchedRoutines = "0.2"
 CUDA = "4, 5"
