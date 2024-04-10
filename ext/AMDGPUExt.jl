@@ -136,7 +136,3 @@ end
 @info("OMEinsum loaded the AMDGPU module successfully")
 
 end
-
-using AMDGPU
-
-AMDGPU.versioninfo()
