@@ -52,3 +52,4 @@ end
 @non_differentiable get_size_dict!(::Any, ::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any)
+@non_differentiable getixsv(::Any)

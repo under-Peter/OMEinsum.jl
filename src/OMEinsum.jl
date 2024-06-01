@@ -40,6 +40,7 @@ include("interfaces.jl")
 include("einsequence.jl")
 include("slicing.jl")
 include("autodiff.jl")
+include("manualad.jl")
 
 include("contractionorder.jl")
 
