@@ -58,6 +58,9 @@ julia> getiyv(ein"(ij,jk),k->i")
 ```
 """
 getiyv(code::StaticEinCode{LT}) where LT = collect(LT, getiy(code))
+function Base.replace(::StaticEinCode{LT, ixs, iy}, pairs::Pair...) where {ixs, iy, LT}
+    StaticEinCode{LT, map(ix->replace(ix, pairs...), ixs), replace(iy, pairs...)}()
+end
 
 """
     DynamicEinCode{LT}
@@ -94,6 +97,9 @@ _tovec(ixs::NTuple{N,Vector{LT}}, iy::Vector{LT}) where {N,LT} = collect(ixs), i
 _tovec(ixs::AbstractVector{Vector{LT}}, iy::AbstractVector{LT}) where {LT} = collect(ixs), collect(iy)
 
 Base.:(==)(x::EinCode, y::EinCode) = getixsv(x) == getixsv(y) && getiyv(x) == getiyv(y)
+function Base.replace(code::DynamicEinCode{LT}, pairs::Pair...) where LT
+    DynamicEinCode{LT}(map(ix->replace(ix, pairs...), code.ixs), replace(code.iy, pairs...))
+end
 # forward from EinCode, for compatibility
 EinCode(ixs, iy) = DynamicEinCode(ixs, iy)
 
