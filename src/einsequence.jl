@@ -363,3 +363,14 @@ function getiyv(ne::NestedEinsum{LT}) where LT
     end
     getiyv(rootcode(ne))
 end
+
+function Base.replace(ne::NestedEinsum, pairs::Pair...)
+    if isleaf(ne)
+        settensorindex(ne, replace([tensorindex(ne)], pairs...)[])
+    else
+        NestedEinsum(map(arg->replace(arg, pairs...), siblings(ne)), replace(rootcode(ne), pairs...))
+    end
+end
+settensorindex(::DynamicNestedEinsum{LT}, idx::Int) where LT = DynamicNestedEinsum{LT}(idx)
+settensorindex(::StaticNestedEinsum{LT}, idx::Int) where LT = StaticNestedEinsum{LT}(idx)
+

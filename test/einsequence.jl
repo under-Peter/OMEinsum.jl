@@ -71,3 +71,15 @@ end
     @test rw ≈ log2(100+1000+1000+1000+1000+100)
     @test peak_memory(ne, size_dict) == 2100
 end
+
+@testset "replace" begin
+    ne = ein"(ij, jk), kl->il"
+    ne2 = replace(ne, 'i'=>'a', 'j'=>'b', 'k'=>'c', 'l'=>'d')
+    @test labeltype(ne2) == Char
+    @test ne2 == ein"(ab, bc), cd->ad"
+
+    ne = OMEinsum.DynamicNestedEinsum(ein"(ij, jk), kl->il")
+    ne2 = replace(ne, 'i'=>'a', 'j'=>'b', 'k'=>'c', 'l'=>'d')
+    @test labeltype(ne2) == Char
+    @test ne2 == ein"(ab, bc), cd->ad"
+end

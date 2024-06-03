@@ -68,3 +68,17 @@ end
     @test arr[CartesianIndex((3,4,2))] == x1[4,3]*x2[3,2]
     @test arr[3,4,2] == x1[4,3]*x2[3,2]
 end
+
+@testset "replace" begin
+    a = DynamicEinCode([[1,2,3,4], [1,3]], [1,2,3,4])
+    b = replace(a, 1=>5, 2=>6)
+    @test labeltype(b) == Int
+    @test b.ixs == [[5,6,3,4], [5,3]]
+    @test b.iy == [5,6,3,4]
+
+    a = StaticEinCode{Int, ((1,2,3,4), (1,3)), (1,2,3,4)}()
+    b = replace(a, 1=>5, 2=>6)
+    @test labeltype(b) == Int
+    @test OMEinsum.getixs(b) == ((5,6,3,4), (5,3))
+    @test OMEinsum.getiy(b) == (5,6,3,4)
+end

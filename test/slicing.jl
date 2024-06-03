@@ -28,3 +28,11 @@ end
     @test uniquelabels(se) == ['i', 'j', 'k', 'l', 'm']
     @test uniformsize(se, 2) == Dict(zip(['i', 'j', 'k', 'l', 'm'], ones(Int, 5).*2))
 end
+
+@testset "replace" begin
+    code = ein"(ij, jk), kl->il"
+    se = optimize_code(code, uniformsize(code, 2), TreeSA())
+    se2 = replace(se, 'i'=>'a', 'j'=>'b', 'k'=>'c', 'l'=>'d')
+    @test labeltype(se2) == Char
+    @test se2 == SlicedEinsum(Char[], ein"(ab, bc), cd->ad")
+end
