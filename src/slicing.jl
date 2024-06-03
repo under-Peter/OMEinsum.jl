@@ -3,6 +3,9 @@ struct SlicedEinsum{LT, Ein} <: AbstractEinsum
     eins::Ein
 end
 Base.:(==)(se::SlicedEinsum, se2::SlicedEinsum) = se.slicing == se2.slicing && se.eins == se2.eins
+function Base.replace(se::SlicedEinsum, pairs::Pair...)
+    SlicedEinsum(replace(se.slicing, pairs...), replace(se.eins, pairs...))
+end
 
 # Iterate over tensor network slices, its iterator interface returns `slicemap` as a Dict
 # slice and fill tensors with
