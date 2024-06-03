@@ -6,7 +6,7 @@ using OMEinsumContractionOrders
 using AbstractTrees
 import LinearAlgebra: BlasFloat
 
-export @ein_str, @ein, @ein!, ein
+export @ein_str, @ein, @ein!, ein, @optein_str
 export einsum!, einsum, dynamic_einsum
 export EinCode, EinIndexer, EinArray, DynamicEinCode, StaticEinCode, AbstractEinsum, NestedEinsum, SlicedEinsum, DynamicNestedEinsum, StaticNestedEinsum
 export getiyv, getixsv, uniquelabels, labeltype
@@ -40,7 +40,7 @@ include("interfaces.jl")
 include("einsequence.jl")
 include("slicing.jl")
 include("autodiff.jl")
-include("manualad.jl")
+include("bp.jl")
 
 include("contractionorder.jl")
 

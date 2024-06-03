@@ -22,6 +22,16 @@ macro ein_str(s::AbstractString)
     ein(s)
 end
 
+"""
+    optein"ij,jk,kl -> ik"(A, B, C)
+
+String macro interface that similar to [`@ein_str`](@ref), with optimized contraction order (dimensions are assumed to be uniform).
+"""
+macro optein_str(s::AbstractString)
+    code = ein(s)
+    optimize_code(code, uniformsize(code, 20), TreeSA(; ntrials=1, niters=10)).eins
+end
+
 function ein(s::AbstractString)
     s = replace(replace(s, "\n" => ""), " "=>"")
     m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
