@@ -52,3 +52,18 @@ end
 @non_differentiable get_size_dict!(::Any, ::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any, ::Any)
 @non_differentiable DynamicEinCode(::Any)
+@non_differentiable getixsv(::Any)
+
+echo(x; tag="echo") = x
+function ChainRulesCore.rrule(::typeof(echo), x; tag="echo")
+    @info "$tag: $x"
+    x, function (dy)
+        @info "$tag (back): x̄ = $dy"
+        return (NoTangent(), dy)
+    end
+end
+
+macro echo(var)
+    name = QuoteNode(var)
+    esc(:($var = $echo($var; tag="$($name)")))
+end

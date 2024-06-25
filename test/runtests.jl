@@ -55,6 +55,10 @@ end
     include("contractionorder.jl")
 end
 
+@testset "back propagation" begin
+    include("bp.jl")
+end
+
 @testset "docstring" begin
     Documenter.doctest(OMEinsum; manual=false)
 end

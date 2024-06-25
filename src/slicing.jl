@@ -116,7 +116,7 @@ function einsum(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} wher
     it = SliceIterator(se, size_dict)
     res = get_output_array(xs, getindex.(Ref(size_dict), it.iyv))
     eins_sliced = drop_slicedim(se.eins, se.slicing)
-    for slicemap in it
+    for slicemap in it  # `slicemap` is a Dict storing a mapping from sliced_labels to the current slice index
         # NOTE: @debug will break Zygote
         # @debug "computing slice $k/$(length(it))"
         xsi = ntuple(i->take_slice(xs[i], it.ixsv[i], slicemap), length(xs))

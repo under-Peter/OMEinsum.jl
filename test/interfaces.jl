@@ -14,3 +14,8 @@ using OMEinsum: get_size_dict
     ijk->
     ikl" == ein"ijk,ijk->ikl"
 end
+
+@testset "opein" begin
+    code = optein"ij,jk,ki->"
+    @test code isa NestedEinsum
+end
