@@ -20,7 +20,7 @@ Einstein summation can be implemented in no more than 20 lines of Julia code, th
 
 *Note: why the test coverage is not 100%* - GPU-code coverage is not evaluated although we test the GPU code properly on gitlab. Ignoring the GPU-code, the actual coverage is at about _97%_.
 
-*Warning: since v0.4, OMEinsum does not optimize the contraction order anymore. One has to use nested einsum to specify the contraction order manually, e.g. `ein"(ijk,jkl),klm->im"(x, y, z)`.*
+*Warning: since v0.4, OMEinsum does not optimize the contraction order anymore. One has to use nested einsum to specify the contraction order manually, e.g. `ein"(ijk,jkl),klm->im"(x, y, z)`.* Please check out the [documentation](https://under-Peter.github.io/OMEinsum.jl/dev/contractionorder/) for more details.
 
 ## Install
 
@@ -89,32 +89,7 @@ which is closer to the standard way of writing einsum-operations in physics
 julia> @ein c[i,j] := a[i,k] * b[k,j];
 ```
 
-#### A table for reference
-| code             | meaning         |
-| ---------------- | --------------- |
-| `ein"ij,jk->ik"`   | matrix matrix multiplication |
-| `ein"ijl,jkl->ikl"`   | batched - matrix matrix multiplication |
-| `ein"ij,j->i"`   | matrix vector multiplication |
-| `ein"ij,ik,il->jkl"`   | star contraction |
-| `ein"ii->"`   | trace |
-| `ein"ij->i"` | sum |
-| `ein"ii->i"` | take the diagonal part of a matrix |
-| `ein"ijkl->ilkj"` | permute the dimensions of a tensor |
-| `ein"i->ii"` | construct a diagonal matrix |
-| `ein"->ii"`  | broadcast a scalar to the diagonal part of a matrix |
-| `ein"ij,ij->ij"`  | element wise product |
-| `ein"ij,kl->ijkl"`  | outer product |
-
-
-Many of these are handled by special kernels 
-([listed in the docs](https://under-peter.github.io/OMEinsum.jl/stable/implementation/)),
-but there is also a fallback which handles other cases 
-(more like what [Einsum.jl](https://github.com/ahwillia/Einsum.jl) does, plus a GPU version).
-
-It is sometimes helpful to specify the order of operations, by inserting brackets,
-either because you know this will be more efficient, 
-or to help the computer see what kernels can be used. 
-For example:
+It is sometimes helpful to specify the order of operations, by inserting brackets, either because you know this will be more efficient,  or to help the computer see what kernels can be used.  For example:
 ```julia
 julia> @ein Z[o,s] := x[i,s] * (W[o,i,j] * y[j,s]);   # macro style
 
@@ -140,107 +115,13 @@ julia> Zl = ein"is, oij, js -> os"(x, W, y);
 └ @ OMEinsum ~/.julia/dev/OMEinsum/src/loop_einsum.jl:26
 ```
 
-To see more examples using the GPU and autodiff, check out our asciinema-demo here:
-[![asciicast](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb.svg)](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb)
-
-## Application
-
-For an application in tensor network algorithms, check out the [TensorNetworkAD](https://github.com/under-Peter/TensorNetworkAD.jl)
-package, where `OMEinsum` is used to evaluate tensor-contractions, permutations and summations.
-
-#### Toy Application: solving a 3-coloring problem on the Petersen graph
-Let us focus on graphs
-with vertices with three edges each. A question one might ask is:
-How many different ways are there to colour the edges of the graph with
-three different colours such that no vertex has a duplicate colour on its edges?
-
-The counting problem can be transformed into a contraction of rank-3 tensors
-representing the edges. Consider the tensor `s` defined as
-```julia
-julia> s = map(x->Int(length(unique(x.I)) == 3), CartesianIndices((3,3,3)))
-```
-
-Then we can simply contract `s` tensors to get the number of 3 colourings satisfying the above condition!
-E.g. for two vertices, we get 6 distinct colourings:
-```julia
-julia> ein"ijk,ijk->"(s,s)[]
-6
-```
-
-Using that method, it's easy to find that e.g. the peterson graph allows no 3 colouring, since
-```julia
-julia> code = ein"afl,bhn,cjf,dlh,enj,ago,big,cki,dmk,eom->"
-afl, bhn, cjf, dlh, enj, ago, big, cki, dmk, eom 
-
-julia> code(fill(s, 10)...)[]
-0
-```
-
-The peterson graph consists of 10 vertices and 15 edges and looks like a pentagram
-embedded in a pentagon as depicted here:
-
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Petersen_graph.svg/252px-Petersen_graph.svg.png)
-
-`OMEinsum` does not optimie the contraction order by default, so the above contraction can be time consuming. To speed up the contraction, we can use `optimize_code` to optimize the contraction order:
-```julia
-julia> optcode = optimize_code(code, uniformsize(code, 3), TreeSA())
-SlicedEinsum{Char, DynamicNestedEinsum{Char}}(Char[], ago, goa -> 
-├─ ago
-└─ gcojl, cjal -> goa
-   ├─ bgck, bojlk -> gcojl
-   │  ├─ big, cki -> bgck
-   │  │  ├─ big
-   │  │  └─ cki
-   │  └─ bhomj, lhmk -> bojlk
-   │     ├─ bhn, omnj -> bhomj
-   │     │  ├─ bhn
-   │     │  └─ eom, enj -> omnj
-   │     │     ⋮
-   │     │     
-   │     └─ dlh, dmk -> lhmk
-   │        ├─ dlh
-   │        └─ dmk
-   └─ cjf, afl -> cjal
-      ├─ cjf
-      └─ afl
-)
-
-julia> contraction_complexity(optcode, uniformsize(optcode, 3))
-Time complexity: 2^12.737881076857779
-Space complexity: 2^7.92481250360578
-Read-write complexity: 2^11.247334178028728
-
-julia> optcode(fill(s, 10)...)[]
-0
-```
-We can see the time complexity of the optimized code is much smaller than the original one. To know more about the contraction order optimization, please check the julia package [`OMEinsumContractionOrders.jl`](https://github.com/TensorBFS/OMEinsumContractionOrders.jl).
-
-Confronted with the above result, we can ask whether the peterson graph allows a relaxed variation of 3 colouring, having one vertex that might accept duplicate colours. The answer to that can be found using the gradient w.r.t a vertex:
-```julia
-julia> using Zygote: gradient
-
-julia> gradient(x->optcode(x,s,s,s,s,s,s,s,s,s)[], s)[1] |> sum
-0
-```
-This tells us that even if we allow duplicates on one vertex, there are no 3-colourings for the peterson graph.
-
 ## Comparison with other packages
 Similar packages include:
 - [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl) and [TensorKit.jl](https://github.com/Jutho/TensorKit.jl)
 - [ITensors.jl](https://github.com/ITensor/ITensors.jl)
 
-Comparing with the above packages, `OMEinsum` is optimized over large scale tensor network (or einsum, sum-product network) contraction. Its main advantages are:
-- `OMEinsum` has better support to very high dimensional tensor networks and their contraction order.
-- `OMEinsum` allows an index to appear multiple times.
-- `OMEinsum` has well tested generic element type support.
-
-However, `OMEinsum` also has some disadvantages:
-- `OMEinsum` does not support good quantum numbers.
-- `OMEinsum` has less optimization on small scale problems.
+Comparing with the above packages, `OMEinsum` is optimized over large scale tensor network (or einsum, sum-product network) contraction.
 
 ## Contribute
 
-Suggestions and Comments in the _Issues_ are welcome.
-
-## License
-MIT License
+Suggestions and Comments in the [_Issues_](https://github.com/under-Peter/OMEinsum.jl/issues) are welcome.

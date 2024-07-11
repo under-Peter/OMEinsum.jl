@@ -1,3 +1,12 @@
+"""
+    SlicedEinsum{LT, Ein} <: AbstractEinsum
+
+A tensor network with slicing. `LT` is the label type and `Ein` is the tensor network.
+
+### Fields
+- `slicing::Vector{LT}`: A vector of labels to slice.
+- `eins::Ein`: The tensor network.
+"""
 struct SlicedEinsum{LT, Ein} <: AbstractEinsum
     slicing::Vector{LT}
     eins::Ein
