@@ -63,15 +63,3 @@ ein"ij,->ij"(A, s)  # element-wise multiplication by a scalar.
 optein"ai,aj,ak->ijk"(A, A, B)  # star contraction.
 optein"ia,ajb,bkc,cld,dm->ijklm"(A, T1, T2, T1, A)  # tensor train contraction.
 ```
-
-## Application: Trace under cyclic permutation
-!!! note "Example: Trace under cyclic permutation"
-    Consider 3 matrices $A, B, C$ and the cyclic permutation of the trace $\text{Tr}(ABC)$. The trace of a product of matrices is invariant under cyclic permutations, i.e., $\text{Tr}(ABC) = \text{Tr}(CAB) = \text{Tr}(BCA)$. This can be verified using the einsum diagram.
-
-    ![](assets/perm.svg)
-
-    ```@repl tensor
-    A, B, C = (randn(2, 2) for i=1:3)
-    optein"ij,jk,ik->"(A, B, C) ≈ optein"jk,ik,ij->"(B, C, A)
-    optein"ij,jk,ik->"(A, B, C) ≈ optein"ik,ij,jk->"(C, A, B)
-    ```

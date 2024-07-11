@@ -10,6 +10,7 @@ makedocs(;
         "Contraction order optimization" => "contractionorder.md",
         "Automatic differentiation" => "autodiff.md",
         "CUDA" => "cuda.md",
+        "Applications" => "applications.md",
         "Manual" => "docstrings.md"
     ],
     repo="https://github.com/under-Peter/OMEinsum.jl/blob/{commit}{path}#L{line}",

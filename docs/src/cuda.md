@@ -46,3 +46,7 @@ julia> @btime CUDA.@sync optcode($cuA, $cuB, $cuC, $cuD)  # the contraction on G
 0-dimensional CuArray{Float64, 0, CUDA.DeviceMemory}:
 1.4984046443610939e10
 ```
+
+To learn more about using GPU and autodiff, please check out the following asciinema video.
+[![asciicast](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb.svg)](https://asciinema.org/a/wE4CtIzWUC3R0GkVV28rVBRFb)
+
