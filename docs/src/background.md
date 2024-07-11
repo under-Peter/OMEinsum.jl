@@ -61,3 +61,5 @@ for indices in domain_of_unique_indices(einsum_notation)
     O[indices in O] += A[indices in A] * B[indices in B] * ...
 end
 ```
+
+Please [Einsum examples](@ref) for some examples.

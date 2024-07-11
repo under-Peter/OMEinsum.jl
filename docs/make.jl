@@ -6,8 +6,10 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Background: Tensor Networks" => "background.md",
-        "Basic Usage" => "basic.md",
+        "Basic usage" => "basic.md",
         "Contraction order optimization" => "contractionorder.md",
+        "Automatic differentiation" => "autodiff.md",
+        "CUDA" => "cuda.md",
         "Manual" => "docstrings.md"
     ],
     repo="https://github.com/under-Peter/OMEinsum.jl/blob/{commit}{path}#L{line}",

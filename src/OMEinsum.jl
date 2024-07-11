@@ -13,6 +13,7 @@ export getiyv, getixsv, uniquelabels, labeltype
 export flop
 export loop_einsum, loop_einsum!, allow_loops
 export asarray, asscalar
+export cost_and_gradient
 
 # re-export the functions in OMEinsumContractionOrders
 export CodeOptimizer, CodeSimplifier,

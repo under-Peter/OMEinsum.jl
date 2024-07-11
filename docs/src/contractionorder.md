@@ -1,33 +1,49 @@
 # Contraction order optimization
 
-OMEinsum does not implicitly optimize the contraction order.
-Functionalities related to contraction order optimization are mostly defined in [OMEinsumContractionOrders](https://github.com/TensorBFS/OMEinsumContractionOrders.jl)
+The [`@ein_str`](@ref) string literal does not optimize the contraction order for more than two input tensors.
 
-Here, we provide an example, advanced uses can be found in [OMEinsumContractionOrders](https://github.com/TensorBFS/OMEinsumContractionOrders.jl) and the [performance tips](https://queracomputing.github.io/GenericTensorNetworks.jl/dev/performancetips/) of [GenericTensorNetworks](https://github.com/QuEraComputing/GenericTensorNetworks.jl).
-Let us first consider the following contraction order
-
-```@example 3
+```@repl order
 using OMEinsum
 
 code = ein"ij,jk,kl,li->"
 ```
 
 The time and space complexity can be obtained by calling the [`contraction_complexity`](@ref) function.
-```@example 3
-size_dict = uniformsize(code, 10)
+```@repl order
+size_dict = uniformsize(code, 10)  # size of the labels are set to 10
 
-contraction_complexity(code, size_dict)
+contraction_complexity(code, size_dict)  # time and space complexity
 ```
 
 The return values are `log2` values of the number of iterations, number of elements of the largest tensor and the number of elementwise read-write operations.
 
-```@example 3
+## Optimizing the contraction order
+To optimize the contraction order, we can use the [`optimize_code`](@ref) function.
+
+```@repl order
 optcode = optimize_code(code, size_dict, TreeSA())
 ```
 
-The output value is a binary contraction tree with type [`NestedEinsum`](@ref) type.
-The time and readwrite complexities are significantly reduced comparing to the direct contraction.
+The output value is a binary contraction tree with type [`SlicedEinsum`](@ref) or [`NestedEinsum`](@ref).
+The `TreeSA` is a local search algorithm that optimizes the contraction order. More algorithms can be found in the
+[OMEinsumContractionOrders](https://github.com/TensorBFS/OMEinsumContractionOrders.jl) and the [performance tips](https://queracomputing.github.io/GenericTensorNetworks.jl/dev/performancetips/) of [GenericTensorNetworks](https://github.com/QuEraComputing/GenericTensorNetworks.jl).
 
-```@example 3
+After optimizing the contraction order, the time and readwrite complexities are significantly reduced.
+
+```@repl order
 contraction_complexity(optcode, size_dict)
+```
+
+## Using `optein` string literal
+For convenience, the optimized contraction can be directly contructed by using the [`@optein_str`](@ref) string literal.
+```@repl order
+optein"ij,jk,kl,li->"  # optimized contraction, without knowing the size of the tensors
+```
+The drawback of using `@optein_str` is that the contraction order is optimized without knowing the size of the tensors.
+Only the tensor ranks are used to optimize the contraction order.
+
+## Manual optimization
+One can also manually specify the contraction order by using the [`@ein_str`](@ref) string literal.
+```@repl order
+ein"((ij,jk),kl),li->ik"  # manually optimized contraction
 ```
