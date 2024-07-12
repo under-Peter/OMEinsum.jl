@@ -29,7 +29,7 @@ String macro interface that similar to [`@ein_str`](@ref), with optimized contra
 """
 macro optein_str(s::AbstractString)
     code = ein(s)
-    optimize_code(code, uniformsize(code, 20), TreeSA(; ntrials=1, niters=10)).eins
+    optimize_code(code, uniformsize(code, 2), TreeSA(; ntrials=1, niters=10)).eins
 end
 
 function ein(s::AbstractString)

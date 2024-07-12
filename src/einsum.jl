@@ -1,22 +1,15 @@
 ## non-inplace einsum
 @doc raw"
     einsum(code::EinCode, xs, size_dict)
-    einsum(rule, ixs, iy, xs, size_dict)
 
-return the tensor that results from contracting the tensors `xs` according
-to their indices `ixs` (`getixs(code)`), where all indices that do not appear in the output `iy` (`getiy(code)`) are
-summed over.
-The result is permuted according to `out`.
+Return the tensor that results from contracting the tensors `xs` according to the contraction code `code`.
 
-- `ixs` - tuple of tuples of index-labels of the input-tensors `xs`
-
-- `iy` - tuple of index-labels of the output-tensor
-
-- `xs` - tuple of tensors
-
+### Arguments
+- `code`: The einsum notation, which can be an instance of [`EinCode`](@ref), [`NestedEinsum`](@ref), or [`SlicedEinsum`](@ref).
+- `xs` - the input tensors
 - `size_dict` - a dictionary that maps index-labels to their sizes
 
-# example
+### Examples
 
 ```jldoctest; setup = :(using OMEinsum)
 julia> a, b = rand(2,2), rand(2,2);
@@ -34,6 +27,19 @@ function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict=
 end
 
 # inplace einsum, EinCode as the input
+"""
+    einsum!(code::EinCode, xs, y, sx, sy, size_dict)
+
+Inplace version of `einsum`. The result is stored in `y`.
+
+### Arguments
+- `code`: The einsum notation, which can be an instance of [`EinCode`](@ref), [`NestedEinsum`](@ref), or [`SlicedEinsum`](@ref).
+- `xs`: The input tensors.
+- `y`: The output tensor.
+- `sx`: Scale `x` by `sx`.
+- `sy`: Scale `y` by `sy`.
+- `size_dict`: A dictionary that maps index-labels to their sizes.
+"""
 function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict=get_size_dict(getixs(code), xs))
     einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
 end
