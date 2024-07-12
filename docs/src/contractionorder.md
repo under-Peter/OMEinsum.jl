@@ -8,6 +8,7 @@ using OMEinsum
 code = ein"ij,jk,kl,li->"
 ```
 
+The return value is a [`StaticEinCode`](@ref) object that does not contain a contraction order.
 The time and space complexity can be obtained by calling the [`contraction_complexity`](@ref) function.
 ```@repl order
 size_dict = uniformsize(code, 10)  # size of the labels are set to 10

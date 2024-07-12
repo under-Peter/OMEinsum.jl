@@ -62,4 +62,21 @@ for indices in domain_of_unique_indices(einsum_notation)
 end
 ```
 
-Please [Einsum examples](@ref) for some examples.
+#### Examples
+| einsum notation             | meaning         |
+| ---------------- | --------------- |
+| `ij,jk->ik`   | matrix matrix multiplication |
+| `ijl,jkl->ikl`   | batched - matrix matrix multiplication |
+| `ij,j->i`   | matrix vector multiplication |
+| `ij,ik,il->jkl`   | star contraction |
+| `ii->`   | trace |
+| `ij->i` | sum |
+| `ii->i` | take the diagonal part of a matrix |
+| `ijkl->ilkj` | permute the dimensions of a tensor |
+| `i->ii` | construct a diagonal matrix |
+| `->ii`  | broadcast a scalar to the diagonal part of a matrix |
+| `ij,ij->ij`  | element wise product |
+| `ij,kl->ijkl`  | outer product |
+
+
+Please [Einsum examples](@ref) for code examples.
