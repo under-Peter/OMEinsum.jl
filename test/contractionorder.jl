@@ -101,3 +101,22 @@ end
         end
     end
 end
+
+using LuxorGraphPlot
+
+@testset "visualization tool" begin
+    eincode = ein"ab,acd,bcef,e,df->"
+    nested_ein = optein"ab,acd,bcef,e,df->"
+
+    graph_1 = viz_eins(eincode)
+    @test graph_1 isa LuxorGraphPlot.Luxor.Drawing 
+
+    graph_2 = viz_eins(nested_ein)
+    @test graph_2 isa LuxorGraphPlot.Luxor.Drawing
+
+    gif = viz_contraction(nested_ein, filename = tempname() * ".gif")
+    @test gif isa String
+
+    video = viz_contraction(nested_ein)
+    @test video isa String
+end

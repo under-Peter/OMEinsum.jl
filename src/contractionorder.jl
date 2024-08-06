@@ -38,6 +38,9 @@ OMEinsumContractionOrders.contraction_complexity(code::AbstractEinsum, size_dict
 OMEinsumContractionOrders.uniformsize(code::AbstractEinsum, size) = Dict([l=>size for l in uniquelabels(code)])
 OMEinsumContractionOrders.label_elimination_order(code::AbstractEinsum) = label_elimination_order(rawcode(code))
 
+OMEinsumContractionOrders.viz_eins(code::AbstractEinsum, args...; kwargs...) = viz_eins(rawcode(code), args...; kwargs...)
+OMEinsumContractionOrders.viz_contraction(code::AbstractEinsum, args...; kwargs...) = viz_contraction(rawcode(code), args...; kwargs...)
+
 # save load
 function writejson(filename::AbstractString, ne::Union{NestedEinsum, SlicedEinsum})
     OMEinsumContractionOrders.writejson(filename, rawcode(ne))
