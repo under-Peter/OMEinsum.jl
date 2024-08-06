@@ -26,7 +26,9 @@ export CodeOptimizer, CodeSimplifier,
     peak_memory, timespace_complexity, timespacereadwrite_complexity, flop, contraction_complexity,
     # file io
     writejson, readjson,
-    label_elimination_order
+    label_elimination_order,
+    # visualization
+    viz_eins, viz_contraction
 
 include("Core.jl")
 include("loop_einsum.jl")
