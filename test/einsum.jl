@@ -317,3 +317,7 @@ Base.promote_rule(::Type{Bool}, ::Type{Basic}) = Basic
     ta = loop_einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict)
     @test einsum(EinCode(((1,2,3,4), (2,3)), (1,4)), (t,a), size_dict) ≈  ta
 end
+
+@testset "symbolic" begin
+    @test ein"ij->ijij"([1 1; 1 exp(im*Basic(π)/2)]) == [1 0; 0 0;;; 0 0; 1 0;;;; 0 1; 0 0;;; 0 0; 0 exp(im*Basic(π)/2)]
+end

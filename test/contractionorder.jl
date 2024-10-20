@@ -22,6 +22,10 @@ using Test, Random
     optcode3 = optimize_code(eincode3, size_dict, GreedyMethod()) 
     tc, sc = contraction_complexity(optcode3, edge_sizes)
     @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
+
+    optcode4 = optimize_code(eincode3, size_dict, ExactTreewidth()) 
+    tc, sc = contraction_complexity(optcode4, edge_sizes)
+    @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
 end
 
 @testset "fullerene" begin

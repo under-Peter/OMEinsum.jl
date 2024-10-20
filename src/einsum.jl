@@ -22,7 +22,7 @@ true
 ```
 "
 function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict=get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
-    y = get_output_array(xs, map(y -> size_dict[y], getiyv(code)); fillzero=false)
+    y = get_output_array(xs, map(y -> size_dict[y], getiyv(code)); fillzero=true)
     einsum!(code, xs, y, true, false, size_dict)
 end
 
