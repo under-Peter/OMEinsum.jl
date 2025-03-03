@@ -21,9 +21,9 @@ julia> einsum_grad((('i','j'),('j','k')), (a,b), ('i','k'), sd, c, 1) ≈ c * tr
 true
 ```
 "
-function einsum_grad(ixs, @nospecialize(xs), iy, size_dict, cdy, i)
+function einsum_grad(ixs, @nospecialize(xs), iy, size_dict, dy, i)
     nixs = _insertat(ixs, i, iy)
-    nxs  = _insertat( xs, i, cdy)
+    nxs  = _insertat( xs, i, conj(dy))
     niy = ixs[i]
     y = einsum(DynamicEinCode(nixs, niy), nxs, size_dict)
     return ChainRulesCore.ProjectTo(xs[i])(conj(y))  # do not use `conj!` because we want to support Hessians.
@@ -33,7 +33,7 @@ function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs)
     y = einsum(code, xs, size_dict)
     function einsum_pullback(dy)
         dy = convert(typeof(y), dy)  # for filled array/cuarray et al.
-        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, conj(dy), i), length(xs))
+        dxs = ChainRulesCore.@thunk ntuple(i -> einsum_grad(getixs(code), xs, getiy(code), size_dict, dy, i), length(xs))
         return (NoTangent(), NoTangent(), dxs, NoTangent())
     end
     einsum_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent(), NoTangent())
