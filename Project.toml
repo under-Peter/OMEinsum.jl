@@ -13,7 +13,6 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 OMEinsumContractionOrders = "6f22d1fd-8eed-4bb7-9776-e7d684900715"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
-Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
@@ -51,4 +50,4 @@ TropicalNumbers = "b3a74e9c-7526-4576-a4eb-79c0d4c32334"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "CUDA", "Documenter", "LinearAlgebra", "LuxorGraphPlot", "ProgressMeter", "SymEngine", "Random", "Zygote", "DoubleFloats", "TropicalNumbers", "ForwardDiff", "Polynomials"]
+test = ["Test", "Documenter", "LinearAlgebra", "LuxorGraphPlot", "ProgressMeter", "SymEngine", "Random", "Zygote", "DoubleFloats", "TropicalNumbers", "ForwardDiff", "Polynomials"]
