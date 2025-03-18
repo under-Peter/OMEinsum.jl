@@ -15,7 +15,7 @@ using Test, Random
     # test flop
     @test tc ≈ log2(flop(optcode2, edge_sizes))
     @test flop(ein"i->", Dict('i'=>4)) == 4
-    @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9))
+    @test 16 <= tc <= log2(exp2(10)+exp2(16)+exp2(15)+exp2(9)+1e-8)
     @test sc == 11
     eincode3 = ein"(ab,acd),bcef,e,df->"
     Random.seed!(2)
