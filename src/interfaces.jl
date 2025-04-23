@@ -51,9 +51,14 @@ function (code::DynamicEinCode{LT})(@nospecialize(xs...); size_info=nothing) whe
     einsum(code, xs, size_dict)
 end
 
-function (code::StaticEinCode{LT})(xs...; size_info=nothing) where LT
-    size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
-    einsum(code, xs, size_dict)
+@inline function (code::StaticEinCode{LT})(xs...; size_info=nothing) where LT
+    # By default, the compiler will only specialize this function for `xs` up to ~2-length
+    # Tuples. To workaround this, inline it and call this ephemeral closure instead, which
+    # specializes up to any tuple length.
+    return @noinline (()->begin
+        size_dict = get_size_dict!(getixs(code), xs, size_info===nothing ? Dict{LT,Int}() : copy(size_info))
+        einsum(code, xs, size_dict)
+    end)()
 end
 
 # 2us overheads if @nospecialize

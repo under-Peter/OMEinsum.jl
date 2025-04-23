@@ -22,7 +22,12 @@ true
 ```
 "
 function einsum(code::AbstractEinsum, @nospecialize(xs::Tuple), size_dict::Dict=get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
-    y = get_output_array(xs, map(y -> size_dict[y], getiyv(code)); fillzero=true)
+    y = get_output_array(xs, map(y -> size_dict[y], getiy(code)); fillzero=true)
+    einsum!(code, xs, y, true, false, size_dict)
+end
+# identical to above, but more aggressively specialized
+function einsum(code::StaticEinCode, xs::Tuple, size_dict::Dict=get_size_dict!(getixs(code), xs, Dict{labeltype(code),Int}()))
+    y = get_output_array(xs, map(y -> size_dict[y], getiy(code)); fillzero=true)
     einsum!(code, xs, y, true, false, size_dict)
 end
 
@@ -43,10 +48,14 @@ Inplace version of `einsum`. The result is stored in `y`.
 function einsum!(code::EinCode, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict=get_size_dict(getixs(code), xs))
     einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
 end
+# identical to above, but more aggressively specialized
+function einsum!(code::StaticEinCode, xs::Tuple, y, sx, sy, size_dict::Dict=get_size_dict(getixs(code), xs))
+    @inline einsum!(getixs(code), getiy(code), xs, y, sx, sy, size_dict)
+end
 # inplace einsum, the fallback
 function einsum!(ixs, iy, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, size_dict::Dict)
-    @debug "fallback to loop_einsum" ixs => iy size.(xs)
-    loop_einsum!(ixs, iy, (xs...,), y, sx, sy, size_dict)
+    # @debug "fallback to loop_einsum" ixs => iy size.(xs)
+    @inline loop_einsum!(ixs, iy, (xs...,), y, sx, sy, size_dict)
 end
 
 struct UnaryOperation{LT}
