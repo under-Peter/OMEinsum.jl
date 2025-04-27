@@ -24,14 +24,14 @@ OMEinsum.safe_reshape(x::Transpose{T,<:ROCArray{T}} where {T}, sz) = reshape(ROC
 
 Base.Array(x::Base.ReshapedArray{T,0,<:ROCArray}) where {T} = Array(x.parent)
 
-function get_output_array(xs::NTuple{N,ROCArrayTypes{<:Any,M} where M}, size; fillzero=false) where {N}
+function get_output_array(xs::NTuple{N,ROCArrayTypes{<:Any,M} where M}, size, fillzero::Bool) where {N}
     if fillzero
         return AMDGPU.zeros(promote_type(map(eltype, xs)...), size...)
     else
         return ROCArray{promote_type(map(eltype, xs)...)}(undef, size...)
     end
 end
-function get_output_array(xs::NTuple{N,ROCArrayTypes{T,M} where M}, size; fillzero=false) where {T,N}
+function get_output_array(xs::NTuple{N,ROCArrayTypes{T,M} where M}, size, fillzero::Bool) where {T,N}
     if fillzero
         return AMDGPU.zeros(T, size...)
     else

@@ -78,9 +78,9 @@ end
 
 @testset "get output array" begin
     xs = (randn(4,4), randn(3))
-    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{Float64}
+    @test OMEinsum.get_output_array(xs, (5, 5), false) isa Array{Float64}
     xs = (randn(4,4), randn(ComplexF64, 3))
-    @test OMEinsum.get_output_array(xs, (5, 5)) isa Array{ComplexF64}
+    @test OMEinsum.get_output_array(xs, (5, 5), false) isa Array{ComplexF64}
 end
 
 @testset "tensor order check" begin

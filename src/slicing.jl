@@ -123,7 +123,7 @@ end
 function einsum(se::SlicedEinsum, @nospecialize(xs::NTuple{N,AbstractArray} where N), size_dict::Dict)
     length(se.slicing) == 0 && return einsum(se.eins, xs, size_dict)
     it = SliceIterator(se, size_dict)
-    res = get_output_array(xs, getindex.(Ref(size_dict), it.iyv))
+    res = get_output_array(xs, getindex.(Ref(size_dict), it.iyv), false)
     eins_sliced = drop_slicedim(se.eins, se.slicing)
     for slicemap in it  # `slicemap` is a Dict storing a mapping from sliced_labels to the current slice index
         # NOTE: @debug will break Zygote
