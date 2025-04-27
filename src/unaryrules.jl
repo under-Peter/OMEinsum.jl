@@ -94,13 +94,20 @@ function duplicate!(y, x, ix, iy, sx, sy)
     # compute same locs
     x_in_y_locs = (Int[findfirst(==(l), ix) for l in iy]...,)
     indexer = dynamic_indexer(x_in_y_locs, size(y))
-    lmul!(sy, y)
-    _duplicate!(y, x, indexer, sx)
+    _duplicate!(y, x, indexer, sx, sy)
 end
 
-@noinline function _duplicate!(y, x, indexer, sx)
-    map(CartesianIndices(x)) do ci
-        @inbounds y[subindex(indexer, ci.I)] += sx * x[ci]
+@noinline function _duplicate!(y, x, indexer, sx, sy)
+    if iszero(sy)
+        fill!(y, zero(eltype(y)))
+        map(CartesianIndices(x)) do ci
+            @inbounds y[subindex(indexer, ci.I)] = sx * x[ci]
+        end
+    else
+        lmul!(sy, y)
+        map(CartesianIndices(x)) do ci
+            @inbounds y[subindex(indexer, ci.I)] = fma(sx, x[ci], y[subindex(indexer, ci.I)])
+        end
     end
     return y
 end

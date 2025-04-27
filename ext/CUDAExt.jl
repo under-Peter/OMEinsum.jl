@@ -32,12 +32,11 @@ function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size; 
     end
 end
 function get_output_array(xs::NTuple{N, CUDAArrayTypes{T,M} where M}, size; fillzero=false) where {T,N}
-    # if fillzero
-    #     return CUDA.zeros(T, size...)
-    # else
-    #     return CuArray{T}(undef, size...)
-    # end
-    return CuArray{T}(undef, size...)
+    if fillzero
+        return CUDA.zeros(T, size...)
+    else
+        return CuArray{T}(undef, size...)
+    end
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
