@@ -24,11 +24,19 @@ OMEinsum.safe_reshape(x::Transpose{T, <:CuArray{T}} where T, sz) = reshape(CuArr
 
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
-function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size; fillzero=true) where N
-    CUDA.zeros(promote_type(map(eltype,xs)...), size...)
+function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size, fillzero::Bool) where N
+    if fillzero
+        return CUDA.zeros(promote_type(map(eltype,xs)...), size...)
+    else
+        return CuArray{promote_type(map(eltype,xs)...)}(undef, size...)
+    end
 end
-function get_output_array(xs::NTuple{N, CUDAArrayTypes{T,M} where M}, size; fillzero=true) where {T,N}
-    CUDA.zeros(T, size...)
+function get_output_array(xs::NTuple{N, CUDAArrayTypes{T,M} where M}, size, fillzero::Bool) where {T,N}
+    if fillzero
+        return CUDA.zeros(T, size...)
+    else
+        return CuArray{T}(undef, size...)
+    end
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)

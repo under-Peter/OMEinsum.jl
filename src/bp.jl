@@ -137,7 +137,7 @@ end
 function init_gradient(code, xs)
     size_dict = get_size_dict!(getixsv(code), xs, Dict{labeltype(code), Int}())
     output_size = getindex.(Ref(size_dict), getiyv(code))
-    ȳ = get_output_array(xs, output_size)
+    ȳ = get_output_array(xs, output_size, false)
     return fill!(ȳ, one(eltype(ȳ)))
 end
 

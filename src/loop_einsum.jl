@@ -9,7 +9,7 @@ function loop_einsum(code::EinCode, xs::NTuple{N, AbstractArray{<:Any,M} where M
                 size_dict) where {N}
     iy = getiy(code)
     size = getindex.(Ref(size_dict), iy)
-    loop_einsum!(getixs(code), getiy(code), xs, get_output_array(xs, size; fillzero=false), true, false, size_dict)
+    loop_einsum!(getixs(code), getiy(code), xs, get_output_array(xs, size, false), true, false, size_dict)
 end
 
 """
@@ -45,14 +45,14 @@ function reduce_einarray!(A::EinArray{T}, y, sx) where T
 end
 
 # speed up the get output array for the case when the inputs have the same type.
-function get_output_array(xs::NTuple{N, AbstractArray{T,M} where M}, size; fillzero=true) where {T,N}
+function get_output_array(xs::NTuple{N, AbstractArray{T,M} where M}, size, fillzero::Bool) where {T,N}
     if fillzero
         zeros(T, size...)
     else
         Array{T}(undef, size...)
     end
 end
-function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size; fillzero=true) where N
+function get_output_array(xs::NTuple{N, AbstractArray{<:Any,M} where M}, size, fillzero::Bool) where N
     if fillzero
         zeros(promote_type(map(eltype,xs)...), size...)
     else
