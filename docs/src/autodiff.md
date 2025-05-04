@@ -12,6 +12,8 @@ y, g = cost_and_gradient(ein"(ij, jk), ki->", (A, B, C))
 ```
 This built-in automatic differentiation is designed for tensor contractions and is more efficient than the general-purpose automatic differentiation tools.
 
+For complex valued tensors, the automatic differentiation is defined in a convention that treat the real and imaginary parts as independent variables.
+
 ## Using Zygote
 The backward rule for the basic einsum operation is ported to the [`ChainRulesCore`](https://github.com/JuliaDiff/ChainRulesCore.jl), which is used by the `Zygote` package.
 Zygote is a source-to-source automatic differentiation tool that can be used to compute the gradient of an einsum expression.

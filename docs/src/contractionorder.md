@@ -48,3 +48,11 @@ One can also manually specify the contraction order by using the [`@ein_str`](@r
 ```@repl order
 ein"((ij,jk),kl),li->ik"  # manually optimized contraction
 ```
+
+## Flatten the code
+
+Given an optimized code, one can flatten it to get a code without contraction order with type [`EinCode`](@ref).
+
+```@repl order
+OMEinsum.flatten(optcode)
+```
