@@ -102,11 +102,7 @@ function gradient_tree(code::AbstractEinsum, xs, ȳ)
     # forward compute and cache intermediate results.
     cache = cached_einsum(code, xs, size_dict)
     # back-propagate
-    function bprule(eins, @nospecialize(xs), @nospecialize(y), size_dict, @nospecialize(dy))
-        res = ntuple(i -> einsum_grad(getixs(eins), xs, getiy(eins), size_dict, dy, i), length(xs))
-        return res
-    end
-    return copy(cache.content), back_propagate(bprule, code, cache, ȳ, size_dict)
+    return copy(cache.content), back_propagate(einsum_backward_rule, code, cache, ȳ, size_dict)
 end
 
 """
@@ -123,7 +119,7 @@ Compute the cost and the gradients w.r.t the input tensors `xs`.
 - `cost`: The cost of the contraction.
 - `grads`: The gradients w.r.t the input tensors.
 """
-function cost_and_gradient(code, xs, ȳ = nothing)
+function cost_and_gradient(code, xs::Tuple, ȳ = nothing)
     if ȳ === nothing
         ȳ = init_gradient(code, xs)
         @assert ndims(ȳ) == 0 "The output must be a scalar! Or you need to feed the gradient manually. Got: $(ndims(ȳ))!"

@@ -28,6 +28,9 @@ function einsum_grad(ixs, @nospecialize(xs), iy, size_dict, dy, i)
     y = einsum(DynamicEinCode(nixs, niy), nxs, size_dict)
     return ChainRulesCore.ProjectTo(xs[i])(conj(y))  # do not use `conj!` because we want to support Hessians.
 end
+function einsum_backward_rule(eins, @nospecialize(xs), @nospecialize(y), size_dict, @nospecialize(dy))
+    return ntuple(i -> einsum_grad(getixs(eins), xs, getiy(eins), size_dict, dy, i), length(xs))
+end
 
 function ChainRulesCore.rrule(::typeof(einsum), code::EinCode, @nospecialize(xs), size_dict)
     y = einsum(code, xs, size_dict)
