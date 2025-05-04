@@ -12,5 +12,7 @@ You can find a set up guide in the [README](https://github.com/under-Peter/OMEin
 
 ```@repl intro
 using OMEinsum
-optein"ij,jk,kl,lm->im"(randn(100, 100), randn(100, 100), randn(100, 100), randn(100, 100))
+code = ein"ij,jk,kl,lm->im" # define the einsum operation
+optcode = optimize_code(code, uniformsize(code, 100), TreeSA())  # optimize the contraction order
+optcode(randn(100, 100), randn(100, 100), randn(100, 100), randn(100, 100))  # compute the result
 ```
