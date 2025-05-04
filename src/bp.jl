@@ -2,7 +2,7 @@
 # It is a tree structure that isomorphic to the contraction tree,
 # `content` is the cached intermediate contraction result.
 # `siblings` are the siblings of current node.
-struct CacheTree{T}
+mutable struct CacheTree{T}
     content::AbstractArray{T}
     siblings::Vector{CacheTree{T}}
 end
