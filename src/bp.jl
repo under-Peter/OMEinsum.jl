@@ -4,7 +4,7 @@
 # `siblings` are the siblings of current node.
 mutable struct CacheTree{T}
     content::AbstractArray{T}
-    siblings::Vector{CacheTree{T}}
+    const siblings::Vector{CacheTree{T}}
 end
 CacheTree(content::AbstractArray{T}, siblings) where T = CacheTree(content, CacheTree{T}[siblings...])
 
