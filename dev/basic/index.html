@@ -4,57 +4,57 @@
  [2, 3]</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; iy = [1, 3]  # the output indices</code><code class="nohighlight hljs ansi" style="display:block;">2-element Vector{Int64}:
  1
  3</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; code2 = EinCode(ixs, iy)  # the EinCode object (equivalent to the string literal)</code><code class="nohighlight hljs ansi" style="display:block;">1∘2, 2∘3 -&gt; 1∘3</code></pre><p>The <a href="../docstrings/#OMEinsum.@ein_str-Tuple{AbstractString}"><code>@ein_str</code></a> macro can be used to define the einsum notation directly in the function call.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; A, B = randn(2, 3), randn(3, 4);</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; code1(A, B)  # matrix multiplication</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
- -2.61076  -1.95243  -0.656993  1.43942
- -2.17537  -2.84521  -2.38323   3.31437</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; size_dict = OMEinsum.get_size_dict(getixsv(code1), (A, B))  # get the size of the labels</code><code class="nohighlight hljs ansi" style="display:block;">Dict{Char, Int64} with 3 entries:
+ -0.517898   0.593115  -0.491815   0.965997
+ -0.972891  -1.28464   -0.83259   -0.397792</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; size_dict = OMEinsum.get_size_dict(getixsv(code1), (A, B))  # get the size of the labels</code><code class="nohighlight hljs ansi" style="display:block;">Dict{Char, Int64} with 3 entries:
   &#39;j&#39; =&gt; 3
   &#39;i&#39; =&gt; 2
   &#39;k&#39; =&gt; 4</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; einsum(code1, (A, B), size_dict)  # lower-level function</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
- -2.61076  -1.95243  -0.656993  1.43942
- -2.17537  -2.84521  -2.38323   3.31437</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; einsum!(code1, (A, B), zeros(2, 4), true, false, size_dict)  # the in-place operation</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
- -2.61076  -1.95243  -0.656993  1.43942
- -2.17537  -2.84521  -2.38323   3.31437</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; @ein C[i,k] := A[i,j] * B[j,k]  # all-in-one macro</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
- -2.61076  -1.95243  -0.656993  1.43942
- -2.17537  -2.84521  -2.38323   3.31437</code></pre><p>Here, we show that the <a href="../docstrings/#OMEinsum.@ein-Tuple"><code>@ein</code></a> macro combines the einsum notation defintion and the operation in a single line, which is more convenient for simple operations. Separating the einsum notation and the operation (the first approach) can be useful for reusing the einsum notation for multiple input tensors. Lower level functions, <a href="../docstrings/#OMEinsum.einsum"><code>einsum</code></a> and <a href="../docstrings/#OMEinsum.einsum!"><code>einsum!</code></a>, can be used for more control over the operation.</p><p>For more than two input tensors, <em>the <a href="../docstrings/#OMEinsum.@ein_str-Tuple{AbstractString}"><code>@ein_str</code></a> macro does not optimize the contraction order</em>. In such cases, the user can use the <a href="../docstrings/#OMEinsum.@optein_str-Tuple{AbstractString}"><code>@optein_str</code></a> string literal to optimize the contraction order or specify the contraction order manually.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; tensors = [randn(100, 100) for _ in 1:4];</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; optein&quot;ij,jk,kl,lm-&gt;im&quot;(tensors...)  # optimized contraction (without knowing the size)</code><code class="nohighlight hljs ansi" style="display:block;">100×100 Matrix{Float64}:
- -1996.2     -688.844     52.191   …   1717.8      -759.934   -364.637
-  1147.1     -270.668   -644.16         192.212    -977.341    -15.4255
- -1038.38    -991.216   -355.294        851.935    -435.09    1458.44
-  -440.975  -1195.49    -342.819        -87.772     239.591    512.456
-  -349.853    129.605     25.1695      -911.206    -588.266   -824.554
-  1571.02     697.185   -321.533   …   1265.89      503.258    522.084
-  -933.436   -282.084   -865.232       -459.03     -866.671   -292.52
-   367.692    220.019  -1085.33       -1276.33     -652.851   -907.663
-  -287.869   1343.33   -1000.09        -652.037    -234.802   -129.831
-   332.608    771.604   -636.148        -78.0908    457.035     14.4169
-     ⋮                             ⋱
-  1267.3      221.675  -1137.79        -296.931   -1293.52    1609.43
-  -642.229   -951.205  -1281.86         204.266   -1250.92     150.965
-   657.418   -313.463   1409.44        -936.032    -133.6     -126.27
-   340.744   -419.117    792.555        832.515     695.239   2136.14
-  1393.96    1037.57   -1105.43    …  -2375.31     -725.771  -2029.0
-   801.296   -460.749    592.687       -879.581    -116.868   -835.627
-  1413.02    1404.45     527.074      -1490.64     -162.535    969.293
-  -368.059   1098.93    2335.78        -326.061     355.318    346.483
-   426.73    -122.229   -498.937      -1660.01    -1515.6    -1019.39</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; ein&quot;(ij,jk),(kl,lm)-&gt;im&quot;(tensors...)  # manually specified contraction</code><code class="nohighlight hljs ansi" style="display:block;">100×100 Matrix{Float64}:
- -1996.2     -688.844     52.191   …   1717.8      -759.934   -364.637
-  1147.1     -270.668   -644.16         192.212    -977.341    -15.4255
- -1038.38    -991.216   -355.294        851.935    -435.09    1458.44
-  -440.975  -1195.49    -342.819        -87.772     239.591    512.456
-  -349.853    129.605     25.1695      -911.206    -588.266   -824.554
-  1571.02     697.185   -321.533   …   1265.89      503.258    522.084
-  -933.436   -282.084   -865.232       -459.03     -866.671   -292.52
-   367.692    220.019  -1085.33       -1276.33     -652.851   -907.663
-  -287.869   1343.33   -1000.09        -652.037    -234.802   -129.831
-   332.608    771.604   -636.148        -78.0908    457.035     14.4169
-     ⋮                             ⋱
-  1267.3      221.675  -1137.79        -296.931   -1293.52    1609.43
-  -642.229   -951.205  -1281.86         204.266   -1250.92     150.965
-   657.418   -313.463   1409.44        -936.032    -133.6     -126.27
-   340.744   -419.117    792.555        832.515     695.239   2136.14
-  1393.96    1037.57   -1105.43    …  -2375.31     -725.771  -2029.0
-   801.296   -460.749    592.687       -879.581    -116.868   -835.627
-  1413.02    1404.45     527.074      -1490.64     -162.535    969.293
-  -368.059   1098.93    2335.78        -326.061     355.318    346.483
-   426.73    -122.229   -498.937      -1660.01    -1515.6    -1019.39</code></pre><p>Sometimes, manually optimizing the contraction order can be beneficial. Please check <a href="../contractionorder/#Contraction-order-optimization">Contraction order optimization</a> for more details.</p><h2 id="Einsum-examples"><a class="docs-heading-anchor" href="#Einsum-examples">Einsum examples</a><a id="Einsum-examples-1"></a><a class="docs-heading-anchor-permalink" href="#Einsum-examples" title="Permalink"></a></h2><p>We first define the tensors and then demonstrate the einsum notation for various tensor operations.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; using OMEinsum</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; s = fill(1)  # scalar</code><code class="nohighlight hljs ansi" style="display:block;">0-dimensional Array{Int64, 0}:
+ -0.517898   0.593115  -0.491815   0.965997
+ -0.972891  -1.28464   -0.83259   -0.397792</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; einsum!(code1, (A, B), zeros(2, 4), true, false, size_dict)  # the in-place operation</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
+ -0.517898   0.593115  -0.491815   0.965997
+ -0.972891  -1.28464   -0.83259   -0.397792</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; @ein C[i,k] := A[i,j] * B[j,k]  # all-in-one macro</code><code class="nohighlight hljs ansi" style="display:block;">2×4 Matrix{Float64}:
+ -0.517898   0.593115  -0.491815   0.965997
+ -0.972891  -1.28464   -0.83259   -0.397792</code></pre><p>Here, we show that the <a href="../docstrings/#OMEinsum.@ein-Tuple"><code>@ein</code></a> macro combines the einsum notation defintion and the operation in a single line, which is more convenient for simple operations. Separating the einsum notation and the operation (the first approach) can be useful for reusing the einsum notation for multiple input tensors. Lower level functions, <a href="../docstrings/#OMEinsum.einsum"><code>einsum</code></a> and <a href="../docstrings/#OMEinsum.einsum!"><code>einsum!</code></a>, can be used for more control over the operation.</p><p>For more than two input tensors, <em>the <a href="../docstrings/#OMEinsum.@ein_str-Tuple{AbstractString}"><code>@ein_str</code></a> macro does not optimize the contraction order</em>. In such cases, the user can use the <a href="../docstrings/#OMEinsum.@optein_str-Tuple{AbstractString}"><code>@optein_str</code></a> string literal to optimize the contraction order or specify the contraction order manually.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; tensors = [randn(100, 100) for _ in 1:4];</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; optein&quot;ij,jk,kl,lm-&gt;im&quot;(tensors...)  # optimized contraction (without knowing the size)</code><code class="nohighlight hljs ansi" style="display:block;">100×100 Matrix{Float64}:
+  2629.62     137.854      14.2331  …   -654.156    -1250.45    -1458.05
+  -403.304     59.0435    612.02        1358.08      1410.57      974.92
+   842.512    370.934    -401.7          401.093    -1020.11    -1280.54
+  -657.995  -2120.74     1476.47         900.173     1568.22    -1873.2
+  -421.205  -1681.53      949.658       -700.265       25.1004   -147.877
+ -1776.37    -628.783    1438.77    …    763.932     -870.616    1050.87
+   680.174   -127.535    -361.386        706.463      319.485     923.808
+  1364.29    -580.521     350.872      -1720.77      -288.516    -272.631
+  -987.487   -373.511     721.599       1069.54       678.68      749.223
+   136.216    124.787     572.422         48.1818      23.6637     26.7023
+     ⋮                              ⋱
+   358.264    695.835    -657.081        492.21     -1273.62      563.426
+  -106.91     525.952    1467.53        -427.56       852.267    2030.38
+  -157.778    740.966   -1279.52        -307.943    -2624.63      917.743
+   288.136    317.915    -304.844       -456.967     -990.22    -2468.99
+  1154.43     -37.2938  -2519.8     …   1439.1        564.501   -1106.89
+  -741.047  -1496.58      976.447          8.79803    683.669   -1591.42
+ -1537.75    -141.612    -674.149       -828.035    -1470.7      -973.846
+  -129.68      10.8385   -327.384      -1895.03     -2148.13    -2185.02
+   155.963   -133.798     198.895        334.802     -294.639    1371.07</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; ein&quot;(ij,jk),(kl,lm)-&gt;im&quot;(tensors...)  # manually specified contraction</code><code class="nohighlight hljs ansi" style="display:block;">100×100 Matrix{Float64}:
+  2629.62     137.854      14.2331  …   -654.156    -1250.45    -1458.05
+  -403.304     59.0435    612.02        1358.08      1410.57      974.92
+   842.512    370.934    -401.7          401.093    -1020.11    -1280.54
+  -657.995  -2120.74     1476.47         900.173     1568.22    -1873.2
+  -421.205  -1681.53      949.658       -700.265       25.1004   -147.877
+ -1776.37    -628.783    1438.77    …    763.932     -870.616    1050.87
+   680.174   -127.535    -361.386        706.463      319.485     923.808
+  1364.29    -580.521     350.872      -1720.77      -288.516    -272.631
+  -987.487   -373.511     721.599       1069.54       678.68      749.223
+   136.216    124.787     572.422         48.1818      23.6637     26.7023
+     ⋮                              ⋱
+   358.264    695.835    -657.081        492.21     -1273.62      563.426
+  -106.91     525.952    1467.53        -427.56       852.267    2030.38
+  -157.778    740.966   -1279.52        -307.943    -2624.63      917.743
+   288.136    317.915    -304.844       -456.967     -990.22    -2468.99
+  1154.43     -37.2938  -2519.8     …   1439.1        564.501   -1106.89
+  -741.047  -1496.58      976.447          8.79803    683.669   -1591.42
+ -1537.75    -141.612    -674.149       -828.035    -1470.7      -973.846
+  -129.68      10.8385   -327.384      -1895.03     -2148.13    -2185.02
+   155.963   -133.798     198.895        334.802     -294.639    1371.07</code></pre><p>Sometimes, manually optimizing the contraction order can be beneficial. Please check <a href="../contractionorder/#Contraction-order-optimization">Contraction order optimization</a> for more details.</p><h2 id="Einsum-examples"><a class="docs-heading-anchor" href="#Einsum-examples">Einsum examples</a><a id="Einsum-examples-1"></a><a class="docs-heading-anchor-permalink" href="#Einsum-examples" title="Permalink"></a></h2><p>We first define the tensors and then demonstrate the einsum notation for various tensor operations.</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; using OMEinsum</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; s = fill(1)  # scalar</code><code class="nohighlight hljs ansi" style="display:block;">0-dimensional Array{Int64, 0}:
 1</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; w, v = [1, 2], [4, 5];  # vectors</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; A, B = [1 2; 3 4], [5 6; 7 8]; # matrices</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; T1, T2 = reshape(1:8, 2, 2, 2), reshape(9:16, 2, 2, 2); # 3D tensor</code></pre><h3 id="Unary-examples"><a class="docs-heading-anchor" href="#Unary-examples">Unary examples</a><a id="Unary-examples-1"></a><a class="docs-heading-anchor-permalink" href="#Unary-examples" title="Permalink"></a></h3><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; ein&quot;i-&gt;&quot;(w)  # sum of the elements of a vector.</code><code class="nohighlight hljs ansi" style="display:block;">0-dimensional Array{Int64, 0}:
 3</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; ein&quot;ij-&gt;i&quot;(A)  # sum of the rows of a matrix.</code><code class="nohighlight hljs ansi" style="display:block;">2-element Vector{Int64}:
  3
@@ -123,4 +123,4 @@
 
 [:, :, 2, 2, 2] =
  22686  34818
- 51586  79894</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../background/">« Background: Tensor Networks</a><a class="docs-footer-nextpage" href="../contractionorder/">Contraction order optimization »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 27 April 2025 14:08">Sunday 27 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ 51586  79894</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../background/">« Background: Tensor Networks</a><a class="docs-footer-nextpage" href="../contractionorder/">Contraction order optimization »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 4 May 2025 08:17">Sunday 4 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
