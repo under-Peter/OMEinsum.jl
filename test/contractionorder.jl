@@ -62,11 +62,10 @@ end
     @test optcode(xs...)[].n == 66
 
     # slicer
-    sc_target = Int(contraction_complexity(code, edge_sizes).sc - 2)
-    slicer = TreeSASlicer(sc_target=sc_target)
+    slicer = TreeSASlicer(sc_target=8)
     scode = slice_code(optcode, size_dict, slicer)
     @test scode isa SlicedEinsum
-    @test contraction_complexity(scode, edge_sizes).sc == sc_target
+    @test contraction_complexity(scode, edge_sizes).sc == 8
     @test scode(xs...)[].n == 66
 end
 
@@ -104,8 +103,9 @@ end
         EinCode([[1,2], [2,3], [3,4]], [1,4]),
         EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
     ]
-        for optcode in [optimize_code(code, uniformsize(code, 2), GreedyMethod()),
-            optimize_code(code, uniformsize(code, 2), TreeSA(nslices=1))]
+        gcode = optimize_code(code, uniformsize(code, 2), GreedyMethod())
+        scode = slice_code(gcode, uniformsize(gcode, 2), TreeSASlicer(ntrials=0))
+        for optcode in [gcode, scode]
             filename = tempname()
             writejson(filename, optcode)
             code2 = readjson(filename)
