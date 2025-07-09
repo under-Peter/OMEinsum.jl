@@ -60,6 +60,14 @@ end
     @test OMEinsum.flatten(optcode) == code
     @test OMEinsum.flatten(code) == code
     @test optcode(xs...)[].n == 66
+
+    # slicer
+    sc_target = Int(contraction_complexity(code, edge_sizes).sc - 2)
+    slicer = TreeSASlicer(sc_target=sc_target)
+    scode = slice_code(optcode, size_dict, slicer)
+    @test scode isa SlicedEinsum
+    @test contraction_complexity(scode, edge_sizes).sc == sc_target
+    @test scode(xs...)[].n == 66
 end
 
 @testset "regression test" begin
