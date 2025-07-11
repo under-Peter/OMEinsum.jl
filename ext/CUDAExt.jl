@@ -139,6 +139,4 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
     return res
 end
 
-@info("OMEinsum loaded the CUDA module successfully")
-
 end
