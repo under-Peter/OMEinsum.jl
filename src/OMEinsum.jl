@@ -17,7 +17,7 @@ export cost_and_gradient
 
 # re-export the functions in OMEinsumContractionOrders
 export CodeOptimizer, CodeSimplifier,
-    KaHyParBipartite, GreedyMethod, TreeSA, SABipartite, ExactTreewidth,
+    KaHyParBipartite, GreedyMethod, TreeSA, SABipartite, ExactTreewidth, HyperND,
     TreeSASlicer,
     MinSpaceDiff, MinSpaceOut,
     MergeGreedy, MergeVectors,
