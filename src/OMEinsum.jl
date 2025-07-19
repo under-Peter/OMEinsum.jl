@@ -22,7 +22,7 @@ export CodeOptimizer, CodeSimplifier,
     MinSpaceDiff, MinSpaceOut,
     MergeGreedy, MergeVectors,
     uniformsize,
-    optimize_code, optimize_permute, slice_code,
+    optimize_code, optimize_permute, slice_code, ScoreFunction,
     # time space complexity
     peak_memory, timespace_complexity, timespacereadwrite_complexity, flop, contraction_complexity,
     # file io
