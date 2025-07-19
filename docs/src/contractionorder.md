@@ -27,7 +27,7 @@ optcode = optimize_code(code, size_dict, TreeSA())
 
 The output value is a binary contraction tree with type [`SlicedEinsum`](@ref) or [`NestedEinsum`](@ref).
 The `TreeSA` is a local search algorithm that optimizes the contraction order. More algorithms can be found in the
-[OMEinsumContractionOrders](https://github.com/TensorBFS/OMEinsumContractionOrders.jl) and the [performance tips](https://queracomputing.github.io/GenericTensorNetworks.jl/dev/performancetips/) of [GenericTensorNetworks](https://github.com/QuEraComputing/GenericTensorNetworks.jl).
+[OMEinsumContractionOrders documentation](https://tensorbfs.github.io/OMEinsumContractionOrders.jl/dev/).
 
 After optimizing the contraction order, the time and readwrite complexities are significantly reduced.
 
@@ -40,14 +40,16 @@ For convenience, the optimized contraction can be directly contructed by using t
 ```@repl order
 optein"ij,jk,kl,li->"  # optimized contraction, without knowing the size of the tensors
 ```
-The drawback of using `@optein_str` is that the contraction order is optimized without knowing the size of the tensors.
-Only the tensor ranks are used to optimize the contraction order.
+`@optein_str` optimizes the contraction order with the assumption that each index has the same size 2, hence the resulting contraction order might not be optimal.
 
 ## Manual optimization
 One can also manually specify the contraction order by using the [`@ein_str`](@ref) string literal.
 ```@repl order
 ein"((ij,jk),kl),li->ik"  # manually optimized contraction
 ```
+
+## Slicing the code
+TBW
 
 ## Flatten the code
 
