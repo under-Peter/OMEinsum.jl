@@ -62,7 +62,7 @@ end
     @test optcode(xs...)[].n == 66
 
     # slicer
-    slicer = TreeSASlicer(sc_target=8)
+    slicer = TreeSASlicer(score=ScoreFunction(sc_target=8))
     scode = slice_code(optcode, size_dict, slicer)
     @test scode isa SlicedEinsum
     @test contraction_complexity(scode, edge_sizes).sc == 8
