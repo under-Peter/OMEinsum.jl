@@ -1,4 +1,4 @@
-using OMEinsum
+using OMEinsum, OMEinsumContractionOrders
 using TropicalNumbers
 using Test, Random
 
@@ -104,7 +104,7 @@ end
         EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
     ]
         gcode = optimize_code(code, uniformsize(code, 2), GreedyMethod())
-        scode = slice_code(gcode, uniformsize(gcode, 2), TreeSASlicer(ntrials=0))
+        scode = slice_code(gcode, uniformsize(gcode, 2), TreeSASlicer(ntrials=1))
         for optcode in [gcode, scode]
             filename = tempname()
             writejson(filename, optcode)
