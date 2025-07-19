@@ -60,6 +60,13 @@ end
     @test OMEinsum.flatten(optcode) == code
     @test OMEinsum.flatten(code) == code
     @test optcode(xs...)[].n == 66
+
+    # slicer
+    slicer = TreeSASlicer(score=ScoreFunction(sc_target=8))
+    scode = slice_code(optcode, size_dict, slicer)
+    @test scode isa SlicedEinsum
+    @test contraction_complexity(scode, edge_sizes).sc == 8
+    @test scode(xs...)[].n == 66
 end
 
 @testset "regression test" begin
@@ -96,8 +103,9 @@ end
         EinCode([[1,2], [2,3], [3,4]], [1,4]),
         EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
     ]
-        @test_broken for optcode in [optimize_code(code, uniformsize(code, 2), GreedyMethod()),
-            slice_code(optimize_code(code, uniformsize(code, 2), TreeSA()), uniformsize(code, 2), TreeSASlicer())]
+        gcode = optimize_code(code, uniformsize(code, 2), GreedyMethod())
+        scode = slice_code(gcode, uniformsize(gcode, 2), TreeSASlicer(ntrials=1))
+        for optcode in [gcode, scode]
             filename = tempname()
             writejson(filename, optcode)
             code2 = readjson(filename)

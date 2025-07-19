@@ -33,8 +33,8 @@ end
 
 @testset "replace" begin
     code = ein"(ij, jk), kl->il"
-    se = optimize_code(code, uniformsize(code, 2), TreeSA(;niters=0))
+    se = slice_code(code, uniformsize(code, 2), TreeSASlicer(;niters=0))
     se2 = replace(se, 'i'=>'a', 'j'=>'b', 'k'=>'c', 'l'=>'d')
     @test labeltype(se2) == Char
-    @test se2 == ein"(ab, bc), cd->ad"
+    @test se2 == SlicedEinsum(Char[], ein"(ab, bc), cd->ad")
 end

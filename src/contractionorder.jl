@@ -30,6 +30,9 @@ rawcode(code::AbstractEinsum) = rawcode(code)
 function OMEinsumContractionOrders.optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier=nothing, permute::Bool=true)
     decorate(optimize_code(rawcode(code), size_dict, optimizer, simplifier, permute))
 end
+function OMEinsumContractionOrders.slice_code(code::NestedEinsum{LT}, size_dict::Dict, slicer::CodeSlicer) where LT
+    decorate(OMEinsumContractionOrders.slice_code(rawcode(code), size_dict, slicer))
+end
 OMEinsumContractionOrders.optimize_permute(code::AbstractEinsum) = decorate(optimize_permute(rawcode(code)))
 OMEinsumContractionOrders.peak_memory(code::AbstractEinsum, size_dict::Dict) = peak_memory(rawcode(code), size_dict)
 OMEinsumContractionOrders.flop(code::AbstractEinsum, size_dict::Dict) = flop(rawcode(code), size_dict)
