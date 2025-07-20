@@ -75,6 +75,7 @@ function ChainRulesCore.rrule(::typeof(CacheTree), content::AbstractArray{T}, si
     y = CacheTree(content, siblings)
     function cachetree_pullback(dy)
         dy = unthunk(dy)
+        # we need to convert the siblings to a tuple, because the `Zygote.accum` will not work with a vector.
         return (NoTangent(), dy.content, dy.siblings isa Vector ? (dy.siblings...,) : dy.siblings)
     end
     cachetree_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent())
