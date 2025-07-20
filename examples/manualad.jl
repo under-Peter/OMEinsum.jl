@@ -16,7 +16,6 @@ function gfunc(A, B, C)
     ȳ = fill(one(eltype(A)))
     res = Zygote.Buffer(Any[nothing, nothing, nothing])
     cost, (gA, gB, gC) = gf(ein"(ij, jk), ki->", (A, B, C), res, ȳ)
-    @info "summing"
     return sum(gA .* xA) + sum(gB .* xB) + sum(gC .* xC)
 end
 Zygote.gradient(gfunc, A, B, C)

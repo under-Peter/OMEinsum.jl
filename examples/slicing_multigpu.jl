@@ -1,14 +1,14 @@
 using Distributed
-using OMEinsumContractionOrders, OMEinsum, CUDA
+using OMEinsum.OMEinsumContractionOrders, OMEinsum, CUDA
 
-println("find $(length(devices())) GPU devices")
+@info "find $(length(devices())) GPU devices"
 const procs = addprocs(length(devices())-nprocs()+1)
 const gpus = collect(devices())
 const process_device_map = Dict(zip(procs, gpus))
-@show process_device_map
+@info "mapping processes to GPUs: $process_device_map"
 
 @everywhere begin  # these packages/functions should be accessible on all processes
-    using OMEinsumContractionOrders, OMEinsum, CUDA
+    using OMEinsum.OMEinsumContractionOrders, OMEinsum, CUDA
     CUDA.allowscalar(false)
 
     function do_work(f, jobs, results) # define work function everywhere
@@ -56,27 +56,27 @@ function multigpu_einsum(se::SlicedEinsum{LT,ET}, @nospecialize(xs::AbstractArra
     size_dict = size_info===nothing ? Dict{OMEinsum.labeltype(se),Int}() : copy(size_info)
     OMEinsum.get_size_dict!(se, xs, size_dict)
 
-    it = OMEinsumContractionOrders.SliceIterator(se, size_dict)
-    res = OMEinsum.get_output_array(xs, getindex.(Ref(size_dict), it.iyv))
-    eins_sliced = OMEinsumContractionOrders.drop_slicedim(se.eins, se.slicing)
+    it = OMEinsum.SliceIterator(se, size_dict)
+    res = OMEinsum.get_output_array(xs, getindex.(Ref(size_dict), it.iyv), true)
+    eins_sliced = OMEinsum.drop_slicedim(se.eins, se.slicing)
     inputs = collect(enumerate([copy(x) for x in it]))
     @info "start multiple process contraction!"
     results = multiprocess_run(inputs) do (k, slicemap)
         @info "computing slice $k/$(length(it))"
         device!(process_device_map[Distributed.myid()])
-        xsi = ntuple(i->CuArray(OMEinsumContractionOrders.take_slice(xs[i], it.ixsv[i], slicemap)), length(xs))
+        xsi = ntuple(i->CuArray(OMEinsum.take_slice(xs[i], it.ixsv[i], slicemap)), length(xs))
         Array(einsum(eins_sliced, xsi, it.size_dict_sliced))
     end
     # accumulate results to `res`
     for (resi, (k, slicemap)) in zip(results, inputs)
-        OMEinsumContractionOrders.fill_slice!(res, it.iyv, resi, slicemap)
+        OMEinsum.fill_slice!(res, it.iyv, resi, slicemap)
     end
     return res
 end
 
 # A using case
 # ---------------------------------------
-using Yao, YaoToEinsum, Yao.EasyBuild
+using Yao, Yao.YaoToEinsum, Yao.EasyBuild
 
 # I. create a quantum circuit
 nbit = 20
@@ -86,12 +86,11 @@ c = Yao.dispatch!(variational_circuit(nbit, 10), :random)
 # 1. specify input and output states as product states,
 prod_state = Dict(zip(1:nbit, zeros(Int, nbit)))
 # 2. convert the circuit to einsum code,
-code, xs = YaoToEinsum.yao2einsum(c; initial_state=prod_state, final_state=prod_state)
+code, xs = YaoToEinsum.yao2einsum(c; initial_state=prod_state, final_state=prod_state, optimizer=nothing)
 # 3. optimize the contraction order
 size_dict = OMEinsum.get_size_dict(getixsv(code), xs)
-original_sc = contraction_complexity(code, size_dict).sc
-slicedcode = optimize_code(code, size_dict, TreeSA(); simplifier=MergeGreedy(), slicer=TreeSASlicer(score=ScoreFunction(sc_target=original_sc-5)))
+slicedcode = optimize_code(code, size_dict, TreeSA(); simplifier=MergeGreedy(), slicer=TreeSASlicer(score=ScoreFunction(sc_target=15)))
 
 # III. do the contraction on multiple GPUs in parallel
-@info "time/space complexity is $(timespace_complexity(slicedcode, size_dict))"
+@info "time/space complexity is $(timespace_complexity(slicedcode, size_dict)), number of slices: $(length(slicedcode.slicing))"
 multigpu_einsum(slicedcode, xs...; process_device_map=process_device_map)
