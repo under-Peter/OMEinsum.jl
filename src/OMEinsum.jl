@@ -44,10 +44,11 @@ include("einsum.jl")
 include("interfaces.jl")
 include("einsequence.jl")
 include("slicing.jl")
-include("autodiff.jl")
 include("bp.jl")
 
 include("contractionorder.jl")
+
+include("autodiff.jl")
 
 @deprecate optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier, permute::Bool=true) optimize_code(code, size_dict, optimizer; simplifier, permute)
 

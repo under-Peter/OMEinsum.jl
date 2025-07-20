@@ -18,11 +18,5 @@ function gfunc(A, B, C)
     cost, (gA, gB, gC) = gf(ein"(ij, jk), ki->", (A, B, C), res, ȳ)
     return sum(gA .* xA) + sum(gB .* xB) + sum(gC .* xC)
 end
-Zygote.gradient(gfunc, A, B, C)
 
-
-zg = Zygote.gradient((a, b, c)->ein"(ij, jk), ki->"(a, b, c)[], A, B, C)
-mg = gf(ein"(ij, jk), ki->", (A, B, C), Any[nothing, nothing, nothing])
-
-using FiniteDiff
-h = FiniteDiff.finite_difference_hessian(v->ein"(ij, jk), ki->"(reshape(v[1:6], 2, 3), reshape(v[7:18], 3, 4), reshape(v[19:end], 4, 2))[], [vec(A); vec(B); vec(C)])
+g = Zygote.gradient(gfunc, A, B, C)
