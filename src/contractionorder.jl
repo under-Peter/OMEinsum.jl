@@ -27,8 +27,8 @@ function rawcode(code::SlicedEinsum)
 end
 rawcode(code::AbstractEinsum) = rawcode(code)
 
-function OMEinsumContractionOrders.optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier=nothing, permute::Bool=true)
-    decorate(optimize_code(rawcode(code), size_dict, optimizer, simplifier, permute))
+function OMEinsumContractionOrders.optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer; simplifier=nothing, permute::Bool=true, slicer=nothing)
+    decorate(optimize_code(rawcode(code), size_dict, optimizer; simplifier, permute, slicer))
 end
 function OMEinsumContractionOrders.slice_code(code::NestedEinsum{LT}, size_dict::Dict, slicer::CodeSlicer) where LT
     decorate(OMEinsumContractionOrders.slice_code(rawcode(code), size_dict, slicer))

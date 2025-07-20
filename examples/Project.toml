@@ -1,0 +1,7 @@
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
+OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
+Yao = "5872b779-8223-5990-8dd0-5abbb0748c8c"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"

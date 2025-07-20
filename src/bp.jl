@@ -8,6 +8,25 @@ mutable struct CacheTree{T}
 end
 CacheTree(content::AbstractArray{T}, siblings) where T = CacheTree(content, CacheTree{T}[siblings...])
 
+# Add adjoint rules for CacheTree constructor
+function ChainRulesCore.rrule(::typeof(CacheTree), content::AbstractArray{T}, siblings::Vector{CacheTree{T}}) where T
+    y = CacheTree(content, siblings)
+    function cachetree_pullback(dy)
+        return (NoTangent(), dy.content, dy.siblings)
+    end
+    cachetree_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent())
+    return y, cachetree_pullback
+end
+
+function ChainRulesCore.rrule(::typeof(CacheTree), content::AbstractArray{T}, siblings) where T
+    y = CacheTree(content, siblings)
+    function cachetree_pullback(dy)
+        return (NoTangent(), dy.content, dy.siblings)
+    end
+    cachetree_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent())
+    return y, cachetree_pullback
+end
+
 """
     cached_einsum(code, xs, size_dict)
 
@@ -91,7 +110,7 @@ function back_propagate(f, code::NestedEinsum, cache::CacheTree{T}, dy::Abstract
         # ```
         # Let `L` be the loss, we will have `y̅ := ∂L/∂y`, `A̅ := ∂L/∂A`...
         dxs = f(rootcode(code), xs, cache.content, size_dict, dy)
-        return CacheTree(dy, back_propagate.(Ref(f), siblings(code), cache.siblings, dxs, Ref(size_dict)))
+        return CacheTree(dy, [back_propagate(f, subcode, sib, dx, size_dict) for (subcode, sib, dx) in zip(siblings(code), cache.siblings, dxs)])
     end
 end
 

@@ -53,7 +53,7 @@ end
     tc, sc = contraction_complexity(code, edge_sizes)
     @test tc == 60
     @test sc == 0
-    optcode = optimize_code(code, size_dict, TreeSA(ntrials=1), MergeVectors())
+    optcode = optimize_code(code, size_dict, TreeSA(ntrials=1); simplifier=MergeVectors())
     tc2, sc2 = contraction_complexity(optcode, edge_sizes)
     @test sc2 == 10
     xs = vcat([TropicalF64.([-1 1; 1 -1]) for i=1:90], [TropicalF64.([0, 0]) for i=1:60])
@@ -104,7 +104,7 @@ end
         EinCode([['a','b'], ['b','c'], ['c','d']], ['a','d'])
     ]
         gcode = optimize_code(code, uniformsize(code, 2), GreedyMethod())
-        scode = slice_code(gcode, uniformsize(gcode, 2), TreeSASlicer(ntrials=1))
+        scode = optimize_code(code, uniformsize(code, 2), GreedyMethod(); slicer=TreeSASlicer(ntrials=1))
         for optcode in [gcode, scode]
             filename = tempname()
             writejson(filename, optcode)
