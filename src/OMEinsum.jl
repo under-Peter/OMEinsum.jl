@@ -49,8 +49,6 @@ include("bp.jl")
 
 include("contractionorder.jl")
 
-include("deprecation.jl")
-
 @deprecate optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier, permute::Bool=true) optimize_code(code, size_dict, optimizer; simplifier, permute)
 
 end # module

@@ -62,3 +62,8 @@ end
 @testset "docstring" begin
     Documenter.doctest(OMEinsum; manual=false)
 end
+
+@testset "deprecation" begin
+    code = EinCode([[1,2], [2,3], [3,4]], [1,4])
+    @test_deprecated optimize_code(code, uniformsize(code, 2), TreeSA(ntrials=1), MergeVectors())
+end
