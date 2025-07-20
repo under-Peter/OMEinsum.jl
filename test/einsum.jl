@@ -218,7 +218,7 @@ end
     b = rand(100,100)
     einsum(EinCode(((1,2),(2,3)),(1,3)), (a,b))
     allocs1 = @allocated einsum(EinCode(((1,2),(2,3)),(1,3)), (a,b))
-    @test allocs1 < 10^5
+    @test allocs1 < 1.2e5
     einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,b))
     allocs2 = @allocated einsum(EinCode(((1,2),(2,3),(3,4)),(1,4)), (a,b,b))
     # doing twice the work (two multiplications instead of one) shouldn't

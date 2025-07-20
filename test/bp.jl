@@ -8,7 +8,7 @@ using OMEinsum, Test, Zygote
     @test cost[] ≈ cost0
     @test all(zg .≈ mg)
 
-    code = optimize_code(ein"ij, jk, ki->", uniformsize(ein"ij, jk, ki->", 2), TreeSA())
+    code = OMEinsum.optimize_code(ein"ij, jk, ki->", uniformsize(ein"ij, jk, ki->", 2), TreeSA())
     cost0 = code(A, B, C)[]
     zg = Zygote.gradient((a, b, c)->code(a, b, c)[], A, B, C)
     cost, mg = OMEinsum.cost_and_gradient(code, (A, B, C))
