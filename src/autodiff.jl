@@ -70,3 +70,13 @@ macro echo(var)
     name = QuoteNode(var)
     esc(:($var = $echo($var; tag="$($name)")))
 end
+
+function ChainRulesCore.rrule(::typeof(CacheTree), content::AbstractArray{T}, siblings) where T
+    y = CacheTree(content, siblings)
+    function cachetree_pullback(dy)
+        dy = unthunk(dy)
+        return (NoTangent(), dy.content, dy.siblings isa Vector ? (dy.siblings...,) : dy.siblings)
+    end
+    cachetree_pullback(::NoTangent) = (NoTangent(), NoTangent(), NoTangent())
+    return y, cachetree_pullback
+end
