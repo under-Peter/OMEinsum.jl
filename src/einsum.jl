@@ -49,41 +49,45 @@ function einsum!(ixs, iy, @nospecialize(xs::Tuple), @nospecialize(y), sx, sy, si
     loop_einsum!(ixs, iy, (xs...,), y, sx, sy, size_dict)
 end
 
-struct UnaryOperation{LT}
+struct UnaryOperation
     type
-    ix::Vector{LT}
-    iy::Vector{LT}
+    ix::Tuple
+    iy::Tuple
 end
 # for unary operations
 # overhead ~ 2.3us
 # @benchmark OMEinsum.einsum(DefaultRule(), $((('a', 'a', 'b'),)), $(('c', 'b','a')), (x,), $(Dict('a'=>1, 'b'=>1, 'c'=>1))) setup=(x=randn(1,1,1))
-function unary_pipeline(ix::Vector{LT}, iy::Vector{LT}) where {LT}
-    ix_unique = _unique(LT, ix)
-    iy_unique = _unique(LT, iy)
+function unary_pipeline(::Val{ix}, ::Val{iy}) where {ix,iy}
+    ix_unique = _unique(ix)
+    iy_unique = _unique(iy)
     iy_a = filter(i -> i ∈ ix, iy_unique)
 
-    operations = UnaryOperation[]
-    if length(ix_unique) != length(ix)  # diag
-        push!(operations, UnaryOperation(Diag(), ix, ix_unique))
-    end
-    if length(ix_unique) != length(iy_a)  # sum
-        push!(operations, UnaryOperation(Sum(), ix_unique, iy_a))
-    elseif ix_unique != iy_a   # permute, high freq
-        push!(operations, UnaryOperation(Permutedims(), ix_unique, iy_a))
-    end
+    step1 = if length(ix_unique) != length(ix)  # diag
+        UnaryOperation(Diag(), ix, ix_unique)
+    else nothing end
 
-    if length(iy_a) != length(iy_unique)  # repeat
-        push!(operations, UnaryOperation(Repeat(), iy_a, iy_unique))
-    end
-    if length(iy_unique) != length(iy)  # duplicate
-        push!(operations, UnaryOperation(Duplicate(), iy_unique, iy))
-    end
-    return operations
+    step2 = if length(ix_unique) != length(iy_a)  # sum
+        UnaryOperation(Sum(), ix_unique, iy_a)
+    elseif ix_unique != iy_a   # permute, high freq
+        UnaryOperation(Permutedims(), ix_unique, iy_a)
+    else nothing end
+
+    step3 = if length(iy_unique) != length(iy_a)  # repeat
+        UnaryOperation(Repeat(), iy_a, iy_unique)
+    else nothing end
+
+    step4 = if length(iy_unique) != length(iy)  # duplicate
+        UnaryOperation(Duplicate(), iy_unique, iy)
+    else nothing end
+
+    return filter(!isnothing, (step1, step2, step3, step4))
 end
 
 function einsum!(ixs, iy, @nospecialize(xs::NTuple{1,Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where {LT}
     @debug "compiling unary" ixs[1] => iy size(xs[1])
-    pipeline = unary_pipeline(collect(LT, ixs[1]), collect(LT, iy))
+    ix1 = (ixs[1]...,)
+    iy = (iy...,)
+    pipeline = unary_pipeline(Val(ix1), Val(iy))
     lasttensor = xs[1]
     for (k, op) in enumerate(pipeline)
         if k == length(pipeline)  # last operation
