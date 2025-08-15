@@ -71,7 +71,7 @@ macro echo(var)
     esc(:($var = $echo($var; tag="$($name)")))
 end
 
-function ChainRulesCore.rrule(::typeof(CacheTree), content::AbstractArray{T}, siblings) where T
+function ChainRulesCore.rrule(::Type{CacheTree}, content::AbstractArray{T}, siblings) where T
     y = CacheTree(content, siblings)
     function cachetree_pullback(dy)
         dy = unthunk(dy)
