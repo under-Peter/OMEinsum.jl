@@ -18,9 +18,9 @@ asarray(x::AbstractArray, y::ROCArray) = x
 asscalar(x::ROCArrayTypes) = Array(x)[]
 
 # to avoid returning a ReshapedArray
-OMEinsum.safe_reshape(x::ROCArray, sz) = reshape(x, (sz...,))
-OMEinsum.safe_reshape(x::Adjoint{T,<:ROCArray{T}} where {T}, sz) = reshape(ROCArray(x), (sz...,))
-OMEinsum.safe_reshape(x::Transpose{T,<:ROCArray{T}} where {T}, sz) = reshape(ROCArray(x), (sz...,))
+OMEinsum.safe_reshape(x::ROCArray, sz) = reshape(x, sz)
+OMEinsum.safe_reshape(x::Adjoint{T,<:ROCArray{T}} where {T}, sz) = reshape(ROCArray(x), sz)
+OMEinsum.safe_reshape(x::Transpose{T,<:ROCArray{T}} where {T}, sz) = reshape(ROCArray(x), sz)
 
 Base.Array(x::Base.ReshapedArray{T,0,<:ROCArray}) where {T} = Array(x.parent)
 
