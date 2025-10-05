@@ -176,6 +176,7 @@ end
 """
     @ein! A[i,k] := B[i,j] * C[j,k]     # A = B * C
     @ein! A[i,k] += B[i,j] * C[j,k]     # A += B * C
+    @ein! A[i,k] -= B[i,j] * C[j,k]     # A -= B * C
 
 Macro interface similar to that of other packages.
 
@@ -200,6 +201,11 @@ julia> @ein! c[i,k] += a[i,j] * b[j,k];
 
 julia> c ≈ cc + a * b
 true
+
+julia> @ein! c[i,k] -= a[i,j] * b[j,k];
+
+julia> c ≈ cc
+true
 ```
 """
 macro ein!(exs...)
@@ -208,11 +214,13 @@ end
 
 function _ein_macro!(ex; einsum = :einsum!)
     if @capture(ex, (left_ := right_))
-        flag = false
+        sx, sy = 1, 0
     elseif @capture(ex, (left_ += right_))
-        flag = true
+        sx, sy = 1, 1
+    elseif @capture(ex, (left_ -= right_))
+        sx, sy = -1, 1
     else
-        throw(ArgumentError("expected @ein! A[] := B[]... or @ein! A[] += B[]..."))
+        throw(ArgumentError("expected @ein! A[] := B[]..., @ein! A[] += B[]..., or @ein! A[] -= B[]..."))
     end
 
     @capture(left, Z_[leftind__] | [leftind__] ) || throw(
@@ -238,5 +246,5 @@ function _ein_macro!(ex; einsum = :einsum!)
     righttuples = [ Tuple(indexin(ind, rightind)) for (A, ind) in rightpairs ]
     rightnames = [ esc(A) for (A, ind) in rightpairs ]
 
-    return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),), $(esc(Z)), true, $flag) )
+    return :( $(esc(Z)) = $einsum( EinCode(($(righttuples...),), $lefttuple), ($(rightnames...),), $(esc(Z)), $sx, $sy) )
 end

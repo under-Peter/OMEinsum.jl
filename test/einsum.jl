@@ -262,6 +262,18 @@ end
     @ein! c[i,k] += a[i,j] * b[j,k]
     @test a * b ≈ t
     @test cc + a * b ≈ c
+
+    c = randn(2,2)
+    cc = copy(c)
+    @ein! c[i,k] -= a[i,j] * b[j,k]
+    @test cc - (a * b) ≈ c
+
+    # chaining
+    c = randn(2,2)
+    cc = copy(c)
+    @ein! c[i,k] += a[i,j] * b[j,k]
+    @ein! c[i,k] -= a[i,j] * b[j,k]
+    @test cc ≈ c
 end
 
 @testset "argument checks" begin
