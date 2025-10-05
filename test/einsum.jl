@@ -274,6 +274,16 @@ end
     @ein! c[i,k] += a[i,j] * b[j,k]
     @ein! c[i,k] -= a[i,j] * b[j,k]
     @test cc ≈ c
+
+    # tensor contraction
+    a = randn(2,3,4)
+    b = randn(3,5)
+    c = zeros(2,4,5)
+    @ein! c[i,k,l] += a[i,j,k] * b[j,l]
+    @test c ≈ ein"ijk,jl->ikl"(a,b)
+
+    # error
+    @test_throws ArgumentError OMEinsum._ein_macro!(:((a[i] = b[i])))
 end
 
 @testset "argument checks" begin
