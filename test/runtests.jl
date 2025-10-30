@@ -59,6 +59,10 @@ end
     include("bp.jl")
 end
 
+@testset "EnzymeExt" begin
+    include("EnzymeExt.jl")
+end
+
 @testset "docstring" begin
     Documenter.doctest(OMEinsum; manual=false)
 end
