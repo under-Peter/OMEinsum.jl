@@ -57,7 +57,7 @@ struct DefaultBackend <: EinsumBackend end
 
 Backend using NVIDIA cuTENSOR library for native tensor contractions on GPU.
 
-This backend calls cuTENSOR's `contraction!` function directly, which:
+This backend calls cuTENSOR's `contract!` function directly, which:
 - Handles arbitrary tensor contraction patterns natively
 - Eliminates reshape/permute overhead
 - Optimizes memory access patterns internally
@@ -84,11 +84,7 @@ For unsupported types, automatically falls back to `DefaultBackend`.
 
 ## Example
 ```julia
-using CUDA, OMEinsum
-
-# Check if cuTENSOR is available
-ext = Base.get_extension(OMEinsum, :CUDAExt)
-ext.has_cutensor()  # true if available
+using CUDA, cuTENSOR, OMEinsum
 
 # Enable cuTENSOR backend
 set_einsum_backend!(CuTensorBackend())

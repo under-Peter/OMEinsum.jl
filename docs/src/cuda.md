@@ -143,7 +143,7 @@ The cuTENSOR backend supports BLAS-compatible types:
 - `Float16`, `Float32`, `Float64`
 - `ComplexF16`, `ComplexF32`, `ComplexF64`
 
-For other types (e.g., `Double64`, custom number types), the backend automatically falls back to the loop-based implementation.
+For other types (e.g., `Double64`, custom number types), the cuTENSOR backend automatically falls back to the DefaultBackend (CUBLAS-based) implementation.
 
 ### Example: Performance Comparison
 
