@@ -115,6 +115,39 @@ julia> Zl = ein"is, oij, js -> os"(x, W, y);
 └ @ OMEinsum ~/.julia/dev/OMEinsum/src/loop_einsum.jl:26
 ```
 
+## GPU Acceleration
+
+OMEinsum supports CUDA GPU acceleration with two backends:
+
+| Backend | Library | Best For |
+|---------|---------|----------|
+| `DefaultBackend()` | CUBLAS | Matrix-like contractions |
+| `CuTensorBackend()` | cuTENSOR | General tensor contractions |
+
+```julia
+using CUDA
+using OMEinsum
+
+A = CUDA.rand(Float32, 100, 200)
+B = CUDA.rand(Float32, 200, 300)
+
+# Default backend (CUBLAS) - good for matrix-like operations
+C = ein"ij,jk->ik"(A, B)
+```
+
+For better performance on non-GEMM patterns (tensor networks, etc.), use the cuTENSOR backend:
+
+```julia
+using CUDA
+using cuTENSOR  # Pkg.add("cuTENSOR") - loads the CuTENSORExt extension
+using OMEinsum
+
+set_einsum_backend!(CuTensorBackend())
+C = ein"ijk,jkl->il"(CUDA.rand(Float32, 64, 64, 64), CUDA.rand(Float32, 64, 64, 64))
+```
+
+The cuTENSOR backend provides native tensor contraction without reshape/permute overhead. See the [CUDA documentation](https://under-Peter.github.io/OMEinsum.jl/dev/cuda/) for details.
+
 ## Comparison with other packages
 Similar packages include:
 - [TensorOperations.jl](https://github.com/Jutho/TensorOperations.jl) and [TensorKit.jl](https://github.com/Jutho/TensorKit.jl)

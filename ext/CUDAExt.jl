@@ -2,6 +2,7 @@ module CUDAExt
 
 import OMEinsum: asarray, get_output_array, einsum, loop_einsum!, _batched_gemm!, asscalar, @flatten_addmul!
 using OMEinsum: EinArray, Diag, Repeat, Duplicate, DefaultRule, EinCode, DynamicEinCode, StaticEinCode, NestedEinsum, SimpleBinaryRule, match_rule, loop_einsum, getiy, getixs, _unique, einarray, align_eltypes, siblings, isleaf, tensorindex, _safe_set, rootcode
+using OMEinsum: EinsumBackend, DefaultBackend, CuTensorBackend, get_einsum_backend, CuTensorSupportedTypes, _CUTENSOR_AVAILABLE, _cutensor_einsum!
 import OMEinsum
 using LinearAlgebra
 import LinearAlgebra: BlasFloat
@@ -137,6 +138,51 @@ function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes
         CUDA.unsafe_free!(mx)
     end
     return res
+end
+
+#####################################################################
+# Binary einsum with backend dispatch
+#####################################################################
+
+"""
+Default binary einsum using CUBLAS (existing implementation path).
+"""
+function binary_einsum_cublas!(
+    ixs, iy,
+    xs::NTuple{2,CuArray{T}}, y::CuArray{T},
+    sx, sy, size_dict::Dict{LT}
+) where {T, LT}
+    iyv = OMEinsum._collect(LT, iy)
+    ix1v, ix2v = OMEinsum._collect.(Ref(LT), ixs)
+    x1, x2 = xs
+    c1, c2, cy, s1, s2, s3, i1, i2, iyb = OMEinsum.analyze_binary(ix1v, ix2v, iyv, size_dict)
+    rule = SimpleBinaryRule{(i1...,),(i2...,),(iyb...,)}()
+    xs1 = OMEinsum.simplifyto(ix1v, c1, x1, size_dict)
+    xs2 = OMEinsum.simplifyto(ix2v, c2, x2, size_dict)
+    x1_ = OMEinsum.safe_reshape(xs1, s1)
+    x2_ = OMEinsum.safe_reshape(xs2, s2)
+    if cy != iyv
+        y_ = similar(y, (s3...,))
+        y_ = reshape(OMEinsum.binary_einsum!(rule, x1_, x2_, y_, true, false), [size_dict[x] for x in cy]...)
+        return OMEinsum.einsum!((cy,), iyv, (y_,), y, sx, sy, size_dict)
+    else
+        OMEinsum.binary_einsum!(rule, x1_, x2_, OMEinsum.safe_reshape(y, s3), sx, sy)
+        return y
+    end
+end
+
+# Override einsum! for binary CuArray operations with backend dispatch
+function OMEinsum.einsum!(
+    ixs, iy,
+    xs::NTuple{2,CuArray{T}}, y::CuArray{T},
+    sx, sy, size_dict::Dict{LT}
+) where {T, LT}
+    # Use cuTENSOR if: backend is CuTensorBackend, extension is loaded, and type is supported
+    if get_einsum_backend() isa CuTensorBackend && _CUTENSOR_AVAILABLE[] && T <: CuTensorSupportedTypes
+        return _cutensor_einsum!(ixs, iy, xs, y, sx, sy, size_dict)
+    end
+    # Default: use CUBLAS path
+    return binary_einsum_cublas!(ixs, iy, xs, y, sx, sy, size_dict)
 end
 
 @debug("OMEinsum loaded the CUDA module successfully")

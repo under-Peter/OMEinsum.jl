@@ -1,6 +1,6 @@
 using Test
 using OMEinsum
-using CUDA
+using CUDA, cuTENSOR
 using DoubleFloats
 using Zygote
 
@@ -178,4 +178,197 @@ end
     @test Array(ein"(ip,pql),qj -> ijl"(u', A, u)) ≈ ein"(ip,pql),qj -> ijl"(Array(CuArray(u')), Array(A), Array(u))
     @test Array(DynamicEinCode(ein"mk, ijk -> ijm")(u', A)) ≈ DynamicEinCode(ein"mk, ijk -> ijm")(Array(u'), Array(A))
     @test Array(ein"mk, ijk -> ijm"(u', A)) ≈ DynamicEinCode(ein"mk, ijk -> ijm")(Array(u'), Array(A))
+end
+
+#####################################################################
+# cuTENSOR Backend Tests
+#####################################################################
+
+@testset "cuTENSOR backend - availability check" begin
+    # Test backend API
+    @test get_einsum_backend() isa DefaultBackend
+    set_einsum_backend!(CuTensorBackend())
+    @test get_einsum_backend() isa CuTensorBackend
+    set_einsum_backend!(DefaultBackend())
+    @test get_einsum_backend() isa DefaultBackend
+end
+
+@testset "cuTENSOR backend - binary contractions" begin
+    # Skip if cuTENSOR is not available
+    if cuTENSOR.has_cutensor()
+        @info "Testing cuTENSOR backend (cuTENSOR available)"
+        
+        # Test with cuTENSOR backend
+        set_einsum_backend!(CuTensorBackend())
+        
+        # Test different data types
+        for T in [Float32, Float64, ComplexF32, ComplexF64]
+            @testset "cuTENSOR $T" begin
+                D = 10
+                
+                # Matrix multiplication: ij,jk->ik
+                A = CUDA.rand(T, D, D+5)
+                B = CUDA.rand(T, D+5, D+3)
+                C_cutensor = ein"ij,jk->ik"(A, B)
+                
+                # Compare with CPU result
+                A_cpu, B_cpu = Array(A), Array(B)
+                C_cpu = ein"ij,jk->ik"(A_cpu, B_cpu)
+                @test Array(C_cutensor) ≈ C_cpu
+                
+                # Batched matrix multiplication: ijl,jkl->ikl
+                A = CUDA.rand(T, D, D+2, 3)
+                B = CUDA.rand(T, D+2, D+1, 3)
+                C_cutensor = ein"ijl,jkl->ikl"(A, B)
+                C_cpu = ein"ijl,jkl->ikl"(Array(A), Array(B))
+                @test Array(C_cutensor) ≈ C_cpu
+                
+                # Trace contraction: ij,ji->
+                A = CUDA.rand(T, D, D)
+                B = CUDA.rand(T, D, D)
+                C_cutensor = ein"ij,ji->"(A, B)
+                C_cpu = ein"ij,ji->"(Array(A), Array(B))
+                @test Array(C_cutensor)[] ≈ C_cpu[]
+                
+                # Outer product: i,j->ij
+                A = CUDA.rand(T, D)
+                B = CUDA.rand(T, D+2)
+                C_cutensor = ein"i,j->ij"(A, B)
+                C_cpu = ein"i,j->ij"(Array(A), Array(B))
+                @test Array(C_cutensor) ≈ C_cpu
+                
+                # General contraction: ijk,jkl->il
+                A = CUDA.rand(T, 5, 6, 7)
+                B = CUDA.rand(T, 6, 7, 8)
+                C_cutensor = ein"ijk,jkl->il"(A, B)
+                C_cpu = ein"ijk,jkl->il"(Array(A), Array(B))
+                @test Array(C_cutensor) ≈ C_cpu
+                
+                # Transposed output: ij,jk->ki
+                A = CUDA.rand(T, D, D+2)
+                B = CUDA.rand(T, D+2, D+3)
+                C_cutensor = ein"ij,jk->ki"(A, B)
+                C_cpu = ein"ij,jk->ki"(Array(A), Array(B))
+                @test Array(C_cutensor) ≈ C_cpu
+            end
+        end
+        
+        # Reset backend
+        set_einsum_backend!(DefaultBackend())
+    else
+        @info "Skipping cuTENSOR tests (cuTENSOR not available)"
+        @test_skip "cuTENSOR not available"
+    end
+end
+
+@testset "cuTENSOR backend - comparison with DefaultBackend" begin
+    if cuTENSOR.has_cutensor()
+        @info "Comparing cuTENSOR vs DefaultBackend results"
+        
+        for T in [Float32, Float64]
+            @testset "Comparison $T" begin
+                D = 32
+                
+                # Test various contraction patterns
+                test_cases = [
+                    (ein"ij,jk->ik", (D, D+5), (D+5, D+3)),           # matmul
+                    (ein"ijk,jkl->il", (8, 10, 12), (10, 12, 14)),    # tensor contraction
+                    (ein"ijl,jkl->ikl", (8, 10, 5), (10, 12, 5)),     # batched
+                    (ein"ij,kj->ik", (D, D+2), (D+3, D+2)),           # transposed B
+                    (ein"ji,jk->ik", (D+2, D), (D+2, D+3)),           # transposed A
+                ]
+                
+                for (code, size1, size2) in test_cases
+                    A = CUDA.rand(T, size1...)
+                    B = CUDA.rand(T, size2...)
+                    
+                    # DefaultBackend result
+                    set_einsum_backend!(DefaultBackend())
+                    C_default = code(A, B)
+                    
+                    # CuTensorBackend result
+                    set_einsum_backend!(CuTensorBackend())
+                    C_cutensor = code(A, B)
+                    
+                    @test Array(C_cutensor) ≈ Array(C_default) rtol=1e-5
+                end
+            end
+        end
+        
+        set_einsum_backend!(DefaultBackend())
+    else
+        @test_skip "cuTENSOR not available"
+    end
+end
+
+@testset "cuTENSOR backend - scaling factors" begin
+    if cuTENSOR.has_cutensor()
+        set_einsum_backend!(CuTensorBackend())
+        
+        D = 16
+        A = CUDA.rand(Float64, D, D)
+        B = CUDA.rand(Float64, D, D)
+        C = CUDA.rand(Float64, D, D)
+        
+        code = EinCode((('i','j'),('j','k')),('i','k'))
+        
+        # Test with sx=2.0, sy=0.5
+        C_result = copy(C)
+        einsum!(code, (A, B), C_result, 2.0, 0.5)
+        
+        A_cpu, B_cpu, C_cpu = Array(A), Array(B), Array(C)
+        C_expected = 2.0 * (A_cpu * B_cpu) + 0.5 * C_cpu
+        
+        @test Array(C_result) ≈ C_expected rtol=1e-10
+        
+        set_einsum_backend!(DefaultBackend())
+    else
+        @test_skip "cuTENSOR not available"
+    end
+end
+
+@testset "cuTENSOR backend - nested einsum" begin
+    if cuTENSOR.has_cutensor()
+        set_einsum_backend!(CuTensorBackend())
+        
+        # Test nested contraction
+        D = 8
+        A = CUDA.rand(Float32, D, D)
+        B = CUDA.rand(Float32, D, D)
+        C = CUDA.rand(Float32, D, D)
+        
+        code = ein"(ij,jk),kl->il"
+        result_cutensor = code(A, B, C)
+        
+        # Compare with CPU
+        result_cpu = code(Array(A), Array(B), Array(C))
+        @test Array(result_cutensor) ≈ result_cpu rtol=1e-4
+        
+        set_einsum_backend!(DefaultBackend())
+    else
+        @test_skip "cuTENSOR not available"
+    end
+end
+
+@testset "cuTENSOR backend - Float16" begin
+    if cuTENSOR.has_cutensor()
+        set_einsum_backend!(CuTensorBackend())
+        
+        D = 32
+        A = CUDA.rand(Float16, D, D)
+        B = CUDA.rand(Float16, D, D)
+        
+        C_cutensor = ein"ij,jk->ik"(A, B)
+        
+        # Compare with Float32 computation for accuracy reference
+        A32 = Float32.(Array(A))
+        B32 = Float32.(Array(B))
+        C_ref = ein"ij,jk->ik"(A32, B32)
+        
+        @test Float32.(Array(C_cutensor)) ≈ C_ref rtol=1e-2
+        
+        set_einsum_backend!(DefaultBackend())
+    else
+        @test_skip "cuTENSOR not available"
+    end
 end
