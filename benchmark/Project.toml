@@ -1,3 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"

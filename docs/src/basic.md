@@ -69,3 +69,23 @@ ein"ij,->ij"(A, s)  # element-wise multiplication by a scalar.
 optein"ai,aj,ak->ijk"(A, A, B)  # star contraction.
 optein"ia,ajb,bkc,cld,dm->ijklm"(A, T1, T2, T1, A)  # tensor train contraction.
 ```
+
+## Computation Backends
+
+OMEinsum supports multiple backends for tensor contractions. The backend determines how the underlying computation is performed.
+
+### Available Backends
+
+| Backend | Description | Best For |
+|---------|-------------|----------|
+| `DefaultBackend()` | BLAS/CUBLAS via reshape/permute | General use, matrix operations |
+| `CuTensorBackend()` | NVIDIA cuTENSOR | GPU tensor network contractions |
+
+### Changing Backends
+
+```@repl tensor
+get_einsum_backend()  # check current backend
+set_einsum_backend!(DefaultBackend())  # set to default
+```
+
+For GPU acceleration with cuTENSOR, see [CUDA Acceleration](@ref).

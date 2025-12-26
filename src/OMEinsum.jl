@@ -15,6 +15,9 @@ export flop
 export loop_einsum, loop_einsum!, allow_loops
 export asarray, asscalar
 export cost_and_gradient
+# backend exports
+export EinsumBackend, DefaultBackend, CuTensorBackend
+export set_einsum_backend!, get_einsum_backend
 
 # re-export the functions in OMEinsumContractionOrders
 export CodeOptimizer, CodeSimplifier,
@@ -32,6 +35,7 @@ export CodeOptimizer, CodeSimplifier,
     # visualization
     viz_eins, viz_contraction
 
+include("backends.jl")
 include("Core.jl")
 include("loop_einsum.jl")
 include("utils.jl")
