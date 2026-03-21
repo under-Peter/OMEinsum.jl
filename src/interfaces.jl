@@ -7,7 +7,7 @@ an `einsum`.
 To control evaluation order, use parentheses - instead of an `EinCode`,
 a `NestedEinsum` is returned which evaluates the expression
 according to parens.
-The valid character ranges for index-labels are `a-z` and `α-ω`.
+Index labels can be any Unicode letter (e.g. `a-z`, `α-ω`, `ϵ`, `ξ`, etc.).
 
 # example
 
@@ -34,7 +34,7 @@ end
 
 function ein(s::AbstractString)
     s = replace(replace(s, "\n" => ""), " "=>"")
-    m = match(r"([\(\)a-z,α-ω]*)->([a-zα-ω]*)", s)
+    m = match(r"^([\(\)\p{L},]*)->(\p{L}*)$", s)
     m === nothing && throw(ArgumentError("invalid einsum specification $s"))
     sixs, siy = m.captures
     if '(' in sixs
