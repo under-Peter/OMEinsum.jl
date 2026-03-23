@@ -102,27 +102,28 @@ end
 
 # there are too many combination in the binary case, so nospecialize
 function einsum!(ixs, iy, @nospecialize(xs::NTuple{2,Any}), @nospecialize(y), sx, sy, size_dict::Dict{LT}) where {LT}
-    iyv = _collect(LT, iy)
-    ix1v, ix2v = _collect.(Ref(LT), ixs)
-    @debug "compiling binary" ixs => iyv size.(xs)
+    ix1 = (ixs[1]...,)
+    ix2 = (ixs[2]...,)
+    iy = (iy...,)
+    @debug "compiling binary" ixs => iy size.(xs)
+    c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(Val(ix1), Val(ix2), Val(iy), size_dict)
+    rule = SimpleBinaryRule{i1,i2,iyb}()
     x1, x2 = xs
-    c1, c2, cy, s1, s2, s3, i1, i2, iyb = analyze_binary(ix1v, ix2v, iyv, size_dict)
-    rule = SimpleBinaryRule{(i1...,),(i2...,),(iyb...,)}()
-    xs1 = simplifyto(ix1v, c1, x1, size_dict)
-    xs2 = simplifyto(ix2v, c2, x2, size_dict)
+    xs1 = simplifyto(ix1, c1, x1, size_dict)
+    xs2 = simplifyto(ix2, c2, x2, size_dict)
     x1_ = safe_reshape(xs1, s1)
     x2_ = safe_reshape(xs2, s2)
     @debug rule size.((x1_, x2_))
-    if cy != iyv
-        y_ = similar(y, (s3...,))
-        y_ = reshape(binary_einsum!(rule, x1_, x2_, y_, true, false), [size_dict[x] for x in cy]...)
-        return einsum!((cy,), iyv, (y_,), y, sx, sy, size_dict)
+    if cy != iy
+        y_ = similar(y, s3)
+        y_ = reshape(binary_einsum!(rule, x1_, x2_, y_, true, false), ([size_dict[x] for x in cy]...,))
+        return einsum!((cy,), iy, (y_,), y, sx, sy, size_dict)
     else
         binary_einsum!(rule, x1_, x2_, safe_reshape(y, s3), sx, sy)
         return y
     end
 end
-safe_reshape(x, sz) = reshape(x, (sz...,))
+safe_reshape(x, sz) = reshape(x, sz) # Overloaded by CUDAExt.jl and AMDGPUExt.jl
 
 function simplifyto(ix1, c1, x1, size_dict::Dict{LT}) where {LT}
     if c1 != ix1
@@ -136,76 +137,51 @@ end
 """
 Get the expected labels.
 """
-function analyze_binary(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}, size_dict::Dict{T,Int}) where {T}
-    ix_inner, ix1_outer, ix2_outer, batch = _analyze_binary_input(ix1, ix2, iy)
-    c1 = vcat(ix1_outer, ix_inner, batch)
-    c2 = vcat(ix_inner, ix2_outer, batch)
-    cy = vcat(ix1_outer, ix2_outer, batch)
-    si = prod(map(x -> size_dict[x], ix1_outer))
-    sj = prod(map(x -> size_dict[x], ix_inner))
-    sk = prod(map(x -> size_dict[x], ix2_outer))
-    sl = prod(map(x -> size_dict[x], batch))
-    has_i = !isempty(ix1_outer)
-    has_j = !isempty(ix_inner)
-    has_k = !isempty(ix2_outer)
-    has_l = !isempty(batch)
-    i1 = Char[]
-    i2 = Char[]
-    iyb = Char[]
-    s1 = Int[]
-    s2 = Int[]
-    s3 = Int[]
-    if has_i
-        push!(i1, 'i')
-        push!(iyb, 'i')
-        push!(s1, si)
-        push!(s3, si)
+function analyze_binary(::Val{ix1}, ::Val{ix2}, ::Val{iy}, size_dict::Dict{T,Int}) where {T, ix1, ix2, iy}
+    ix_inner, ix1_outer, ix2_outer, batch = _analyze_binary_input(Val(ix1), Val(ix2), Val(iy))
+
+    indices(::Val{label}) where label = begin
+        if label === 'i'
+            ix1_outer
+        elseif label === 'j'
+            ix_inner
+        elseif label === 'k'
+            ix2_outer
+        elseif label === 'l'
+            batch
+        end
     end
-    if has_j
-        push!(i1, 'j')
-        push!(i2, 'j')
-        push!(s1, sj)
-        push!(s2, sj)
-    end
-    if has_k
-        push!(i2, 'k')
-        push!(iyb, 'k')
-        push!(s2, sk)
-        push!(s3, sk)
-    end
-    if has_l
-        push!(i1, 'l')
-        push!(i2, 'l')
-        push!(iyb, 'l')
-        push!(s1, sl)
-        push!(s2, sl)
-        push!(s3, sl)
-    end
+
+    labels = filter((l)->!isempty(indices(Val(l))),
+                    ('i','j','k','l'))
+    sizes = NamedTuple{Symbol.(labels)}(
+        ntuple(Val(length(labels))) do i
+            dims = indices(Val(labels[i]))
+            prod(map(x -> (@noinline size_dict[x]), dims))
+        end
+    )
+
+    c1 = (ix1_outer..., ix_inner...,  batch...)
+    c2 = (ix_inner...,  ix2_outer..., batch...)
+    cy = (ix1_outer..., ix2_outer..., batch...)
+
+    i1    = filter(in(('i','j','l')), labels)
+    i2    = filter(in(('j','k','l')), labels)
+    iyb   = filter(in(('i','k','l')), labels)
+
+    s1    = values(Base.structdiff(sizes, NamedTuple{(:k,)})) # i j l
+    s2    = values(Base.structdiff(sizes, NamedTuple{(:i,)})) # j k l
+    s3    = values(Base.structdiff(sizes, NamedTuple{(:j,)})) # i k l
+
     return c1, c2, cy, s1, s2, s3, i1, i2, iyb
 end
 
-function _analyze_binary_input(ix1::Vector{T}, ix2::Vector{T}, iy::Vector{T}) where {T}
-    ix1_batch = T[]
-    ix1_inner = T[]
-    ix1_outer = T[]
-    for l1 in ix1
-        if l1 ∈ ix2
-            if l1 ∈ iy  # batch
-                l1 ∉ ix1_batch && push!(ix1_batch, l1)
-            else        # inner
-                l1 ∉ ix1_inner && push!(ix1_inner, l1)
-            end
-        elseif l1 ∈ iy  # outer
-            l1 ∉ ix1_outer && push!(ix1_outer, l1)
-        else
-            # dangling
-        end
-    end
-    ix2_outer = T[]     # outer dimension of x2
-    for l2 in ix2
-        if l2 ∉ ix1 && l2 ∈ iy && l2 ∉ ix2_outer
-            push!(ix2_outer, l2)
-        end
-    end
+function _analyze_binary_input(::Val{ix1}, ::Val{ix2}, ::Val{iy}) where {ix1, ix2, iy}
+    # These functions are carefully chosen to be eligible for compile-time execution
+    ix1_batch = _unique(filter((l1) -> l1 ∈ ix2 && l1 ∈ iy, ix1))
+    ix1_inner = _unique(filter((l1) -> l1 ∈ ix2 && l1 ∉ iy, ix1))
+    ix1_outer = _unique(filter((l1) -> l1 ∉ ix2 && l1 ∈ iy, ix1))
+    ix2_outer = _unique(filter((l2) -> l2 ∉ ix1 && l2 ∈ iy, ix2))
+
     ix1_inner, ix1_outer, ix2_outer, ix1_batch
 end
