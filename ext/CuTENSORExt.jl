@@ -3,7 +3,11 @@ module CuTENSORExt
 using OMEinsum: EinsumBackend, DefaultBackend, CuTensorBackend, get_einsum_backend, CuTensorSupportedTypes, _CUTENSOR_AVAILABLE, _CUTENSOR_EINSUM_IMPL
 import OMEinsum
 using cuTENSOR
-using cuTENSOR.CUDA
+@static if pkgversion(cuTENSOR) >= v"6"
+    using cuTENSOR.CUDACore: CuArray
+else
+    using cuTENSOR.CUDA: CuArray
+end
 
 # Set flags at module initialization (runtime), not precompilation time
 function __init__()

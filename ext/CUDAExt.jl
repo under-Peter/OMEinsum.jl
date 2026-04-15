@@ -8,6 +8,12 @@ using LinearAlgebra
 import LinearAlgebra: BlasFloat
 using CUDA
 
+@static if pkgversion(CUDA) >= v"6"
+    using CUDA.CUDACore: CuArrayStyle
+else
+    using CUDA: CuArrayStyle
+end
+
 const CuBlasFloat = Union{BlasFloat, Float16, ComplexF16}
 const CUDAArrayTypes{T,N} = Union{LinearAlgebra.Transpose{T,<:CuArray{T,N}}, DenseCuArray{T,N}, LinearAlgebra.Adjoint{T,<:CuArray{T,N}}}
 _unwrap(x::LinearAlgebra.Adjoint{T,<:CuArray{T}}) where T = CuArray(x)
@@ -110,7 +116,7 @@ function _batched_gemm!(C1::Char, C2::Char, alpha, A::CUDAArrayTypes{T1,3}, B::C
     CUDA.CUBLAS.gemm_strided_batched!(C1, C2, alpha, T1 == T3 ? A : T3.(A), T2 == T3 ? B : T3.(B), beta, C)
 end
 
-Base.ndims(::Base.Broadcast.Broadcasted{CUDA.CuArrayStyle{0}}) = 0
+Base.ndims(::Base.Broadcast.Broadcasted{CuArrayStyle{0}}) = 0
 
 function einsum!(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), @nospecialize(y::CUDAArrayTypes), sx, sy, size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large

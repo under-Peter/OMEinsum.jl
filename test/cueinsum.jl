@@ -6,6 +6,12 @@ using Zygote
 
 CUDA.allowscalar(false)
 
+@static if pkgversion(cuTENSOR) >= v"6"
+    const cutensor_available = cuTENSOR.functional()
+else
+    const cutensor_available = cuTENSOR.has_cutensor()
+end
+
 @testset "loop einsum" begin
     a = [randn(fill(3, i)...) for i=1:4]
     ca = a .|> CuArray
@@ -195,7 +201,7 @@ end
 
 @testset "cuTENSOR backend - binary contractions" begin
     # Skip if cuTENSOR is not available
-    if cuTENSOR.has_cutensor()
+    if cutensor_available
         @info "Testing cuTENSOR backend (cuTENSOR available)"
         
         # Test with cuTENSOR backend
@@ -262,7 +268,7 @@ end
 end
 
 @testset "cuTENSOR backend - comparison with DefaultBackend" begin
-    if cuTENSOR.has_cutensor()
+    if cutensor_available
         @info "Comparing cuTENSOR vs DefaultBackend results"
         
         for T in [Float32, Float64]
@@ -302,7 +308,7 @@ end
 end
 
 @testset "cuTENSOR backend - scaling factors" begin
-    if cuTENSOR.has_cutensor()
+    if cutensor_available
         set_einsum_backend!(CuTensorBackend())
         
         D = 16
@@ -328,7 +334,7 @@ end
 end
 
 @testset "cuTENSOR backend - nested einsum" begin
-    if cuTENSOR.has_cutensor()
+    if cutensor_available
         set_einsum_backend!(CuTensorBackend())
         
         # Test nested contraction
@@ -351,7 +357,7 @@ end
 end
 
 @testset "cuTENSOR backend - Float16" begin
-    if cuTENSOR.has_cutensor()
+    if cutensor_available
         set_einsum_backend!(CuTensorBackend())
         
         D = 32
