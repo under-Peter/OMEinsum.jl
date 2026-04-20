@@ -105,6 +105,10 @@ allunique(ix) = all(i -> count(==(i), ix) == 1, ix)
 _unique(::Type{T}, x::NTuple{N,T}) where {N,T} = unique!(collect(T, x))
 _unique(::Type{T}, x::Vector{T}) where {T} = unique(x)
 
+# Similar to Base.unique, except returns a Tuple instead of a Vector{T}
+# and eligible for evaluation at compile-time
+Base.@assume_effects :foldable _unique(items::Tuple{Vararg{T}}) where T = (Base.unique(items)...,)
+
 function align_eltypes(xs::AbstractArray...)
     T = promote_type(eltype.(xs)...)
     return map(x -> eltype(x) == T ? x : T.(x), xs)
