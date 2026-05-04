@@ -8,6 +8,132 @@ using LinearAlgebra
 import LinearAlgebra: BlasFloat
 using CUDA
 
+# -----------------------------------------------------------------------------
+# Workspace pool for intermediate CuArrays produced during a contraction.
+#
+# OMEinsum allocates a fresh CuArray for every binary einsum's output (the
+# `get_output_array` call) and, when `active_free=true`, frees them via
+# `CUDA.unsafe_free!` once the parent `einsum`/`einsum!` returns. For large
+# contraction trees (~10^4 binaries per slice) this allocation churn dominates
+# wall-clock even though CUDA.jl's allocator already pools backing storage —
+# every call still does Julia-side bookkeeping, a finalizer registration, and
+# a `Base.similar`-style code path.
+#
+# The pool below sits in front of CUDA.jl's allocator and recycles freed
+# intermediate CuArrays keyed by `(eltype, size)`. Users opt in by:
+#   1. Passing `active_free=true` to `code(xs...; active_free=true)` (or the
+#      lower-level `einsum`/`einsum!` API), so freed intermediates flow into
+#      the pool instead of `unsafe_free!`.
+#   2. Calling `cuda_workspace_pool_drain!()` between contractions when they
+#      want the pool's GPU memory released (e.g. between CRT primes that may
+#      use a different element type).
+#
+# When `active_free=false` (the default) the pool simply remains empty, every
+# `get_output_array` falls through to the underlying allocator, and behavior
+# is unchanged. The pool is single-process and assumes single-threaded
+# contraction execution; reentry from concurrent tasks would corrupt the
+# `Dict` and counters.
+# -----------------------------------------------------------------------------
+const _POOL_CAP = Ref{Int}(typemax(Int))                            # bytes
+const _POOL_BYTES = Ref{Int}(0)
+const _POOL = Dict{Tuple{DataType, Vector{Int}}, Vector{CuArray}}()
+const _POOL_HITS = Ref{Int}(0)
+const _POOL_MISSES = Ref{Int}(0)
+const _POOL_PUSHED = Ref{Int}(0)
+const _POOL_DROPPED = Ref{Int}(0)   # buffers that didn't fit and were unsafe_free!d
+
+"""
+    OMEinsum.cuda_workspace_pool_drain!()
+
+Free every CuArray held in the CUDAExt workspace pool and reset its counters.
+Use between contractions whose intermediate shapes / element types differ.
+Buffers are released to the GPU via `CUDA.unsafe_free!`; the function then
+runs an incremental `GC.gc(false)` and a `CUDA.synchronize()`.
+"""
+function cuda_workspace_pool_drain!()
+    for (_, v) in _POOL
+        for buf in v
+            CUDA.unsafe_free!(buf)
+        end
+        empty!(v)
+    end
+    empty!(_POOL)
+    _POOL_BYTES[] = 0
+    _POOL_HITS[] = 0
+    _POOL_MISSES[] = 0
+    _POOL_PUSHED[] = 0
+    _POOL_DROPPED[] = 0
+    GC.gc(false)
+    CUDA.synchronize()
+    return nothing
+end
+
+"""
+    OMEinsum.cuda_workspace_pool_stats() -> NamedTuple
+
+Returns `(hits, misses, pushed, dropped, live_bytes, n_buckets, n_buffers)`
+counters describing the pool's current state since the last `drain!`.
+`hits` = bucket pops (allocations served from the pool); `misses` =
+fresh `CuArray{T}(undef, ...)` allocations under the cap; `pushed` =
+intermediates pushed in via `active_free`; `dropped` = pushes that
+exceeded the cap and were `unsafe_free!`d immediately.
+"""
+function cuda_workspace_pool_stats()
+    n_buffers = sum(length, values(_POOL); init = 0)
+    return (hits = _POOL_HITS[], misses = _POOL_MISSES[],
+            pushed = _POOL_PUSHED[], dropped = _POOL_DROPPED[],
+            live_bytes = _POOL_BYTES[],
+            n_buckets = length(_POOL), n_buffers = n_buffers)
+end
+
+"""
+    OMEinsum.cuda_workspace_pool_set_cap!(bytes)
+
+Set the maximum number of bytes the workspace pool may hold. Pushes that
+would exceed the cap are routed straight to `unsafe_free!` (counted as
+`dropped`). Default cap is `typemax(Int)` (effectively unbounded — the
+pool is naturally bounded by the largest intermediate per contraction).
+"""
+function cuda_workspace_pool_set_cap!(bytes::Integer)
+    _POOL_CAP[] = Int(bytes)
+    return nothing
+end
+
+# Module-private helpers.
+function _pool_take!(::Type{T}, sz::NTuple{N, Int}) where {T, N}
+    sz_vec = collect(Int, sz)
+    bucket = get(_POOL, (T, sz_vec), nothing)
+    bucket === nothing && return nothing
+    isempty(bucket) && return nothing
+    out = pop!(bucket)
+    nbytes = length(out) * sizeof(T)
+    _POOL_BYTES[] -= nbytes
+    _POOL_HITS[] += 1
+    return out::CuArray{T}
+end
+
+function _pool_put!(buf::CuArray{T}) where T
+    sz_vec = collect(Int, size(buf))
+    nbytes = length(buf) * sizeof(T)
+    if _POOL_BYTES[] + nbytes > _POOL_CAP[]
+        CUDA.unsafe_free!(buf)
+        _POOL_DROPPED[] += 1
+        return nothing
+    end
+    bucket = get!(_POOL, (T, sz_vec), CuArray[])
+    push!(bucket, buf)
+    _POOL_BYTES[] += nbytes
+    _POOL_PUSHED[] += 1
+    return nothing
+end
+
+# Re-export pool entry points through OMEinsum's namespace so users say
+# `OMEinsum.cuda_workspace_pool_drain!()` without depending on the extension
+# module name.
+OMEinsum.cuda_workspace_pool_drain!()       = cuda_workspace_pool_drain!()
+OMEinsum.cuda_workspace_pool_stats()        = cuda_workspace_pool_stats()
+OMEinsum.cuda_workspace_pool_set_cap!(b::Integer) = cuda_workspace_pool_set_cap!(b)
+
 @static if pkgversion(CUDA) >= v"6"
     using CUDA.CUDACore: CuArrayStyle
 else
@@ -32,18 +158,25 @@ OMEinsum.safe_reshape(x::Transpose{T, <:CuArray{T}} where T, sz) = reshape(CuArr
 Base.Array(x::Base.ReshapedArray{T,0,<:CuArray}) where T = Array(x.parent)
 
 function get_output_array(xs::NTuple{N, CUDAArrayTypes{<:Any,M} where M}, size, fillzero::Bool) where N
-    if fillzero
-        return CUDA.zeros(promote_type(map(eltype,xs)...), size...)
-    else
-        return CuArray{promote_type(map(eltype,xs)...)}(undef, size...)
-    end
+    T = promote_type(map(eltype, xs)...)
+    return _alloc_output(T, NTuple{length(size), Int}(size), fillzero)
 end
 function get_output_array(xs::NTuple{N, CUDAArrayTypes{T,M} where M}, size, fillzero::Bool) where {T,N}
-    if fillzero
-        return CUDA.zeros(T, size...)
-    else
-        return CuArray{T}(undef, size...)
+    return _alloc_output(T, NTuple{length(size), Int}(size), fillzero)
+end
+
+# Single allocation entry point used by both `get_output_array` methods.
+# Checks the workspace pool first (zero-cost when the pool is empty); on
+# miss falls through to the underlying allocator.
+function _alloc_output(::Type{T}, sz::NTuple{N, Int}, fillzero::Bool) where {T, N}
+    out = _pool_take!(T, sz)
+    if out === nothing
+        _POOL_MISSES[] += 1
+        out = fillzero ? CUDA.zeros(T, sz...) : CuArray{T}(undef, sz...)
+    elseif fillzero
+        fill!(out, zero(T))
     end
+    return out
 end
 
 CUDA.cudaconvert(A::EinArray{T}) where T = EinArray{T}(cudaconvert.(A.xs), A.x_indexers, A.y_indexer, A.size, A.ICIS, A.OCIS)
@@ -121,13 +254,20 @@ Base.ndims(::Base.Broadcast.Broadcasted{CuArrayStyle{0}}) = 0
 function einsum!(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), @nospecialize(y::CUDAArrayTypes), sx, sy, size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
-    mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
+    n = length(siblings(neinsum))
+    mxs = Vector{AbstractArray}(undef, n)
+    leaf_flags = Vector{Bool}(undef, n)
     for (i, arg) in enumerate(siblings(neinsum))
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, similar(y, ([size_dict[l] for l in getiy(rootcode(arg))]...,)), true, false, size_dict; active_free=active_free))
+        leaf = isleaf(arg)
+        leaf_flags[i] = leaf
+        mxs = _safe_set(mxs, i, leaf ? xs[tensorindex(arg)] : einsum(arg, xs, similar(y, ([size_dict[l] for l in getiy(rootcode(arg))]...,)), true, false, size_dict; active_free=active_free))
     end
     res = einsum!(rootcode(neinsum), (mxs...,), y, sx, sy, size_dict)
-    active_free && for mx in mxs  # free CuArray aggressively.
-        CUDA.unsafe_free!(mx)
+    if active_free
+        for (i, mx) in enumerate(mxs)
+            leaf_flags[i] && continue            # never recycle leaf user inputs
+            mx isa CuArray && _pool_put!(mx)     # pool intermediates; ignore wrapped views
+        end
     end
     return res
 end
@@ -135,13 +275,20 @@ end
 function einsum(neinsum::NestedEinsum, @nospecialize(xs::NTuple{N,CUDAArrayTypes} where N), size_dict::Dict; active_free=false)
     # do not use map because the static overhead is too large
     # do not use `setindex!` because we need to make the AD work
-    mxs = Vector{AbstractArray}(undef, length(siblings(neinsum)))
+    n = length(siblings(neinsum))
+    mxs = Vector{AbstractArray}(undef, n)
+    leaf_flags = Vector{Bool}(undef, n)
     for (i, arg) in enumerate(siblings(neinsum))
-        mxs = _safe_set(mxs, i, isleaf(arg) ? xs[tensorindex(arg)] : einsum(arg, xs, size_dict; active_free=active_free))
+        leaf = isleaf(arg)
+        leaf_flags[i] = leaf
+        mxs = _safe_set(mxs, i, leaf ? xs[tensorindex(arg)] : einsum(arg, xs, size_dict; active_free=active_free))
     end
     res = einsum(rootcode(neinsum), (mxs...,), size_dict)
-    active_free && for mx in mxs  # free CuArray aggressively.
-        CUDA.unsafe_free!(mx)
+    if active_free
+        for (i, mx) in enumerate(mxs)
+            leaf_flags[i] && continue
+            mx isa CuArray && _pool_put!(mx)
+        end
     end
     return res
 end

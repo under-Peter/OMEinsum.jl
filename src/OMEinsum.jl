@@ -56,4 +56,12 @@ include("autodiff.jl")
 
 @deprecate optimize_code(code::AbstractEinsum, size_dict::Dict, optimizer::CodeOptimizer, simplifier, permute::Bool=true) optimize_code(code, size_dict, optimizer; simplifier, permute)
 
+# Declarations for the CUDAExt workspace pool. The methods are installed in
+# `ext/CUDAExt.jl` when `CUDA` is loaded; absent that, calling them errors
+# with the standard "no method" message which is the right outcome on a
+# CPU-only setup.
+function cuda_workspace_pool_drain! end
+function cuda_workspace_pool_stats end
+function cuda_workspace_pool_set_cap! end
+
 end # module

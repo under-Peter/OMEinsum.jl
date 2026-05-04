@@ -372,9 +372,70 @@ end
         C_ref = ein"ij,jk->ik"(A32, B32)
         
         @test Float32.(Array(C_cutensor)) ≈ C_ref rtol=1e-2
-        
+
         set_einsum_backend!(DefaultBackend())
     else
         @test_skip "cuTENSOR not available"
     end
+end
+
+@testset "cuda workspace pool" begin
+    # Build a small nested contraction so the active_free path runs through the
+    # pool. Use 5 vector inputs in a chain so multiple intermediates are produced.
+    code = optimize_code(ein"ij,jk,kl,lm,mn->in", uniformsize(ein"ij,jk,kl,lm,mn->in", 4),
+                         GreedyMethod())
+    xs_cpu = [randn(Float32, 4, 4) for _ in 1:5]
+    xs_gpu = (CuArray.(xs_cpu)...,)
+
+    # Reference: contract on host.
+    expected = ein"ij,jk,kl,lm,mn->in"(xs_cpu...)
+
+    # Drain in case a prior test populated the pool.
+    OMEinsum.cuda_workspace_pool_drain!()
+    s0 = OMEinsum.cuda_workspace_pool_stats()
+    @test s0.hits == 0 && s0.misses == 0 && s0.pushed == 0
+
+    # First contraction with active_free=true: every intermediate flows into
+    # the pool. Pool ends with `pushed > 0`, `hits == 0` (cold pool), and the
+    # result still matches the host-side reference.
+    res1 = code(xs_gpu...; active_free=true)
+    @test Array(res1) ≈ expected rtol = 1e-5
+    s1 = OMEinsum.cuda_workspace_pool_stats()
+    @test s1.pushed > 0
+    @test s1.misses > 0
+    @test s1.hits == 0
+    @test s1.live_bytes > 0
+
+    # Second contraction with the same shapes — most allocations should now be
+    # served from the pool (hits > 0).
+    res2 = code(xs_gpu...; active_free=true)
+    @test Array(res2) ≈ expected rtol = 1e-5
+    s2 = OMEinsum.cuda_workspace_pool_stats()
+    @test s2.hits > s1.hits
+    @test s2.pushed >= s1.pushed     # pool keeps growing/recycling
+
+    # Drain frees everything and resets counters.
+    OMEinsum.cuda_workspace_pool_drain!()
+    s3 = OMEinsum.cuda_workspace_pool_stats()
+    @test s3.hits == 0 && s3.misses == 0 && s3.pushed == 0
+    @test s3.live_bytes == 0 && s3.n_buckets == 0 && s3.n_buffers == 0
+
+    # Cap respects pushes: shrink the cap to 0 and verify all subsequent
+    # `pushed` actually become `dropped` (i.e. unsafe_free!d immediately).
+    OMEinsum.cuda_workspace_pool_set_cap!(0)
+    res3 = code(xs_gpu...; active_free=true)
+    @test Array(res3) ≈ expected rtol = 1e-5
+    s4 = OMEinsum.cuda_workspace_pool_stats()
+    @test s4.dropped > 0
+    @test s4.live_bytes == 0
+    OMEinsum.cuda_workspace_pool_set_cap!(typemax(Int))
+    OMEinsum.cuda_workspace_pool_drain!()
+
+    # active_free=false: pool stays empty, behavior unchanged.
+    res4 = code(xs_gpu...)               # default active_free=false
+    @test Array(res4) ≈ expected rtol = 1e-5
+    s5 = OMEinsum.cuda_workspace_pool_stats()
+    @test s5.pushed == 0
+    @test s5.hits == 0
+    OMEinsum.cuda_workspace_pool_drain!()
 end
